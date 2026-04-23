@@ -1,0 +1,158 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  PALETA VIXCard — extraída de vixcard.com.br
+  Primary Blue   #1C508A  → hsl(212 66% 33%)
+  Deep Navy      #10233C  → hsl(214 58% 15%)
+  Medium Blue    #0167A1  → hsl(204 99% 32%)
+  Steel Blue     #3380AF  → hsl(204 55% 44%)
+  Accent Gold    #FEB526  → hsl(40 99% 57%)
+*/
+
+@layer base {
+  :root {
+    /* ===== BASE — modo claro ===== */
+    --background: 212 30% 96%;
+    --foreground: 214 58% 10%;
+
+    /* ===== SUPERFÍCIES ===== */
+    --card: 0 0% 100%;
+    --card-foreground: 214 58% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 214 58% 10%;
+
+    /* ===== PRIMARY — Azul VIXCard #1C508A ===== */
+    --primary: 212 66% 33%;
+    --primary-foreground: 0 0% 100%;
+    --primary-deep: 214 58% 15%;
+    --primary-glow: 204 55% 44%;
+
+    /* ===== SECONDARY ===== */
+    --secondary: 212 22% 91%;
+    --secondary-foreground: 212 50% 22%;
+
+    /* ===== MUTED ===== */
+    --muted: 212 20% 93%;
+    --muted-foreground: 212 18% 46%;
+
+    /* ===== ACCENT — Dourado VIXCard #FEB526 ===== */
+    --accent: 40 99% 57%;
+    --accent-foreground: 214 58% 10%;
+    --accent-soft: 40 100% 95%;
+
+    /* ===== SEMÂNTICOS ===== */
+    --destructive: 0 78% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 152 62% 38%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 95% 52%;
+    --warning-foreground: 0 0% 100%;
+
+    /* ===== BORDAS ===== */
+    --border: 212 20% 86%;
+    --input: 212 20% 86%;
+    --ring: 212 66% 33%;
+
+    /* ===== SIDEBAR — Navy escuro #10233C ===== */
+    --sidebar-background: 214 58% 15%;
+    --sidebar-foreground: 210 35% 88%;
+    --sidebar-primary: 40 99% 57%;
+    --sidebar-accent: 212 55% 22%;
+    --sidebar-border: 212 45% 20%;
+
+    /* ===== STATUS WORKFLOW ===== */
+    --status-pending:    212 18% 52%;
+    --status-started:    204 99% 32%;
+    --status-production: 212 66% 33%;
+    --status-finishing:  40 99% 57%;
+    --status-done:       152 62% 38%;
+    --status-cancelled:  0 78% 55%;
+
+    /* ===== GRADIENTES ===== */
+    --gradient-brand: linear-gradient(135deg, hsl(214 58% 15%) 0%, hsl(212 66% 33%) 55%, hsl(204 55% 44%) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%) 0%, hsl(212 30% 96%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(40 99% 57%) 0%, hsl(36 100% 48%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(214 58% 15%) 0%, hsl(212 66% 33%) 60%, hsl(204 55% 44%) 100%);
+    --gradient-mesh: radial-gradient(ellipse at 15% 25%, hsl(212 66% 33% / 0.07) 0%, transparent 55%),
+                     radial-gradient(ellipse at 85% 75%, hsl(40 99% 57% / 0.05) 0%, transparent 50%);
+
+    /* ===== SOMBRAS ===== */
+    --shadow-brand: 0 18px 40px -12px hsl(212 66% 33% / 0.28);
+    --shadow-glow:  0 0 0 1px hsl(212 66% 33% / 0.18), 0 12px 32px -8px hsl(212 66% 33% / 0.38);
+    --shadow-accent: 0 12px 30px -10px hsl(40 99% 57% / 0.50);
+
+    --radius: 0.625rem;
+  }
+
+  /* ===== DARK MODE ===== */
+  .dark {
+    --background: 214 55% 8%;
+    --foreground: 210 30% 92%;
+
+    --card: 213 52% 11%;
+    --card-foreground: 210 30% 92%;
+    --popover: 213 52% 11%;
+    --popover-foreground: 210 30% 92%;
+
+    /* Primary fica mais claro no dark para melhor contraste */
+    --primary: 204 75% 55%;
+    --primary-foreground: 214 58% 10%;
+    --primary-deep: 204 99% 38%;
+    --primary-glow: 204 90% 68%;
+
+    --secondary: 213 42% 17%;
+    --secondary-foreground: 210 25% 85%;
+
+    --muted: 213 38% 15%;
+    --muted-foreground: 212 18% 55%;
+
+    /* Accent dourado fica vibrante no dark */
+    --accent: 40 99% 58%;
+    --accent-foreground: 214 58% 8%;
+    --accent-soft: 40 80% 11%;
+
+    --destructive: 0 72% 58%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 152 58% 44%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 55%;
+    --warning-foreground: 214 55% 8%;
+
+    --border: 213 38% 18%;
+    --input: 213 38% 18%;
+    --ring: 204 75% 55%;
+
+    /* Sidebar dark — ainda mais profunda no dark mode */
+    --sidebar-background: 214 62% 9%;
+    --sidebar-foreground: 210 30% 85%;
+    --sidebar-primary: 40 99% 58%;
+    --sidebar-accent: 213 55% 17%;
+    --sidebar-border: 213 50% 15%;
+
+    --gradient-card: linear-gradient(145deg, hsl(213 52% 11%) 0%, hsl(213 48% 14%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(214 62% 9%) 0%, hsl(213 52% 14%) 60%, hsl(204 75% 25%) 100%);
+    --gradient-mesh: radial-gradient(ellipse at 15% 25%, hsl(204 75% 55% / 0.07) 0%, transparent 55%),
+                     radial-gradient(ellipse at 85% 75%, hsl(40 99% 58% / 0.05) 0%, transparent 50%);
+
+    --shadow-brand:  0 18px 40px -12px hsl(204 75% 55% / 0.22);
+    --shadow-glow:   0 0 0 1px hsl(204 75% 55% / 0.14), 0 12px 32px -8px hsl(204 75% 55% / 0.30);
+    --shadow-accent: 0 12px 30px -10px hsl(40 99% 58% / 0.40);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    background-image: var(--gradient-mesh);
+    background-attachment: fixed;
+  }
+  #root {
+    @apply min-h-screen;
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "vixcard-platform",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "cd vixcard-platform && npm run dev -- --port 5175"],
+      "port": 5175
+    }
+  ]
+}
