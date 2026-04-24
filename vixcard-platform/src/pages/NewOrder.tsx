@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Plus, Trash2, Upload, Send, Check, X } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Upload, Send, Check, X, FileText, FileImage, File as FileIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 import { useTenant } from "../contexts/TenantContext";
@@ -16,7 +16,7 @@ import { Separator } from "../components/ui/separator";
 import {
   Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue,
 } from "../components/ui/select";
-import type { OrderItem } from "../types";
+import type { OrderFile, OrderItem } from "../types";
 
 export function NewOrder() {
   const { user } = useAuth();
@@ -31,7 +31,40 @@ export function NewOrder() {
   const [selectedProduct, setSelectedProduct] = useState("");
   const [quantity, setQuantity] = useState("");
   const [specifications, setSpecifications] = useState("");
-  const [files, setFiles] = useState<string[]>([]);
+  const [files, setFiles] = useState<OrderFile[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(e.target.files ?? []);
+    const newFiles: OrderFile[] = picked.map((f) => ({
+      name: f.name,
+      size: f.size,
+      type: f.type,
+      url: URL.createObjectURL(f),
+    }));
+    setFiles((prev) => [...prev, ...newFiles]);
+    toast.success(`${picked.length} arquivo(s) anexado(s).`);
+    e.target.value = "";
+  };
+
+  const removeFile = (index: number) => {
+    setFiles((prev) => {
+      URL.revokeObjectURL(prev[index].url);
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  const formatBytes = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const fileIcon = (type: string) => {
+    if (type.startsWith("image/")) return <FileImage className="h-4 w-4 text-blue-500" />;
+    if (type === "application/pdf") return <FileText className="h-4 w-4 text-red-500" />;
+    return <FileIcon className="h-4 w-4 text-muted-foreground" />;
+  };
 
   const openItemForm = () => {
     setSelectedProduct("");
@@ -273,30 +306,66 @@ export function NewOrder() {
         </CardContent>
       </Card>
 
-      {/* File upload simulation */}
+      {/* Arquivos para produção */}
       <Card>
-        <CardHeader><CardTitle>Arquivos de Layout</CardTitle></CardHeader>
-        <CardContent>
+        <CardHeader><CardTitle>Arquivos para Produção</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          {/* Drop zone */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={handleFileChange}
+          />
           <div
-            className="border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:border-primary/40 hover:bg-primary/3 transition-colors"
-            onClick={() => {
-              const name = `layout-${Date.now()}.pdf`;
-              setFiles((prev) => [...prev, name]);
-              toast.success(`Arquivo "${name}" anexado (simulação).`);
+            className="border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-colors"
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              const dropped = Array.from(e.dataTransfer.files);
+              const newFiles: OrderFile[] = dropped.map((f) => ({
+                name: f.name, size: f.size, type: f.type, url: URL.createObjectURL(f),
+              }));
+              setFiles((prev) => [...prev, ...newFiles]);
+              toast.success(`${dropped.length} arquivo(s) anexado(s).`);
             }}
           >
             <Upload className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">Clique para anexar arquivo de layout</p>
-            <p className="text-xs text-muted-foreground/50 mt-1">PDF, AI, CDR, PSD — até 50MB</p>
+            <p className="text-sm font-medium text-muted-foreground">Clique ou arraste os arquivos aqui</p>
+            <p className="text-xs text-muted-foreground/50 mt-1">PDF, AI, CDR, PSD, PNG, JPG — qualquer formato</p>
           </div>
+
+          {/* Lista de arquivos */}
           {files.length > 0 && (
-            <div className="mt-3 space-y-1">
-              {files.map((f, i) => (
-                <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <div className="h-1.5 w-1.5 rounded-full bg-success" />
-                  {f}
-                </div>
-              ))}
+            <div className="space-y-1.5">
+              <AnimatePresence>
+                {files.map((f, i) => (
+                  <motion.div
+                    key={f.url}
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 8 }}
+                    className="flex items-center gap-3 px-3 py-2 rounded-lg border border-border bg-muted/30"
+                  >
+                    {fileIcon(f.type)}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{f.name}</p>
+                      <p className="text-xs text-muted-foreground">{formatBytes(f.size)}</p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="text-muted-foreground hover:text-destructive flex-shrink-0"
+                      onClick={() => removeFile(i)}
+                      aria-label="Remover arquivo"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
             </div>
           )}
         </CardContent>

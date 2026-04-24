@@ -82,6 +82,13 @@ export interface OrderEvent {
   createdAt: string;
 }
 
+export interface OrderFile {
+  name: string;
+  size: number;
+  type: string;
+  url: string; // object URL para download
+}
+
 export interface Order {
   id: string;
   tenantSlug: string;
@@ -96,5 +103,5 @@ export interface Order {
   assignedTo?: string;
   createdAt: string;
   updatedAt: string;
-  files?: string[];
+  files?: OrderFile[];
 }

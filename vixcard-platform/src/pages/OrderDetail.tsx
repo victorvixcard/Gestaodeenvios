@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   ArrowLeft, Play, CheckCircle2, Wrench, PackageCheck,
-  XCircle, MessageSquarePlus, Send,
+  XCircle, MessageSquarePlus, Send, Download, FileText, FileImage, File as FileIcon, Paperclip,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
@@ -189,6 +189,53 @@ export function OrderDetail() {
                   </div>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Arquivos para Produção */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Paperclip className="h-4 w-4 text-primary" />
+                <CardTitle>Arquivos para Produção ({order.files?.length ?? 0})</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {(!order.files || order.files.length === 0) ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  Nenhum arquivo anexado.
+                </p>
+              ) : (
+                <div className="space-y-1.5">
+                  {order.files.map((f, i) => {
+                    const icon = f.type.startsWith("image/")
+                      ? <FileImage className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                      : f.type === "application/pdf"
+                      ? <FileText className="h-4 w-4 text-red-500 flex-shrink-0" />
+                      : <FileIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />;
+                    const size = f.size < 1024 * 1024
+                      ? `${(f.size / 1024).toFixed(1)} KB`
+                      : `${(f.size / (1024 * 1024)).toFixed(1)} MB`;
+                    return (
+                      <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg border border-border bg-muted/30">
+                        {icon}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{f.name}</p>
+                          <p className="text-xs text-muted-foreground">{size}</p>
+                        </div>
+                        <a
+                          href={f.url}
+                          download={f.name}
+                          className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline flex-shrink-0"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          Baixar
+                        </a>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
 
