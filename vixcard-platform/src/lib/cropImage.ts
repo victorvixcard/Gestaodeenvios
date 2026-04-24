@@ -62,16 +62,7 @@ export async function getCroppedImg(
     outputSize
   );
 
-  return new Promise((resolve, reject) => {
-    canvas.toBlob(
-      (blob) => {
-        if (!blob) { reject(new Error("Canvas is empty")); return; }
-        resolve(URL.createObjectURL(blob));
-      },
-      mimeType,
-      quality
-    );
-  });
+  return canvas.toDataURL(mimeType, quality);
 }
 
 export function readFileAsDataUrl(file: File): Promise<string> {

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 import type { Product, Company, User, Permission, UserRole } from "../types";
 
 // ── Defaults por papel ────────────────────────────────────────────────────────
@@ -86,10 +86,23 @@ interface DataContextValue {
 
 const DataContext = createContext<DataContextValue | null>(null);
 
+function loadStored<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export function DataProvider({ children }: { children: ReactNode }) {
-  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
-  const [companies, setCompanies] = useState<Company[]>(INITIAL_COMPANIES);
-  const [users, setUsers] = useState<User[]>(INITIAL_USERS);
+  const [products, setProducts]   = useState<Product[]>(() => loadStored("vixcard_products", INITIAL_PRODUCTS));
+  const [companies, setCompanies] = useState<Company[]>(() => loadStored("vixcard_companies", INITIAL_COMPANIES));
+  const [users, setUsers]         = useState<User[]>(() => loadStored("vixcard_users", INITIAL_USERS));
+
+  useEffect(() => { localStorage.setItem("vixcard_products",  JSON.stringify(products));  }, [products]);
+  useEffect(() => { localStorage.setItem("vixcard_companies", JSON.stringify(companies)); }, [companies]);
+  useEffect(() => { localStorage.setItem("vixcard_users",     JSON.stringify(users));     }, [users]);
 
   const addProduct = (data: Omit<Product, "id" | "code">) => {
     const code = generateProductCode(data.category, products);
