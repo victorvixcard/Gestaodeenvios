@@ -138,6 +138,32 @@ export function NewOrder() {
 
   const categories = [...new Set(tenant.products.map((p) => p.category))];
 
+  const CATEGORY_COLOR: Record<string, string> = {
+    "Cartões":   "bg-blue-500",
+    "Carnês":    "bg-emerald-500",
+    "Etiquetas": "bg-orange-500",
+    "Serviços":  "bg-purple-500",
+    "Impressão": "bg-slate-500",
+  };
+
+  const productThumb = (category: string, imageUrl?: string) => {
+    if (imageUrl) {
+      return (
+        <img
+          src={imageUrl}
+          alt=""
+          className="w-7 h-7 rounded-md object-cover border border-border"
+        />
+      );
+    }
+    const color = CATEGORY_COLOR[category] ?? "bg-primary";
+    return (
+      <div className={`w-7 h-7 rounded-md flex items-center justify-center text-[9px] font-bold text-white ${color}`}>
+        {category.slice(0, 2).toUpperCase()}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-5 max-w-2xl">
       {/* Header */}
@@ -251,7 +277,11 @@ export function NewOrder() {
                           {tenant.products
                             .filter((p) => p.category === cat && p.active)
                             .map((p) => (
-                              <SelectItem key={p.id} value={p.id}>
+                              <SelectItem
+                                key={p.id}
+                                value={p.id}
+                                thumbnail={productThumb(p.category, p.imageUrl)}
+                              >
                                 <span className="font-mono text-xs text-muted-foreground mr-2">{p.code}</span>
                                 {p.name}
                               </SelectItem>
