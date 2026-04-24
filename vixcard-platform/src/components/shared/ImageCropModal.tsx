@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from "react";
-import { createPortal } from "react-dom";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import Cropper from "react-easy-crop";
 import { ZoomIn, ZoomOut, RotateCw, Check, X, Upload } from "lucide-react";
 import { Button } from "../ui/button";
@@ -9,7 +9,7 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onSave: (url: string) => void;
-  aspect?: number;          // 1 = quadrado/círculo, 16/9 = banner, etc.
+  aspect?: number;
   cropShape?: "round" | "rect";
   title?: string;
   hint?: string;
@@ -78,139 +78,140 @@ export function ImageCropModal({
     onClose();
   };
 
-  if (!open) return null;
+  return (
+    <DialogPrimitive.Root open={open} onOpenChange={(v) => { if (!v) handleClose(); }}>
+      <DialogPrimitive.Portal>
+        {/* Backdrop */}
+        <DialogPrimitive.Overlay className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm" />
 
-  return createPortal(
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" style={{ height: '100dvh' }}>
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={handleClose}
-      />
+        {/* Sheet / Dialog */}
+        <DialogPrimitive.Content
+          className="fixed inset-x-0 bottom-0 sm:inset-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 z-[60] w-full sm:max-w-md bg-card rounded-t-2xl sm:rounded-2xl shadow-2xl border border-border overflow-hidden focus:outline-none"
+          onInteractOutside={(e) => e.preventDefault()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+            <DialogPrimitive.Title className="font-display text-base font-bold">
+              {title}
+            </DialogPrimitive.Title>
+            <button
+              onClick={handleClose}
+              className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-muted transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
 
-      {/* Sheet / Dialog */}
-      <div className="relative z-10 w-full sm:max-w-md bg-card rounded-t-2xl sm:rounded-2xl shadow-2xl border border-border overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <h2 className="font-display text-base font-bold">{title}</h2>
-          <button
-            onClick={handleClose}
-            className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-muted transition-colors"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
+          {/* Crop area */}
+          {imageSrc ? (
+            <>
+              <div className="relative w-full" style={{ height: 300 }}>
+                <Cropper
+                  image={imageSrc}
+                  crop={crop}
+                  zoom={zoom}
+                  rotation={rotation}
+                  aspect={aspect}
+                  cropShape={cropShape}
+                  showGrid={false}
+                  onCropChange={setCrop}
+                  onZoomChange={setZoom}
+                  onCropComplete={onCropComplete}
+                  style={{
+                    containerStyle: { background: "#111" },
+                  }}
+                />
+              </div>
 
-        {/* Crop area */}
-        {imageSrc ? (
-          <>
-            <div className="relative w-full" style={{ height: 300 }}>
-              <Cropper
-                image={imageSrc}
-                crop={crop}
-                zoom={zoom}
-                rotation={rotation}
-                aspect={aspect}
-                cropShape={cropShape}
-                showGrid={false}
-                onCropChange={setCrop}
-                onZoomChange={setZoom}
-                onCropComplete={onCropComplete}
-                style={{
-                  containerStyle: { background: "#111" },
-                }}
+              {/* Controls */}
+              <div className="px-5 pt-4 pb-2 space-y-3">
+                <div className="flex items-center gap-3">
+                  <ZoomOut className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <input
+                    type="range"
+                    min={1}
+                    max={3}
+                    step={0.01}
+                    value={zoom}
+                    onChange={(e) => setZoom(Number(e.target.value))}
+                    className="flex-1 accent-primary h-1.5 rounded-full cursor-pointer"
+                  />
+                  <ZoomIn className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <RotateCw className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <input
+                    type="range"
+                    min={-180}
+                    max={180}
+                    step={1}
+                    value={rotation}
+                    onChange={(e) => setRotation(Number(e.target.value))}
+                    className="flex-1 accent-primary h-1.5 rounded-full cursor-pointer"
+                  />
+                  <span className="text-xs text-muted-foreground w-8 text-right">
+                    {rotation}°
+                  </span>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2 px-5 pb-5 pt-2">
+                <Button variant="outline" className="flex-1" onClick={() => setImageSrc(null)}>
+                  Trocar foto
+                </Button>
+                <Button variant="brand" className="flex-1" onClick={handleSave} disabled={saving}>
+                  <Check className="h-4 w-4" />
+                  {saving ? "Salvando..." : "Confirmar"}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <div className="p-8 flex flex-col items-center gap-4">
+              {hint && (
+                <p className="text-xs text-muted-foreground text-center">{hint}</p>
+              )}
+
+              {converting && (
+                <div className="w-full flex flex-col items-center gap-2 py-6">
+                  <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                  <p className="text-sm text-muted-foreground">Convertendo HEIC…</p>
+                </div>
+              )}
+
+              {!converting && (
+                <div
+                  className="w-full border-2 border-dashed border-border rounded-xl p-10 flex flex-col items-center gap-3 cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
+                  onClick={() => inputRef.current?.click()}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={async (e) => {
+                    e.preventDefault();
+                    const file = e.dataTransfer.files[0];
+                    if (!file) return;
+                    await processFile(file);
+                  }}
+                >
+                  <Upload className="h-8 w-8 text-muted-foreground/50" />
+                  <div className="text-center">
+                    <p className="text-sm font-medium">Clique ou arraste a imagem</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">PNG, JPG, WEBP, HEIC — qualquer formato</p>
+                  </div>
+                </div>
+              )}
+
+              <input
+                ref={inputRef}
+                type="file"
+                accept="image/*,.heic,.heif"
+                capture="environment"
+                className="hidden"
+                onChange={handleFile}
               />
             </div>
-
-            {/* Controls */}
-            <div className="px-5 pt-4 pb-2 space-y-3">
-              {/* Zoom */}
-              <div className="flex items-center gap-3">
-                <ZoomOut className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                <input
-                  type="range"
-                  min={1}
-                  max={3}
-                  step={0.01}
-                  value={zoom}
-                  onChange={(e) => setZoom(Number(e.target.value))}
-                  className="flex-1 accent-primary h-1.5 rounded-full cursor-pointer"
-                />
-                <ZoomIn className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-              </div>
-
-              {/* Rotation */}
-              <div className="flex items-center gap-3">
-                <RotateCw className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                <input
-                  type="range"
-                  min={-180}
-                  max={180}
-                  step={1}
-                  value={rotation}
-                  onChange={(e) => setRotation(Number(e.target.value))}
-                  className="flex-1 accent-primary h-1.5 rounded-full cursor-pointer"
-                />
-                <span className="text-xs text-muted-foreground w-8 text-right">
-                  {rotation}°
-                </span>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex gap-2 px-5 pb-5 pt-2">
-              <Button variant="outline" className="flex-1" onClick={() => setImageSrc(null)}>
-                Trocar foto
-              </Button>
-              <Button variant="brand" className="flex-1" onClick={handleSave} disabled={saving}>
-                <Check className="h-4 w-4" />
-                {saving ? "Salvando..." : "Confirmar"}
-              </Button>
-            </div>
-          </>
-        ) : (
-          /* Upload prompt */
-          <div className="p-8 flex flex-col items-center gap-4">
-            {hint && (
-              <p className="text-xs text-muted-foreground text-center">{hint}</p>
-            )}
-
-            {converting && (
-              <div className="w-full flex flex-col items-center gap-2 py-6">
-                <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-                <p className="text-sm text-muted-foreground">Convertendo HEIC…</p>
-              </div>
-            )}
-
-            {!converting && <div
-              className="w-full border-2 border-dashed border-border rounded-xl p-10 flex flex-col items-center gap-3 cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
-              onClick={() => inputRef.current?.click()}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={async (e) => {
-                e.preventDefault();
-                const file = e.dataTransfer.files[0];
-                if (!file) return;
-                await processFile(file);
-              }}
-            >
-              <Upload className="h-8 w-8 text-muted-foreground/50" />
-              <div className="text-center">
-                <p className="text-sm font-medium">Clique ou arraste a imagem</p>
-                <p className="text-xs text-muted-foreground mt-0.5">PNG, JPG, WEBP, HEIC — qualquer formato</p>
-              </div>
-            </div>}
-            <input
-              ref={inputRef}
-              type="file"
-              accept="image/*,.heic,.heif"
-              capture="environment"
-              className="hidden"
-              onChange={handleFile}
-            />
-          </div>
-        )}
-      </div>
-    </div>,
-    document.body
+          )}
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }
