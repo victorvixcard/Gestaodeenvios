@@ -22,6 +22,12 @@ const SIZE = {
   lg: "h-24 w-24 text-2xl",
 };
 
+const SIZE_RECT = {
+  sm: "h-10 w-14 text-sm",
+  md: "h-16 w-24 text-xl",
+  lg: "h-24 w-36 text-2xl",
+};
+
 export function AvatarUpload({
   currentUrl,
   initials = "??",
@@ -45,7 +51,7 @@ export function AvatarUpload({
         onClick={() => setOpen(true)}
         className={cn(
           "relative group flex-shrink-0 focus:outline-none",
-          SIZE[size],
+          shape === "rect" ? SIZE_RECT[size] : SIZE[size],
           rounded,
           className
         )}

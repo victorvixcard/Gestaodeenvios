@@ -1,7 +1,7 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import {
-  Plus, Package, Search, ImagePlus, Video, Pencil,
+  Plus, Package, Search, Video, Pencil,
   Power, PowerOff, Boxes, TrendingDown, TrendingUp,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -22,6 +22,7 @@ import {
 } from "../components/ui/select";
 import { Textarea } from "../components/ui/textarea";
 import { cn } from "../lib/utils";
+import { AvatarUpload } from "../components/shared/AvatarUpload";
 import type { Product } from "../types";
 
 const CATEGORIES = ["Cartões", "Carnês", "Etiquetas", "Impressão", "Serviços", "Outros"];
@@ -55,7 +56,6 @@ export function Products() {
   const [dialog, setDialog] = useState<"create" | "edit" | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState({ ...EMPTY_FORM });
-  const imageRef = useRef<HTMLInputElement>(null);
 
   const filtered = products.filter((p) => {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -82,15 +82,6 @@ export function Products() {
     });
     setEditId(product.id);
     setDialog("edit");
-  };
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { toast.error("Imagem muito grande. Máximo 5MB."); return; }
-    const reader = new FileReader();
-    reader.onloadend = () => setForm((f) => ({ ...f, imageUrl: reader.result as string }));
-    reader.readAsDataURL(file);
   };
 
   const handleSave = () => {
@@ -335,28 +326,31 @@ export function Products() {
             {/* Photo upload */}
             <div className="space-y-2">
               <Label>Foto de referência</Label>
-              <input ref={imageRef} type="file" accept="image/*" className="sr-only" onChange={handleImageUpload} />
-              {form.imageUrl ? (
-                <div className="relative rounded-xl overflow-hidden border border-border h-36">
-                  <img src={form.imageUrl} alt="preview" className="w-full h-full object-cover" />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="absolute top-2 right-2 bg-black/50 text-white hover:bg-black/70 text-xs"
-                    onClick={() => setForm((f) => ({ ...f, imageUrl: "" }))}
-                  >
-                    Remover
-                  </Button>
+              <div className="flex items-center gap-4">
+                <AvatarUpload
+                  size="lg"
+                  shape="rect"
+                  aspect={4 / 3}
+                  currentUrl={form.imageUrl || undefined}
+                  initials={form.name ? form.name.substring(0, 2).toUpperCase() : "PR"}
+                  title="Foto do produto"
+                  hint="JPG, PNG, WEBP ou HEIC — qualquer formato."
+                  onSave={(url) => setForm((f) => ({ ...f, imageUrl: url }))}
+                />
+                <div className="text-xs text-muted-foreground space-y-0.5">
+                  <p className="font-medium text-foreground">Clique na imagem para selecionar</p>
+                  <p>Suporta JPG, PNG, WEBP e HEIC (iPhone).</p>
+                  {form.imageUrl && (
+                    <button
+                      type="button"
+                      className="text-destructive hover:underline"
+                      onClick={() => setForm((f) => ({ ...f, imageUrl: "" }))}
+                    >
+                      Remover foto
+                    </button>
+                  )}
                 </div>
-              ) : (
-                <div
-                  className="flex flex-col items-center justify-center gap-2 p-6 border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary/40 hover:bg-muted/30 transition-colors"
-                  onClick={() => imageRef.current?.click()}
-                >
-                  <ImagePlus className="h-7 w-7 text-muted-foreground/40" />
-                  <p className="text-xs text-muted-foreground">Clique para enviar JPG ou PNG (máx. 5MB)</p>
-                </div>
-              )}
+              </div>
             </div>
 
             {/* Video URL */}

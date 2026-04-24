@@ -13,7 +13,7 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Card } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
-import { Avatar, AvatarFallback } from "../components/ui/avatar";
+import { AvatarUpload } from "../components/shared/AvatarUpload";
 import { Separator } from "../components/ui/separator";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -31,7 +31,7 @@ const ROLE_LABELS: Record<UserRole, { label: string; variant: "default" | "accen
 };
 
 const EMPTY_FORM = {
-  name: "", email: "", role: "operator" as UserRole, tenantSlug: "", permissions: [] as Permission[], active: true,
+  name: "", email: "", role: "operator" as UserRole, tenantSlug: "", permissions: [] as Permission[], active: true, avatarUrl: "",
 };
 
 export function Users() {
@@ -68,7 +68,7 @@ export function Users() {
   const openEdit = (u: UserType) => {
     setForm({
       name: u.name, email: u.email, role: u.role,
-      tenantSlug: u.tenantSlug, permissions: [...u.permissions], active: u.active,
+      tenantSlug: u.tenantSlug, permissions: [...u.permissions], active: u.active, avatarUrl: u.avatarUrl ?? "",
     });
     setEditId(u.id);
     setDialog("edit");
@@ -192,9 +192,16 @@ export function Users() {
                   >
                     <Card className={cn("p-4 bg-gradient-card transition-all hover:shadow-brand hover:-translate-y-0.5", !u.active && "opacity-60")}>
                       <div className="flex items-center gap-3">
-                        <Avatar className="h-10 w-10">
-                          <AvatarFallback className="text-sm">{u.avatarInitials}</AvatarFallback>
-                        </Avatar>
+                        <AvatarUpload
+                          size="sm"
+                          shape="round"
+                          currentUrl={u.avatarUrl}
+                          initials={u.avatarInitials}
+                          color="#6366f1"
+                          title="Foto do usuário"
+                          hint="Use uma foto nítida com rosto centralizado."
+                          onSave={(url) => updateUser(u.id, { avatarUrl: url })}
+                        />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <p className="text-sm font-semibold truncate">{u.name}</p>
@@ -246,6 +253,20 @@ export function Users() {
           </DialogHeader>
 
           <div className="space-y-4 py-2">
+            {/* Avatar */}
+            <div className="flex justify-center pb-2">
+              <AvatarUpload
+                size="md"
+                shape="round"
+                currentUrl={form.avatarUrl || undefined}
+                initials={form.name ? form.name.substring(0, 2).toUpperCase() : "??"}
+                color="#6366f1"
+                title="Foto do usuário"
+                hint="Use uma foto nítida com rosto centralizado."
+                onSave={(url) => setForm((f) => ({ ...f, avatarUrl: url }))}
+              />
+            </div>
+
             <div className="grid sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Nome *</Label>
