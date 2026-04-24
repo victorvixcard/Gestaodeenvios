@@ -1,7 +1,7 @@
 import { Menu, Bell, Sun, Moon } from "lucide-react";
 import { useTheme } from "next-themes";
-import { Avatar, AvatarFallback } from "../ui/avatar";
 import { Button } from "../ui/button";
+import { AvatarUpload } from "../shared/AvatarUpload";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTenant } from "../../contexts/TenantContext";
 
@@ -11,7 +11,7 @@ interface TopbarProps {
 }
 
 export function Topbar({ onMenuClick, title }: TopbarProps) {
-  const { user } = useAuth();
+  const { user, updateAvatar } = useAuth();
   const tenant = useTenant();
   const { theme, setTheme } = useTheme();
 
@@ -49,9 +49,15 @@ export function Topbar({ onMenuClick, title }: TopbarProps) {
         </Button>
 
         <div className="flex items-center gap-2 ml-1">
-          <Avatar className="h-8 w-8">
-            <AvatarFallback className="text-xs">{user?.avatarInitials}</AvatarFallback>
-          </Avatar>
+          <AvatarUpload
+            size="sm"
+            currentUrl={user?.avatarUrl}
+            initials={user?.avatarInitials}
+            color="#6366f1"
+            title="Foto do perfil"
+            hint="Use uma foto nítida com rosto centralizado."
+            onSave={updateAvatar}
+          />
           <div className="hidden sm:block min-w-0">
             <p className="text-sm font-medium leading-none truncate max-w-[120px]">{user?.name}</p>
             <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-[120px]">{tenant.name}</p>

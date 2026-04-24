@@ -32,6 +32,7 @@ export interface User {
   role: UserRole;
   tenantSlug: string;
   avatarInitials: string;
+  avatarUrl?: string;
   active: boolean;
   permissions: Permission[];
 }
@@ -53,6 +54,7 @@ export interface Company {
   name: string;
   logoColor: string;
   logoInitials: string;
+  logoUrl?: string;
   active: boolean;
   allowedProductIds: string[];
   createdAt: string;

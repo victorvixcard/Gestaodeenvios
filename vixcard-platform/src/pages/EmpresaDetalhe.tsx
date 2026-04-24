@@ -19,6 +19,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs"
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "../components/ui/dialog";
+import { AvatarUpload } from "../components/shared/AvatarUpload";
 import type { User } from "../types";
 
 const PRESET_COLORS = [
@@ -47,8 +48,8 @@ export function EmpresaDetalhe() {
 
   const [form, setForm] = useState(() =>
     company
-      ? { name: company.name, logoColor: company.logoColor, logoInitials: company.logoInitials, active: company.active }
-      : { name: "", logoColor: "#1C508A", logoInitials: "", active: true }
+      ? { name: company.name, logoColor: company.logoColor, logoInitials: company.logoInitials, logoUrl: company.logoUrl, active: company.active }
+      : { name: "", logoColor: "#1C508A", logoInitials: "", logoUrl: undefined as string | undefined, active: true }
   );
   const colorRef = useRef<HTMLInputElement>(null);
 
@@ -72,7 +73,7 @@ export function EmpresaDetalhe() {
   const handleSaveDados = () => {
     if (!form.name.trim()) { toast.error("Informe o nome."); return; }
     if (!form.logoInitials.trim()) { toast.error("Informe as iniciais."); return; }
-    updateCompany(company.slug, form);
+    updateCompany(company.slug, { name: form.name, logoColor: form.logoColor, logoInitials: form.logoInitials, logoUrl: form.logoUrl, active: form.active });
     addLog({
       action: "empresa_atualizada", entityType: "Empresa", entityId: company.slug, entityName: form.name,
       userName: user?.name ?? "", userEmail: user?.email ?? "", userRole: user?.role ?? "super_admin",
@@ -122,11 +123,14 @@ export function EmpresaDetalhe() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="flex items-center gap-3">
-            <div
-              className="h-10 w-10 rounded-xl flex items-center justify-center text-white text-sm font-bold shadow"
-              style={{ background: company.logoColor }}
-            >
-              {company.logoInitials}
+            <div className="h-10 w-10 rounded-xl overflow-hidden shadow flex-shrink-0">
+              {company.logoUrl ? (
+                <img src={company.logoUrl} alt={company.name} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-white text-sm font-bold" style={{ background: company.logoColor }}>
+                  {company.logoInitials}
+                </div>
+              )}
             </div>
             <div>
               <h1 className="font-display text-xl font-extrabold">{company.name}</h1>
@@ -204,15 +208,20 @@ export function EmpresaDetalhe() {
                 </div>
 
                 <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50">
-                  <div
-                    className="h-10 w-10 rounded-xl flex items-center justify-center text-white text-sm font-bold shadow"
-                    style={{ background: form.logoColor }}
-                  >
-                    {form.logoInitials || "?"}
-                  </div>
+                  <AvatarUpload
+                    size="md"
+                    shape="rect"
+                    aspect={1}
+                    currentUrl={form.logoUrl}
+                    initials={form.logoInitials || "?"}
+                    color={form.logoColor}
+                    title="Logo da empresa"
+                    hint="Use uma imagem quadrada com fundo transparente ou sólido."
+                    onSave={(url) => setForm((f) => ({ ...f, logoUrl: url }))}
+                  />
                   <div>
                     <p className="text-sm font-semibold">{form.name || "Nome da empresa"}</p>
-                    <p className="text-xs text-muted-foreground">Portal do cliente</p>
+                    <p className="text-xs text-muted-foreground">Clique no logo para atualizar</p>
                   </div>
                 </div>
 

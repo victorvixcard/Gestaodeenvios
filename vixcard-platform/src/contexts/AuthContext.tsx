@@ -6,6 +6,7 @@ interface AuthContextValue {
   user: User | null;
   login: (email: string, password: string, tenantSlug: string) => Promise<boolean>;
   logout: () => void;
+  updateAvatar: (url: string) => void;
   isAuthenticated: boolean;
 }
 
@@ -41,8 +42,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("vixcard_user");
   };
 
+  const updateAvatar = (url: string) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, avatarUrl: url };
+      localStorage.setItem("vixcard_user", JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, login, logout, updateAvatar, isAuthenticated: !!user }}>
       {children}
     </AuthContext.Provider>
   );
