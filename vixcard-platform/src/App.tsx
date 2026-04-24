@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 import { AuthProvider } from "./contexts/AuthContext";
 import { TenantProvider } from "./contexts/TenantContext";
 import { OrdersProvider } from "./contexts/OrdersContext";
+import { DataProvider } from "./contexts/DataContext";
 import { AppShell } from "./components/layout/AppShell";
 import { Login } from "./pages/Login";
 import { Dashboard } from "./pages/Dashboard";
@@ -12,6 +13,7 @@ import { OrderDetail } from "./pages/OrderDetail";
 import { NewOrder } from "./pages/NewOrder";
 import { Products } from "./pages/Products";
 import { Users } from "./pages/Users";
+import { Empresas } from "./pages/Empresas";
 
 function TenantRoutes() {
   return (
@@ -24,6 +26,7 @@ function TenantRoutes() {
           <Route path="pedidos" element={<Orders />} />
           <Route path="pedidos/novo" element={<NewOrder />} />
           <Route path="pedidos/:id" element={<OrderDetail />} />
+          <Route path="empresas" element={<Empresas />} />
           <Route path="produtos" element={<Products />} />
           <Route path="usuarios" element={<Users />} />
         </Route>
@@ -36,6 +39,7 @@ export default function App() {
   return (
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
       <BrowserRouter>
+        <DataProvider>
         <AuthProvider>
           <OrdersProvider>
             <Routes>
@@ -53,6 +57,7 @@ export default function App() {
             <Toaster position="top-right" richColors closeButton />
           </OrdersProvider>
         </AuthProvider>
+        </DataProvider>
       </BrowserRouter>
     </ThemeProvider>
   );

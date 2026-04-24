@@ -1,5 +1,14 @@
 export type UserRole = "super_admin" | "tenant_admin" | "operator";
 
+export type Permission =
+  | "view_dashboard"
+  | "view_orders"
+  | "create_orders"
+  | "manage_orders"
+  | "view_products"
+  | "view_reports"
+  | "manage_users";
+
 export type OrderStatus =
   | "pending"
   | "started"
@@ -23,16 +32,30 @@ export interface User {
   role: UserRole;
   tenantSlug: string;
   avatarInitials: string;
+  active: boolean;
+  permissions: Permission[];
 }
 
 export interface Product {
   id: string;
+  code: string;
   name: string;
   description: string;
   category: string;
   imageUrl?: string;
   videoUrl?: string;
+  stock: number;
   active: boolean;
+}
+
+export interface Company {
+  slug: string;
+  name: string;
+  logoColor: string;
+  logoInitials: string;
+  active: boolean;
+  allowedProductIds: string[];
+  createdAt: string;
 }
 
 export interface OrderItem {
