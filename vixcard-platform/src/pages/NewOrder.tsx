@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import { ArrowLeft, Plus, Trash2, Upload, Send } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { ArrowLeft, Plus, Trash2, Upload, Send, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 import { useTenant } from "../contexts/TenantContext";
@@ -14,7 +14,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/card"
 import { Badge } from "../components/ui/badge";
 import { Separator } from "../components/ui/separator";
 import {
-  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
+  Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue,
 } from "../components/ui/select";
 import type { OrderItem } from "../types";
 
@@ -27,12 +27,27 @@ export function NewOrder() {
 
   const [title, setTitle] = useState("");
   const [items, setItems] = useState<OrderItem[]>([]);
+  const [showItemForm, setShowItemForm] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState("");
   const [quantity, setQuantity] = useState("");
   const [specifications, setSpecifications] = useState("");
   const [files, setFiles] = useState<string[]>([]);
 
-  const addItem = () => {
+  const openItemForm = () => {
+    setSelectedProduct("");
+    setQuantity("");
+    setSpecifications("");
+    setShowItemForm(true);
+  };
+
+  const cancelItemForm = () => {
+    setShowItemForm(false);
+    setSelectedProduct("");
+    setQuantity("");
+    setSpecifications("");
+  };
+
+  const incluirItem = () => {
     if (!selectedProduct || !quantity) {
       toast.error("Selecione um produto e informe a quantidade.");
       return;
@@ -48,6 +63,7 @@ export function NewOrder() {
         specifications,
       },
     ]);
+    setShowItemForm(false);
     setSelectedProduct("");
     setQuantity("");
     setSpecifications("");
@@ -158,70 +174,102 @@ export function NewOrder() {
             </div>
           )}
 
-          {/* Add item */}
-          <div className="space-y-3">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              Adicionar item
-            </p>
-            <div className="space-y-2">
-              <div className="space-y-1.5">
-                <Label>Produto</Label>
-                <Select value={selectedProduct} onValueChange={setSelectedProduct}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecionar produto..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((cat) => (
-                      <SelectGroup key={cat}>
-                        <SelectLabel>{cat}</SelectLabel>
-                        {tenant.products
-                          .filter((p) => p.category === cat && p.active)
-                          .map((p) => (
-                            <SelectItem key={p.id} value={p.id}>
-                              <span className="font-mono text-xs text-muted-foreground mr-2">{p.code}</span>
-                              {p.name}
-                            </SelectItem>
-                          ))}
-                      </SelectGroup>
-                    ))}
-                    {tenant.products.filter((p) => p.active).length === 0 && (
-                      <SelectItem value="__empty__" disabled>
-                        Nenhum produto disponível
-                      </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
+          {/* Botão abrir formulário */}
+          <AnimatePresence mode="wait">
+            {!showItemForm && (
+              <motion.div
+                key="add-btn"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                <Button variant="outline" className="w-full" onClick={openItemForm}>
+                  <Plus className="h-4 w-4" />
+                  Adicionar Item
+                </Button>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="qty">Quantidade</Label>
-                  <Input
-                    id="qty"
-                    type="number"
-                    min="1"
-                    placeholder="0"
-                    value={quantity}
-                    onChange={(e) => setQuantity(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="specs">Especificações</Label>
-                  <Input
-                    id="specs"
-                    placeholder="Ex: laminação fosca"
-                    value={specifications}
-                    onChange={(e) => setSpecifications(e.target.value)}
-                  />
-                </div>
-              </div>
+          {/* Formulário de item */}
+          <AnimatePresence mode="wait">
+            {showItemForm && (
+              <motion.div
+                key="item-form"
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                className="space-y-3 rounded-xl border border-primary/20 bg-primary/3 p-4"
+              >
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Novo item
+                </p>
 
-              <Button variant="outline" className="w-full" onClick={addItem}>
-                <Plus className="h-4 w-4" />
-                Adicionar Item
-              </Button>
-            </div>
-          </div>
+                <div className="space-y-1.5">
+                  <Label>Produto</Label>
+                  <Select value={selectedProduct} onValueChange={setSelectedProduct}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecionar produto..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((cat) => (
+                        <SelectGroup key={cat}>
+                          <div className="px-2 pt-2 pb-0.5 text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">{cat}</div>
+                          {tenant.products
+                            .filter((p) => p.category === cat && p.active)
+                            .map((p) => (
+                              <SelectItem key={p.id} value={p.id}>
+                                <span className="font-mono text-xs text-muted-foreground mr-2">{p.code}</span>
+                                {p.name}
+                              </SelectItem>
+                            ))}
+                        </SelectGroup>
+                      ))}
+                      {tenant.products.filter((p) => p.active).length === 0 && (
+                        <SelectItem value="__empty__" disabled>
+                          Nenhum produto disponível
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="qty">Quantidade</Label>
+                    <Input
+                      id="qty"
+                      type="number"
+                      min="1"
+                      placeholder="0"
+                      value={quantity}
+                      onChange={(e) => setQuantity(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="specs">Especificações</Label>
+                    <Input
+                      id="specs"
+                      placeholder="Ex: laminação fosca"
+                      value={specifications}
+                      onChange={(e) => setSpecifications(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <Button variant="ghost" className="flex-1" onClick={cancelItemForm}>
+                    <X className="h-4 w-4" />
+                    Cancelar
+                  </Button>
+                  <Button variant="brand" className="flex-1" onClick={incluirItem}>
+                    <Check className="h-4 w-4" />
+                    Incluir
+                  </Button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </CardContent>
       </Card>
 
