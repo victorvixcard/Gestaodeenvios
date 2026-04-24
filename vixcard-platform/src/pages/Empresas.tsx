@@ -1,11 +1,14 @@
 import { useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   Plus, Building2, Users, Package,
   Pencil, PowerOff, Power, Check,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "../contexts/AuthContext";
 import { useData } from "../contexts/DataContext";
+import { useLog } from "../contexts/LogsContext";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -27,8 +30,12 @@ const EMPTY_FORM = {
 };
 
 export function Empresas() {
+  const navigate = useNavigate();
+  const { tenant } = useParams<{ tenant: string }>();
   const { companies, products, addCompany, updateCompany, users } = useData();
-  const [dialog, setDialog] = useState<"create" | "edit" | null>(null);
+  const { addLog } = useLog();
+  const { user } = useAuth();
+  const [dialog, setDialog] = useState<"create" | null>(null);
   const [editSlug, setEditSlug] = useState<string | null>(null);
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const colorRef = useRef<HTMLInputElement>(null);
@@ -39,29 +46,19 @@ export function Empresas() {
     setDialog("create");
   };
 
-  const openEdit = (company: Company) => {
-    setForm({
-      name: company.name,
-      logoColor: company.logoColor,
-      logoInitials: company.logoInitials,
-      allowedProductIds: [...company.allowedProductIds],
-      active: company.active,
-    });
-    setEditSlug(company.slug);
-    setDialog("edit");
-  };
-
   const handleSave = () => {
     if (!form.name.trim()) { toast.error("Informe o nome da empresa."); return; }
     if (!form.logoInitials.trim()) { toast.error("Informe as iniciais do logo."); return; }
-
-    if (dialog === "create") {
-      addCompany(form);
-      toast.success("Empresa criada com sucesso!");
-    } else if (editSlug) {
-      updateCompany(editSlug, form);
-      toast.success("Empresa atualizada!");
-    }
+    addCompany(form);
+    addLog({
+      action: "empresa_criada", entityType: "Empresa",
+      entityId: form.name.toLowerCase().replace(/\s+/g, "").normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
+      entityName: form.name,
+      userName: user?.name ?? "", userEmail: user?.email ?? "", userRole: user?.role ?? "super_admin",
+      tenantSlug: "sistemalegado",
+      details: `${form.allowedProductIds.length} produto(s) vinculado(s)`,
+    });
+    toast.success("Empresa criada com sucesso!");
     setDialog(null);
   };
 
@@ -76,6 +73,12 @@ export function Empresas() {
 
   const toggleActive = (company: Company) => {
     updateCompany(company.slug, { active: !company.active });
+    addLog({
+      action: company.active ? "empresa_desativada" : "empresa_ativada",
+      entityType: "Empresa", entityId: company.slug, entityName: company.name,
+      userName: user?.name ?? "", userEmail: user?.email ?? "", userRole: user?.role ?? "super_admin",
+      tenantSlug: "sistemalegado",
+    });
     toast.success(company.active ? "Empresa desativada." : "Empresa ativada.");
   };
 
@@ -173,7 +176,7 @@ export function Empresas() {
                     variant="outline"
                     size="sm"
                     className="flex-1 text-xs"
-                    onClick={() => openEdit(company)}
+                    onClick={() => navigate(`/${tenant}/empresas/${company.slug}`)}
                   >
                     <Pencil className="h-3.5 w-3.5" />
                     Editar
@@ -200,7 +203,7 @@ export function Empresas() {
       <Dialog open={!!dialog} onOpenChange={(v) => !v && setDialog(null)}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{dialog === "create" ? "Nova Empresa" : "Editar Empresa"}</DialogTitle>
+            <DialogTitle>Nova Empresa</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
@@ -311,7 +314,7 @@ export function Empresas() {
           <DialogFooter className="gap-2">
             <Button variant="ghost" onClick={() => setDialog(null)}>Cancelar</Button>
             <Button variant="brand" onClick={handleSave}>
-              {dialog === "create" ? "Criar Empresa" : "Salvar Alterações"}
+              Criar Empresa
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -8,6 +8,7 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 import { useOrders } from "../contexts/OrdersContext";
+import { useLog } from "../contexts/LogsContext";
 import { StatusBadge } from "../components/shared/StatusBadge";
 import { OrderTimeline } from "../components/shared/OrderTimeline";
 import { Button } from "../components/ui/button";
@@ -32,6 +33,7 @@ export function OrderDetail() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const { getOrder, updateStatus, addNote } = useOrders();
+  const { addLog } = useLog();
   const navigate = useNavigate();
   const [note, setNote] = useState("");
   const [cancelReason, setCancelReason] = useState("");
@@ -55,17 +57,28 @@ export function OrderDetail() {
   const isCancelled = order.status === "cancelled";
   const isDone = order.status === "done";
 
+  const actor = {
+    userName: user?.name ?? "Usuário",
+    userEmail: user?.email ?? "",
+    userRole: user?.role ?? "operator" as const,
+    tenantSlug: order.tenantSlug,
+  };
+
   const handleAdvance = () => {
     const nextIndex = STAGE_ORDER.indexOf(order.status) + 1;
     if (nextIndex >= STAGE_ORDER.length) return;
     const nextStatus = STAGE_ORDER[nextIndex] as OrderStatus;
+    const prevLabel = STAGES.find((s) => s.key === order.status)?.label ?? order.status;
+    const nextLabel = STAGES.find((s) => s.key === nextStatus)?.label ?? nextStatus;
     updateStatus(order.id, nextStatus, undefined, user?.name);
-    toast.success(`Status atualizado para: ${nextStatus}`);
+    addLog({ ...actor, action: "pedido_status", entityType: "Pedido", entityId: order.id, entityName: order.title, details: `Status: ${prevLabel} → ${nextLabel}` });
+    toast.success(`Status atualizado para: ${nextLabel}`);
   };
 
   const handleCancel = () => {
     if (!cancelReason.trim()) { toast.error("Informe o motivo do cancelamento."); return; }
     updateStatus(order.id, "cancelled", cancelReason, user?.name);
+    addLog({ ...actor, action: "pedido_cancelado", entityType: "Pedido", entityId: order.id, entityName: order.title, details: `Motivo: ${cancelReason}` });
     setShowCancelForm(false);
     setCancelReason("");
     toast.success("Pedido cancelado.");
@@ -74,6 +87,7 @@ export function OrderDetail() {
   const handleAddNote = () => {
     if (!note.trim()) return;
     addNote(order.id, note, user?.name ?? "Usuário", user?.role ?? "operator");
+    addLog({ ...actor, action: "pedido_nota", entityType: "Pedido", entityId: order.id, entityName: order.title, details: note.slice(0, 100) });
     setNote("");
     toast.success("Anotação adicionada.");
   };

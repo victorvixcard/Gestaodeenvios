@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
+import { useLog } from "../contexts/LogsContext";
 import { useData } from "../contexts/DataContext";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -46,6 +47,7 @@ function StockBadge({ stock }: { stock: number }) {
 export function Products() {
   const { user } = useAuth();
   const { products, addProduct, updateProduct } = useData();
+  const { addLog } = useLog();
   const isSuperAdmin = user?.role === "super_admin";
 
   const [search, setSearch] = useState("");
@@ -96,24 +98,27 @@ export function Products() {
 
     if (dialog === "create") {
       addProduct({
-        name: form.name,
-        description: form.description,
-        category: form.category,
-        stock: Number(form.stock),
-        imageUrl: form.imageUrl || undefined,
-        videoUrl: form.videoUrl || undefined,
-        active: form.active,
+        name: form.name, description: form.description, category: form.category,
+        stock: Number(form.stock), imageUrl: form.imageUrl || undefined,
+        videoUrl: form.videoUrl || undefined, active: form.active,
+      });
+      addLog({
+        action: "produto_criado", entityType: "Produto", entityId: `new-${Date.now()}`, entityName: form.name,
+        userName: user?.name ?? "", userEmail: user?.email ?? "", userRole: user?.role ?? "super_admin",
+        tenantSlug: "sistemalegado", details: `Categoria: ${form.category}`,
       });
       toast.success("Produto cadastrado!");
     } else if (editId) {
+      const product = products.find((p) => p.id === editId);
       updateProduct(editId, {
-        name: form.name,
-        description: form.description,
-        category: form.category,
-        stock: Number(form.stock),
-        imageUrl: form.imageUrl || undefined,
-        videoUrl: form.videoUrl || undefined,
-        active: form.active,
+        name: form.name, description: form.description, category: form.category,
+        stock: Number(form.stock), imageUrl: form.imageUrl || undefined,
+        videoUrl: form.videoUrl || undefined, active: form.active,
+      });
+      addLog({
+        action: "produto_atualizado", entityType: "Produto", entityId: editId, entityName: form.name,
+        userName: user?.name ?? "", userEmail: user?.email ?? "", userRole: user?.role ?? "super_admin",
+        tenantSlug: "sistemalegado", details: product ? `Editado: ${product.name}` : undefined,
       });
       toast.success("Produto atualizado!");
     }
@@ -122,6 +127,12 @@ export function Products() {
 
   const toggleActive = (product: Product) => {
     updateProduct(product.id, { active: !product.active });
+    addLog({
+      action: product.active ? "produto_desativado" : "produto_ativado",
+      entityType: "Produto", entityId: product.id, entityName: product.name,
+      userName: user?.name ?? "", userEmail: user?.email ?? "", userRole: user?.role ?? "super_admin",
+      tenantSlug: "sistemalegado",
+    });
     toast.success(product.active ? "Produto desativado." : "Produto ativado.");
   };
 

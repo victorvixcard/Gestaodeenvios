@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 import { useTenant } from "../contexts/TenantContext";
 import { useOrders } from "../contexts/OrdersContext";
+import { useLog } from "../contexts/LogsContext";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -20,7 +21,8 @@ import type { OrderItem } from "../types";
 export function NewOrder() {
   const { user } = useAuth();
   const tenant = useTenant();
-  const { addOrder } = useOrders();
+  const { addOrder, orders } = useOrders();
+  const { addLog } = useLog();
   const navigate = useNavigate();
 
   const [title, setTitle] = useState("");
@@ -59,6 +61,7 @@ export function NewOrder() {
     if (!title.trim()) { toast.error("Informe o título do pedido."); return; }
     if (items.length === 0) { toast.error("Adicione pelo menos um item."); return; }
 
+    const nextId = `ORD-${String(orders.length + 1).padStart(3, "0")}`;
     addOrder({
       tenantSlug: tenant.slug,
       tenantName: tenant.name,
@@ -69,7 +72,17 @@ export function NewOrder() {
       requestedBy: user?.name ?? "Usuário",
       files,
     });
-
+    addLog({
+      action: "pedido_criado",
+      entityType: "Pedido",
+      entityId: nextId,
+      entityName: title,
+      userName: user?.name ?? "Usuário",
+      userEmail: user?.email ?? "",
+      userRole: user?.role ?? "operator",
+      tenantSlug: tenant.slug,
+      details: `${items.length} item(s): ${items.map((i) => `${i.productName} × ${i.quantity}`).join(", ")}`,
+    });
     toast.success("Pedido criado com sucesso!");
     navigate(`/${tenant.slug}/pedidos`);
   };

@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, ShoppingCart, Package, Users,
   LogOut, ChevronRight, X, Shield, Building2,
-  FolderOpen, ChevronDown,
+  FolderOpen, ChevronDown, ClipboardList,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTenant } from "../../contexts/TenantContext";
@@ -164,6 +164,23 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                 </motion.div>
               )}
             </AnimatePresence>
+          </div>
+        )}
+        {/* Logs — super admin only */}
+        {isSuperAdmin && (
+          <div className="pt-3">
+            <p className="px-3 pb-2 text-[10px] uppercase tracking-widest font-semibold text-sidebar-foreground/40">
+              Sistema
+            </p>
+            <NavLink to={`/${tenant.slug}/logs`} onClick={onClose} className={navLinkClass}>
+              {({ isActive }) => (
+                <>
+                  <ClipboardList className={cn("h-4 w-4 flex-shrink-0", isActive && "text-sidebar-primary")} />
+                  <span>Logs de Auditoria</span>
+                  {isActive && <ChevronRight className="ml-auto h-3.5 w-3.5 text-sidebar-primary/70" />}
+                </>
+              )}
+            </NavLink>
           </div>
         )}
       </nav>

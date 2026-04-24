@@ -14,6 +14,8 @@ const OrdersContext = createContext<OrdersContextValue | null>(null);
 const now = new Date().toISOString();
 const yesterday = new Date(Date.now() - 86400000).toISOString();
 const twoDaysAgo = new Date(Date.now() - 2 * 86400000).toISOString();
+const fifteenDaysAgo = new Date(Date.now() - 15 * 86400000).toISOString();
+const tenDaysAgo = new Date(Date.now() - 10 * 86400000).toISOString();
 
 const INITIAL_ORDERS: Order[] = [
   {
@@ -110,6 +112,26 @@ const INITIAL_ORDERS: Order[] = [
     requestedBy: "Admin Unimed",
     createdAt: twoDaysAgo,
     updatedAt: now,
+  },
+  {
+    id: "ORD-006",
+    tenantSlug: "medsenior",
+    tenantName: "MedSênior",
+    title: "Carnê 11-12 lâminas — Março",
+    status: "production",
+    items: [
+      { productId: "p4", productName: "Carnê 11-12 lâminas", quantity: 3000, specifications: "Com perfuração e numeração sequencial" },
+    ],
+    notes: [],
+    events: [
+      { id: "e1", type: "created", description: "Pedido criado", authorName: "Ana Medsenior", createdAt: fifteenDaysAgo },
+      { id: "e2", type: "status_change", description: "Status alterado para Iniciado", authorName: "Victor Vixcard", status: "started", createdAt: tenDaysAgo },
+      { id: "e3", type: "status_change", description: "Status alterado para Em Produção", authorName: "Victor Vixcard", status: "production", createdAt: tenDaysAgo },
+    ],
+    requestedBy: "Ana Medsenior",
+    assignedTo: "Victor Vixcard",
+    createdAt: fifteenDaysAgo,
+    updatedAt: tenDaysAgo,
   },
 ];
 

@@ -14,6 +14,9 @@ import { NewOrder } from "./pages/NewOrder";
 import { Products } from "./pages/Products";
 import { Users } from "./pages/Users";
 import { Empresas } from "./pages/Empresas";
+import { EmpresaDetalhe } from "./pages/EmpresaDetalhe";
+import { Logs } from "./pages/Logs";
+import { LogsProvider } from "./contexts/LogsContext";
 
 function TenantRoutes() {
   return (
@@ -27,8 +30,10 @@ function TenantRoutes() {
           <Route path="pedidos/novo" element={<NewOrder />} />
           <Route path="pedidos/:id" element={<OrderDetail />} />
           <Route path="empresas" element={<Empresas />} />
+          <Route path="empresas/:slug" element={<EmpresaDetalhe />} />
           <Route path="produtos" element={<Products />} />
           <Route path="usuarios" element={<Users />} />
+          <Route path="logs" element={<Logs />} />
         </Route>
       </Routes>
     </TenantProvider>
@@ -39,6 +44,7 @@ export default function App() {
   return (
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
       <BrowserRouter>
+        <LogsProvider>
         <DataProvider>
         <AuthProvider>
           <OrdersProvider>
@@ -58,6 +64,7 @@ export default function App() {
           </OrdersProvider>
         </AuthProvider>
         </DataProvider>
+        </LogsProvider>
       </BrowserRouter>
     </ThemeProvider>
   );

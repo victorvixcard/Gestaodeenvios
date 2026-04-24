@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
+import { useLog } from "../contexts/LogsContext";
 import { useTenant } from "../contexts/TenantContext";
 import { useData, ALL_PERMISSIONS, DEFAULT_PERMISSIONS } from "../contexts/DataContext";
 import { Button } from "../components/ui/button";
@@ -37,6 +38,7 @@ export function Users() {
   const { user: currentUser } = useAuth();
   const tenant = useTenant();
   const { users, companies, addUser, updateUser } = useData();
+  const { addLog } = useLog();
   const isSuperAdmin = currentUser?.role === "super_admin";
   const isTenantAdmin = currentUser?.role === "tenant_admin";
 
@@ -90,11 +92,14 @@ export function Users() {
     if (!form.email.trim()) { toast.error("Informe o e-mail."); return; }
     if (!form.tenantSlug) { toast.error("Selecione a empresa."); return; }
 
+    const actor = { userName: currentUser?.name ?? "", userEmail: currentUser?.email ?? "", userRole: currentUser?.role ?? "super_admin" as const, tenantSlug: currentUser?.tenantSlug ?? "sistemalegado" };
     if (dialog === "create") {
       addUser(form);
+      addLog({ ...actor, action: "usuario_criado", entityType: "Usuário", entityId: `new-${Date.now()}`, entityName: form.name, details: `Perfil: ${form.role} — Empresa: ${form.tenantSlug}` });
       toast.success("Usuário criado!");
     } else if (editId) {
       updateUser(editId, form);
+      addLog({ ...actor, action: "usuario_atualizado", entityType: "Usuário", entityId: editId, entityName: form.name, details: `Perfil: ${form.role} — Empresa: ${form.tenantSlug}` });
       toast.success("Usuário atualizado!");
     }
     setDialog(null);
@@ -102,6 +107,8 @@ export function Users() {
 
   const toggleActive = (u: UserType) => {
     updateUser(u.id, { active: !u.active });
+    const actor = { userName: currentUser?.name ?? "", userEmail: currentUser?.email ?? "", userRole: currentUser?.role ?? "super_admin" as const, tenantSlug: currentUser?.tenantSlug ?? "sistemalegado" };
+    addLog({ ...actor, action: u.active ? "usuario_desativado" : "usuario_ativado", entityType: "Usuário", entityId: u.id, entityName: u.name, details: u.email });
     toast.success(u.active ? "Usuário desativado." : "Usuário ativado.");
   };
 
