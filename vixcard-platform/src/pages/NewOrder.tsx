@@ -14,7 +14,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/card"
 import { Badge } from "../components/ui/badge";
 import { Separator } from "../components/ui/separator";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
 } from "../components/ui/select";
 import type { OrderItem } from "../types";
 
@@ -172,17 +172,23 @@ export function NewOrder() {
                   </SelectTrigger>
                   <SelectContent>
                     {categories.map((cat) => (
-                      <div key={cat}>
-                        <p className="px-2 py-1 text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
-                          {cat}
-                        </p>
+                      <SelectGroup key={cat}>
+                        <SelectLabel>{cat}</SelectLabel>
                         {tenant.products
                           .filter((p) => p.category === cat && p.active)
                           .map((p) => (
-                            <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                            <SelectItem key={p.id} value={p.id}>
+                              <span className="font-mono text-xs text-muted-foreground mr-2">{p.code}</span>
+                              {p.name}
+                            </SelectItem>
                           ))}
-                      </div>
+                      </SelectGroup>
                     ))}
+                    {tenant.products.filter((p) => p.active).length === 0 && (
+                      <SelectItem value="__empty__" disabled>
+                        Nenhum produto disponível
+                      </SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>

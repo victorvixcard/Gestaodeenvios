@@ -14,7 +14,16 @@ export const TENANTS: Record<string, Tenant> = {
     name: "VIXCard — Admin",
     logoColor: "#1C508A",
     logoInitials: "VX",
-    products: [],
+    products: [
+      { id: "p1", code: "VIX-CAR-001", name: "Cartão PVC",               description: "Cartão em PVC personalizado",            category: "Cartões",   stock: 0, active: true },
+      { id: "p2", code: "VIX-CRN-001", name: "Carnê 2-4 lâminas",        description: "Carnê com 2 a 4 lâminas",               category: "Carnês",    stock: 0, active: true },
+      { id: "p3", code: "VIX-CRN-002", name: "Carnê 2-6 lâminas",        description: "Carnê com 2 a 6 lâminas",               category: "Carnês",    stock: 0, active: true },
+      { id: "p4", code: "VIX-CRN-003", name: "Carnê 11-12 lâminas",      description: "Carnê com 11 a 12 lâminas",             category: "Carnês",    stock: 0, active: true },
+      { id: "p5", code: "VIX-ETI-001", name: "Etiqueta",                  description: "Etiquetas personalizadas",              category: "Etiquetas", stock: 0, active: true },
+      { id: "p6", code: "VIX-SRV-001", name: "Serviço de Manuseio",      description: "Serviço completo de manuseio",          category: "Serviços",  stock: 0, active: true },
+      { id: "p7", code: "VIX-IMP-001", name: "Impressão Carta Notificação", description: "Impressão de cartas de notificação", category: "Impressão", stock: 0, active: true },
+      { id: "p8", code: "VIX-IMP-002", name: "Impressão Carta Timbrada",  description: "Impressão de cartas timbradas",         category: "Impressão", stock: 0, active: true },
+    ],
   },
   medsenior: {
     slug: "medsenior",
