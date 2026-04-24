@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, ShoppingCart, Package, Users,
   LogOut, ChevronRight, X, Shield, Building2,
-  FolderOpen, ChevronDown, ClipboardList,
+  FolderOpen, ChevronDown, ClipboardList, BarChart3,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTenant } from "../../contexts/TenantContext";
@@ -104,6 +104,18 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             </>
           )}
         </NavLink>
+
+        {(user?.permissions.includes("view_reports") || isSuperAdmin) && (
+          <NavLink to={`/${tenant.slug}/relatorios`} onClick={onClose} className={navLinkClass}>
+            {({ isActive }) => (
+              <>
+                <BarChart3 className={cn("h-4 w-4 flex-shrink-0", isActive && "text-sidebar-primary")} />
+                <span>Relatórios</span>
+                {isActive && <ChevronRight className="ml-auto h-3.5 w-3.5 text-sidebar-primary/70" />}
+              </>
+            )}
+          </NavLink>
+        )}
 
         {/* Cadastros section */}
         {isAdmin && (

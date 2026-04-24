@@ -16,6 +16,7 @@ import { Users } from "./pages/Users";
 import { Empresas } from "./pages/Empresas";
 import { EmpresaDetalhe } from "./pages/EmpresaDetalhe";
 import { Logs } from "./pages/Logs";
+import { Reports } from "./pages/Reports";
 import { LogsProvider } from "./contexts/LogsContext";
 
 function TenantRoutes() {
@@ -33,6 +34,7 @@ function TenantRoutes() {
           <Route path="empresas/:slug" element={<EmpresaDetalhe />} />
           <Route path="produtos" element={<Products />} />
           <Route path="usuarios" element={<Users />} />
+          <Route path="relatorios" element={<Reports />} />
           <Route path="logs" element={<Logs />} />
         </Route>
       </Routes>

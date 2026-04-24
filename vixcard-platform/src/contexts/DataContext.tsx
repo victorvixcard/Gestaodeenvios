@@ -20,14 +20,14 @@ export const ALL_PERMISSIONS: { key: Permission; label: string; description: str
 
 // ── Catálogo inicial ──────────────────────────────────────────────────────────
 const INITIAL_PRODUCTS: Product[] = [
-  { id: "p1", code: "VIX-CAR-001", name: "Cartão PVC",                      description: "Cartão em PVC personalizado",               category: "Cartões",   stock: 0,  active: true },
-  { id: "p2", code: "VIX-CRN-001", name: "Carnê 2-4 lâminas",               description: "Carnê com 2 a 4 lâminas",                   category: "Carnês",    stock: 0,  active: true },
-  { id: "p3", code: "VIX-CRN-002", name: "Carnê 2-6 lâminas",               description: "Carnê com 2 a 6 lâminas",                   category: "Carnês",    stock: 0,  active: true },
-  { id: "p4", code: "VIX-CRN-003", name: "Carnê 11-12 lâminas",             description: "Carnê com 11 a 12 lâminas",                 category: "Carnês",    stock: 0,  active: true },
-  { id: "p5", code: "VIX-ETI-001", name: "Etiqueta",                         description: "Etiquetas personalizadas",                  category: "Etiquetas", stock: 0,  active: true },
-  { id: "p6", code: "VIX-SRV-001", name: "Serviço de Manuseio",             description: "Serviço completo de manuseio e envio",      category: "Serviços",  stock: 0,  active: true },
-  { id: "p7", code: "VIX-IMP-001", name: "Impressão Carta Notificação",      description: "Impressão de cartas de notificação",        category: "Impressão", stock: 0,  active: true },
-  { id: "p8", code: "VIX-IMP-002", name: "Impressão Carta Timbrada",         description: "Impressão de cartas timbradas",             category: "Impressão", stock: 0,  active: true },
+  { id: "p1", code: "VIX-CAR-001", name: "Cartão PVC",                      description: "Cartão em PVC personalizado",               category: "Cartões",   price: 0.50, stock: 0,  active: true },
+  { id: "p2", code: "VIX-CRN-001", name: "Carnê 2-4 lâminas",               description: "Carnê com 2 a 4 lâminas",                   category: "Carnês",    price: 3.50, stock: 0,  active: true },
+  { id: "p3", code: "VIX-CRN-002", name: "Carnê 2-6 lâminas",               description: "Carnê com 2 a 6 lâminas",                   category: "Carnês",    price: 5.00, stock: 0,  active: true },
+  { id: "p4", code: "VIX-CRN-003", name: "Carnê 11-12 lâminas",             description: "Carnê com 11 a 12 lâminas",                 category: "Carnês",    price: 8.50, stock: 0,  active: true },
+  { id: "p5", code: "VIX-ETI-001", name: "Etiqueta",                         description: "Etiquetas personalizadas",                  category: "Etiquetas", price: 0.12, stock: 0,  active: true },
+  { id: "p6", code: "VIX-SRV-001", name: "Serviço de Manuseio",             description: "Serviço completo de manuseio e envio",      category: "Serviços",  price: 2.00, stock: 0,  active: true },
+  { id: "p7", code: "VIX-IMP-001", name: "Impressão Carta Notificação",      description: "Impressão de cartas de notificação",        category: "Impressão", price: 0.35, stock: 0,  active: true },
+  { id: "p8", code: "VIX-IMP-002", name: "Impressão Carta Timbrada",         description: "Impressão de cartas timbradas",             category: "Impressão", price: 0.40, stock: 0,  active: true },
 ];
 
 const INITIAL_COMPANIES: Company[] = [

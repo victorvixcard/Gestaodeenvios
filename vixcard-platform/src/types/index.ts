@@ -45,6 +45,7 @@ export interface Product {
   category: string;
   imageUrl?: string;
   videoUrl?: string;
+  price?: number;
   stock: number;
   active: boolean;
 }

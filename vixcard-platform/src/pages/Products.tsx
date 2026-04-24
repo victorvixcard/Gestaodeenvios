@@ -28,7 +28,7 @@ import type { Product } from "../types";
 const CATEGORIES = ["Cartões", "Carnês", "Etiquetas", "Impressão", "Serviços", "Outros"];
 
 const EMPTY_FORM = {
-  name: "", description: "", category: "Cartões", stock: 0, imageUrl: "", videoUrl: "", active: true,
+  name: "", description: "", category: "Cartões", price: 0, stock: 0, imageUrl: "", videoUrl: "", active: true,
 };
 
 function StockBadge({ stock }: { stock: number }) {
@@ -78,6 +78,7 @@ export function Products() {
       stock: product.stock,
       imageUrl: product.imageUrl ?? "",
       videoUrl: product.videoUrl ?? "",
+      price: product.price ?? 0,
       active: product.active,
     });
     setEditId(product.id);
@@ -90,8 +91,8 @@ export function Products() {
     if (dialog === "create") {
       addProduct({
         name: form.name, description: form.description, category: form.category,
-        stock: Number(form.stock), imageUrl: form.imageUrl || undefined,
-        videoUrl: form.videoUrl || undefined, active: form.active,
+        price: Number(form.price), stock: Number(form.stock),
+        imageUrl: form.imageUrl || undefined, videoUrl: form.videoUrl || undefined, active: form.active,
       });
       addLog({
         action: "produto_criado", entityType: "Produto", entityId: `new-${Date.now()}`, entityName: form.name,
@@ -103,8 +104,8 @@ export function Products() {
       const product = products.find((p) => p.id === editId);
       updateProduct(editId, {
         name: form.name, description: form.description, category: form.category,
-        stock: Number(form.stock), imageUrl: form.imageUrl || undefined,
-        videoUrl: form.videoUrl || undefined, active: form.active,
+        price: Number(form.price), stock: Number(form.stock),
+        imageUrl: form.imageUrl || undefined, videoUrl: form.videoUrl || undefined, active: form.active,
       });
       addLog({
         action: "produto_atualizado", entityType: "Produto", entityId: editId, entityName: form.name,
@@ -246,9 +247,17 @@ export function Products() {
                     <p className="text-xs text-muted-foreground line-clamp-2 mb-3">{product.description}</p>
                   )}
 
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center justify-between mb-1.5">
                     <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Estoque</span>
                     <StockBadge stock={product.stock} />
+                  </div>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Preço unit.</span>
+                    <span className="text-[11px] font-semibold text-foreground">
+                      {product.price != null && product.price > 0
+                        ? `R$ ${product.price.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
+                        : <span className="text-muted-foreground">—</span>}
+                    </span>
                   </div>
 
                   {isSuperAdmin && (
@@ -301,6 +310,21 @@ export function Products() {
                     {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Preço unitário (R$)</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    placeholder="0,00"
+                    className="pl-9"
+                    value={form.price}
+                    onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
+                  />
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label>Estoque inicial</Label>
