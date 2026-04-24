@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 import type { User, UserRole } from "../types";
+import { DEFAULT_PERMISSIONS } from "./DataContext";
 
 interface AuthContextValue {
   user: User | null;
@@ -12,30 +13,9 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 // Mock users for demo
 const MOCK_USERS: User[] = [
-  {
-    id: "1",
-    name: "Victor Vixcard",
-    email: "admin@vixcard.com.br",
-    role: "super_admin",
-    tenantSlug: "sistemalegado",
-    avatarInitials: "VV",
-  },
-  {
-    id: "2",
-    name: "Ana Medsenior",
-    email: "admin@medsenior.com.br",
-    role: "tenant_admin",
-    tenantSlug: "medsenior",
-    avatarInitials: "AM",
-  },
-  {
-    id: "3",
-    name: "Carlos Operador",
-    email: "operador@medsenior.com.br",
-    role: "operator",
-    tenantSlug: "medsenior",
-    avatarInitials: "CO",
-  },
+  { id: "1", name: "Victor Vixcard",  email: "admin@vixcard.com.br",      role: "super_admin",  tenantSlug: "sistemalegado", avatarInitials: "VV", active: true, permissions: DEFAULT_PERMISSIONS.super_admin },
+  { id: "2", name: "Ana Medsenior",   email: "admin@medsenior.com.br",    role: "tenant_admin", tenantSlug: "medsenior",     avatarInitials: "AM", active: true, permissions: DEFAULT_PERMISSIONS.tenant_admin },
+  { id: "3", name: "Carlos Operador", email: "operador@medsenior.com.br", role: "operator",     tenantSlug: "medsenior",     avatarInitials: "CO", active: true, permissions: DEFAULT_PERMISSIONS.operator },
 ];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
