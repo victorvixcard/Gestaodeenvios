@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import Cropper from "react-easy-crop";
 import { ZoomIn, ZoomOut, RotateCw, Check, X, Upload } from "lucide-react";
 import { Button } from "../ui/button";
-import { getCroppedImg, readFileAsDataUrl } from "../../lib/cropImage";
+import { getCroppedImg, readFileAsDataUrl, normalizeImageFile } from "../../lib/cropImage";
 
 interface Props {
   open: boolean;
@@ -30,6 +30,7 @@ export function ImageCropModal({
   const [rotation, setRotation] = useState(0);
   const [croppedArea, setCroppedArea] = useState<any>(null);
   const [saving, setSaving] = useState(false);
+  const [converting, setConverting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const onCropComplete = useCallback((_: any, croppedAreaPixels: any) => {
@@ -37,14 +38,24 @@ export function ImageCropModal({
   }, []);
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const dataUrl = await readFileAsDataUrl(file);
-    setImageSrc(dataUrl);
-    setCrop({ x: 0, y: 0 });
-    setZoom(1);
-    setRotation(0);
+    const raw = e.target.files?.[0];
+    if (!raw) return;
     e.target.value = "";
+    await processFile(raw);
+  };
+
+  const processFile = async (raw: File) => {
+    setConverting(true);
+    try {
+      const file = await normalizeImageFile(raw);
+      const dataUrl = await readFileAsDataUrl(file);
+      setImageSrc(dataUrl);
+      setCrop({ x: 0, y: 0 });
+      setZoom(1);
+      setRotation(0);
+    } finally {
+      setConverting(false);
+    }
   };
 
   const handleSave = async () => {
@@ -163,28 +174,35 @@ export function ImageCropModal({
             {hint && (
               <p className="text-xs text-muted-foreground text-center">{hint}</p>
             )}
-            <div
+
+            {converting && (
+              <div className="w-full flex flex-col items-center gap-2 py-6">
+                <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                <p className="text-sm text-muted-foreground">Convertendo HEIC…</p>
+              </div>
+            )}
+
+            {!converting && <div
               className="w-full border-2 border-dashed border-border rounded-xl p-10 flex flex-col items-center gap-3 cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
               onClick={() => inputRef.current?.click()}
               onDragOver={(e) => e.preventDefault()}
               onDrop={async (e) => {
                 e.preventDefault();
                 const file = e.dataTransfer.files[0];
-                if (!file?.type.startsWith("image/")) return;
-                const dataUrl = await readFileAsDataUrl(file);
-                setImageSrc(dataUrl);
+                if (!file) return;
+                await processFile(file);
               }}
             >
               <Upload className="h-8 w-8 text-muted-foreground/50" />
               <div className="text-center">
                 <p className="text-sm font-medium">Clique ou arraste a imagem</p>
-                <p className="text-xs text-muted-foreground mt-0.5">PNG, JPG, WEBP — até 10MB</p>
+                <p className="text-xs text-muted-foreground mt-0.5">PNG, JPG, WEBP, HEIC — qualquer formato</p>
               </div>
-            </div>
+            </div>}
             <input
               ref={inputRef}
               type="file"
-              accept="image/*"
+              accept="image/*,.heic,.heif"
               capture="environment"
               className="hidden"
               onChange={handleFile}
