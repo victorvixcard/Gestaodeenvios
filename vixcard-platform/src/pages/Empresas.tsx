@@ -36,13 +36,11 @@ export function Empresas() {
   const { addLog } = useLog();
   const { user } = useAuth();
   const [dialog, setDialog] = useState<"create" | null>(null);
-  const [editSlug, setEditSlug] = useState<string | null>(null);
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const colorRef = useRef<HTMLInputElement>(null);
 
   const openCreate = () => {
     setForm({ ...EMPTY_FORM });
-    setEditSlug(null);
     setDialog("create");
   };
 

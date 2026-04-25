@@ -1,6 +1,6 @@
-import { Clock, CheckCircle2, AlertTriangle, XCircle, Siren } from "lucide-react";
+import { Clock, CheckCircle2, AlertTriangle, Siren } from "lucide-react";
 import {
-  getOrderDeadline, getDeadlineStatus, getBusinessDaysUntil, type DeadlineStatus,
+  getOrderDeadline, getDeadlineStatus, getBusinessDaysUntil,
 } from "../../lib/holidays";
 import { cn } from "../../lib/utils";
 

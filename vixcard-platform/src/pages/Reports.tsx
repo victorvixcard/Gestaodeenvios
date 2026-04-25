@@ -1,8 +1,8 @@
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import {
-  BarChart3, Calendar, Package, DollarSign, ShoppingCart,
-  ChevronDown, FileDown, Filter,
+  BarChart3, Package, DollarSign, ShoppingCart,
+  FileDown, Filter,
 } from "lucide-react";
 import {
   startOfDay, endOfDay, startOfWeek, endOfWeek,
@@ -20,7 +20,7 @@ import {
 import { useAuth } from "../contexts/AuthContext";
 import { useData } from "../contexts/DataContext";
 import { useOrders } from "../contexts/OrdersContext";
-import type { Order, OrderStatus } from "../types";
+import type { OrderStatus } from "../types";
 
 const STATUS_LABEL: Record<OrderStatus, string> = {
   pending:    "Pendente",
