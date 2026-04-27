@@ -149,21 +149,41 @@ function TimelineCard({ order, index, tenantSlug, isSuperAdmin }: {
         <OrderProgressBar order={order} />
 
         {/* Bottom info */}
-        <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border/50 text-[11px] text-muted-foreground flex-wrap">
-          <span className="flex items-center gap-1">
+        <div className="flex items-start gap-4 mt-3 pt-3 border-t border-border/50 text-[11px] text-muted-foreground flex-wrap">
+          <span className="flex items-center gap-1 flex-shrink-0">
             <User className="h-3 w-3" />
             {order.requestedBy}
           </span>
-          <span className="flex items-center gap-1">
-            <Package className="h-3 w-3" />
-            {order.items.length} item{order.items.length > 1 ? "s" : ""}
-            {order.items.length > 0 && (
-              <span className="text-muted-foreground/60">
-                · {order.items.map((i) => `${i.productName} × ${i.quantity.toLocaleString()}`).join(", ")}
+
+          {/* Items display — inline for 1 item, pills for 2+ */}
+          <span className="flex items-start gap-1 flex-wrap flex-1 min-w-0">
+            <span className="flex items-center gap-1 flex-shrink-0">
+              <Package className="h-3 w-3" />
+              <span className="font-medium">{order.items.length} {order.items.length === 1 ? "item" : "itens"}</span>
+            </span>
+            {order.items.length === 1 ? (
+              <span className="text-muted-foreground/60 truncate">
+                · {order.items[0].productName} × {order.items[0].quantity.toLocaleString("pt-BR")}
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 flex-wrap">
+                {order.items.slice(0, 3).map((item, idx) => (
+                  <span
+                    key={idx}
+                    className="inline-flex items-center bg-muted/70 border border-border/60 text-foreground/70 text-[10px] px-1.5 py-0.5 rounded font-medium leading-tight"
+                  >
+                    {item.productName}
+                    <span className="text-muted-foreground/60 ml-1">×{item.quantity.toLocaleString("pt-BR")}</span>
+                  </span>
+                ))}
+                {order.items.length > 3 && (
+                  <span className="text-muted-foreground/60 text-[10px]">+{order.items.length - 3} mais</span>
+                )}
               </span>
             )}
           </span>
-          <div className="ml-auto">
+
+          <div className="ml-auto flex-shrink-0">
             <DeadlineChip createdAt={order.createdAt} orderStatus={order.status} showDays />
           </div>
         </div>
@@ -302,8 +322,23 @@ export function Orders() {
                       )}
                     </div>
                     <p className="font-semibold text-sm text-foreground truncate">{order.title}</p>
-                    <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs text-muted-foreground">
-                      <span>{order.items.length} item{order.items.length > 1 ? "s" : ""}</span>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-xs text-muted-foreground">
+                      {/* Item count + compact product list */}
+                      <span className="flex items-center gap-1 flex-wrap">
+                        <span className="font-medium text-foreground/70">
+                          {order.items.length} {order.items.length === 1 ? "item" : "itens"}
+                        </span>
+                        {order.items.length === 1 ? (
+                          <span className="text-muted-foreground/60">
+                            · {order.items[0].productName} × {order.items[0].quantity.toLocaleString("pt-BR")}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground/60 truncate max-w-[220px]">
+                            · {order.items.slice(0, 3).map(i => i.productName).join(", ")}
+                            {order.items.length > 3 && ` +${order.items.length - 3}`}
+                          </span>
+                        )}
+                      </span>
                       <span>·</span>
                       <span>Por {order.requestedBy}</span>
                       <span>·</span>

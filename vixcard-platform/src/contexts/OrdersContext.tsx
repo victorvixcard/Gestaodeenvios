@@ -133,6 +133,26 @@ const INITIAL_ORDERS: Order[] = [
     createdAt: fifteenDaysAgo,
     updatedAt: tenDaysAgo,
   },
+  {
+    id: "ORD-007",
+    tenantSlug: "medsenior",
+    tenantName: "MedSênior",
+    title: "Kit Campanha — Maio 2026",
+    status: "pending",
+    items: [
+      { productId: "p1", productName: "Cartão PVC", quantity: 3000, specifications: "Frente e verso, laminação brilho" },
+      { productId: "p2", productName: "Carnê 2-4 lâminas", quantity: 3000, specifications: "Numeração sequencial" },
+      { productId: "p7", productName: "Impressão Carta Notificação", quantity: 3000, specifications: "A4, frente simples" },
+      { productId: "p6", productName: "Serviço de Manuseio", quantity: 3000, specifications: "Montagem kit completo + envelope" },
+    ],
+    notes: [],
+    events: [
+      { id: "e1", type: "created", description: "Pedido criado", authorName: "Ana Medsenior", createdAt: now },
+    ],
+    requestedBy: "Ana Medsenior",
+    createdAt: now,
+    updatedAt: now,
+  },
 ];
 
 export function OrdersProvider({ children }: { children: ReactNode }) {
