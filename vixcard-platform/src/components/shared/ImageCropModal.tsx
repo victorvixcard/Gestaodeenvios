@@ -62,7 +62,7 @@ export function ImageCropModal({
     if (!imageSrc || !croppedArea) return;
     setSaving(true);
     try {
-      const url = await getCroppedImg(imageSrc, croppedArea);
+      const url = await getCroppedImg(imageSrc, croppedArea, rotation);
       onSave(url);
       handleClose();
     } finally {
@@ -102,10 +102,13 @@ export function ImageCropModal({
             </button>
           </div>
 
-          {/* Crop area */}
+          {/* Crop area — altura proporcional ao aspect ratio, mín 220 máx 360 */}
           {imageSrc ? (
             <>
-              <div className="relative w-full" style={{ height: 300 }}>
+              <div
+                className="relative w-full"
+                style={{ height: Math.min(360, Math.max(220, Math.round(320 / aspect))) }}
+              >
                 <Cropper
                   image={imageSrc}
                   crop={crop}

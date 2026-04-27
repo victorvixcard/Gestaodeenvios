@@ -37,32 +37,68 @@ function createImage(url: string): Promise<HTMLImageElement> {
   });
 }
 
+/**
+ * Renders the rotated image onto an intermediate canvas, then extracts
+ * the crop area with the correct output dimensions (preserving aspect ratio).
+ *
+ * @param outputMaxSide  Largest side of the output in pixels (default 1024)
+ */
 export async function getCroppedImg(
   imageSrc: string,
   pixelCrop: CropArea,
-  outputSize = 512,
+  rotation = 0,
+  outputMaxSide = 1024,
   mimeType: "image/jpeg" | "image/png" | "image/webp" = "image/jpeg",
   quality = 0.92
 ): Promise<string> {
   const image = await createImage(imageSrc);
-  const canvas = document.createElement("canvas");
-  canvas.width = outputSize;
-  canvas.height = outputSize;
-  const ctx = canvas.getContext("2d")!;
 
-  ctx.drawImage(
-    image,
+  // ── 1. Rotate the full image onto an intermediate canvas ──────────────────
+  const rotRad = (rotation * Math.PI) / 180;
+  const sin = Math.abs(Math.sin(rotRad));
+  const cos = Math.abs(Math.cos(rotRad));
+
+  // Bounding box of the rotated image
+  const bBoxW = Math.round(cos * image.width  + sin * image.height);
+  const bBoxH = Math.round(sin * image.width  + cos * image.height);
+
+  const rotCanvas = document.createElement("canvas");
+  rotCanvas.width  = bBoxW;
+  rotCanvas.height = bBoxH;
+  const rotCtx = rotCanvas.getContext("2d")!;
+
+  // Translate to center, rotate, draw
+  rotCtx.translate(bBoxW / 2, bBoxH / 2);
+  rotCtx.rotate(rotRad);
+  rotCtx.drawImage(image, -image.width / 2, -image.height / 2);
+
+  // ── 2. Extract crop area preserving its aspect ratio ─────────────────────
+  const cropAspect = pixelCrop.width / pixelCrop.height;
+  const outW = cropAspect >= 1
+    ? outputMaxSide
+    : Math.round(outputMaxSide * cropAspect);
+  const outH = cropAspect >= 1
+    ? Math.round(outputMaxSide / cropAspect)
+    : outputMaxSide;
+
+  const cropCanvas = document.createElement("canvas");
+  cropCanvas.width  = outW;
+  cropCanvas.height = outH;
+  const cropCtx = cropCanvas.getContext("2d")!;
+
+  cropCtx.drawImage(
+    rotCanvas,
     pixelCrop.x,
     pixelCrop.y,
     pixelCrop.width,
     pixelCrop.height,
     0,
     0,
-    outputSize,
-    outputSize
+    outW,
+    outH
   );
 
-  return canvas.toDataURL(mimeType, quality);
+  return cropCanvas.toDataURL(mimeType, quality);
 }
 
 export function readFileAsDataUrl(file: File): Promise<string> {
