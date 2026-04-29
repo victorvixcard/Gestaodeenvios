@@ -18,6 +18,15 @@ export const ALL_PERMISSIONS: { key: Permission; label: string; description: str
   { key: "manage_users",    label: "Gerenciar Usuários",   description: "Criar e editar usuários" },
 ];
 
+// ── Tenant interno VIXCard (não é "cliente", mas hospeda a equipe interna) ───
+export const INTERNAL_TENANT = {
+  slug: "sistemalegado",
+  name: "VIXCard — Equipe Interna",
+  shortName: "VIXCard",
+  logoColor: "#1C508A",
+  logoInitials: "VX",
+} as const;
+
 // ── Catálogo inicial ──────────────────────────────────────────────────────────
 const INITIAL_PRODUCTS: Product[] = [
   { id: "p1", code: "VIX-CAR-001", name: "Cartão PVC",                      description: "Cartão em PVC personalizado",               category: "Cartões",   price: 0.50, stock: 0,  active: true },
@@ -124,8 +133,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setCompanies((c) => c.map((x) => (x.slug === slug ? { ...x, ...updates } : x)));
 
   const addUser = (data: Omit<User, "id" | "avatarInitials">) => {
-    const avatarInitials = data.name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
-    setUsers((u) => [...u, { ...data, id: `u-${Date.now()}`, avatarInitials }]);
+    const avatarInitials = data.name.split(" ").filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+    setUsers((u) => [
+      ...u,
+      { ...data, id: `u-${Date.now()}`, avatarInitials, createdAt: data.createdAt ?? new Date().toISOString() },
+    ]);
   };
 
   const updateUser = (id: string, updates: Partial<User>) =>

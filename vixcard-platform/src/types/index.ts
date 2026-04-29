@@ -35,6 +35,9 @@ export interface User {
   avatarUrl?: string;
   active: boolean;
   permissions: Permission[];
+  position?: string; // cargo livre (ex: "Assistente Administrativa", "Designer", "Atendente")
+  phone?: string;    // telefone opcional
+  createdAt?: string; // ISO
 }
 
 export interface Product {
