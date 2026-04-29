@@ -7,30 +7,39 @@ import { cn } from "../../lib/utils";
 interface DeadlineChipProps {
   createdAt: string;
   orderStatus: string;
+  deadline?: string;
   showDays?: boolean;
   className?: string;
 }
 
-export function getOverdueDays(createdAt: string): number {
-  const deadline = getOrderDeadline(createdAt);
+function resolveDeadline(createdAt: string, deadline?: string): Date {
+  if (deadline) {
+    const d = new Date(deadline);
+    if (!isNaN(d.getTime())) return d;
+  }
+  return getOrderDeadline(createdAt);
+}
+
+export function getOverdueDays(createdAt: string, deadline?: string): number {
+  const dl = resolveDeadline(createdAt, deadline);
   const now = new Date(); now.setHours(0, 0, 0, 0);
-  const dl = new Date(deadline); dl.setHours(0, 0, 0, 0);
-  return Math.max(0, Math.ceil((now.getTime() - dl.getTime()) / 86400000));
+  const target = new Date(dl); target.setHours(0, 0, 0, 0);
+  return Math.max(0, Math.ceil((now.getTime() - target.getTime()) / 86400000));
 }
 
-export function isOverdue(createdAt: string, orderStatus: string): boolean {
-  const deadline = getOrderDeadline(createdAt);
-  return getDeadlineStatus(deadline, orderStatus) === "overdue";
+export function isOverdue(createdAt: string, orderStatus: string, deadline?: string): boolean {
+  const dl = resolveDeadline(createdAt, deadline);
+  return getDeadlineStatus(dl, orderStatus) === "overdue";
 }
 
-export function DeadlineChip({ createdAt, orderStatus, showDays = true, className }: DeadlineChipProps) {
-  const deadline = getOrderDeadline(createdAt);
+export function DeadlineChip({ createdAt, orderStatus, deadline: deadlineProp, showDays = true, className }: DeadlineChipProps) {
+  const deadline = resolveDeadline(createdAt, deadlineProp);
   const status = getDeadlineStatus(deadline, orderStatus);
   const dateStr = deadline.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
 
   // ── ATRASADO — alerta em destaque ──────────────────────────────────────────
   if (status === "overdue") {
-    const overdueDays = getOverdueDays(createdAt);
+    const overdueDays = getOverdueDays(createdAt, deadlineProp);
     return (
       <div className={cn(
         "inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border-2 border-red-400 bg-red-50 text-red-700 font-bold text-[12px] animate-pulse",

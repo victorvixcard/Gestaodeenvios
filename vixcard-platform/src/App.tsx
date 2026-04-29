@@ -18,6 +18,8 @@ import { EmpresaDetalhe } from "./pages/EmpresaDetalhe";
 import { Logs } from "./pages/Logs";
 import { Reports } from "./pages/Reports";
 import { LogsProvider } from "./contexts/LogsContext";
+import { NotificationsProvider } from "./contexts/NotificationsContext";
+import { Profile } from "./pages/Profile";
 
 function TenantRoutes() {
   return (
@@ -36,6 +38,7 @@ function TenantRoutes() {
           <Route path="usuarios" element={<Users />} />
           <Route path="relatorios" element={<Reports />} />
           <Route path="logs" element={<Logs />} />
+          <Route path="perfil" element={<Profile />} />
         </Route>
       </Routes>
     </TenantProvider>
@@ -50,6 +53,7 @@ export default function App() {
         <DataProvider>
         <AuthProvider>
           <OrdersProvider>
+          <NotificationsProvider>
             <Routes>
               <Route path="/" element={<Navigate to="/medsenior/login" replace />} />
               <Route path="/:tenant/*" element={<TenantRoutes />} />
@@ -63,6 +67,7 @@ export default function App() {
               } />
             </Routes>
             <Toaster position="top-right" richColors closeButton />
+          </NotificationsProvider>
           </OrdersProvider>
         </AuthProvider>
         </DataProvider>

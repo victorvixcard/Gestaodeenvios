@@ -4,11 +4,13 @@ import { motion } from "framer-motion";
 import {
   Plus, Search, Filter, ChevronRight, List, GitBranch,
   ClipboardCheck, Play, Wrench, PackageCheck, CheckCircle2,
-  XCircle, Calendar, User, Package,
+  XCircle, Calendar, User, Package, ArrowRight,
 } from "lucide-react";
+import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 import { useTenant } from "../contexts/TenantContext";
 import { useOrders } from "../contexts/OrdersContext";
+import { useLog } from "../contexts/LogsContext";
 import { StatusBadge } from "../components/shared/StatusBadge";
 import { DeadlineChip, isOverdue } from "../components/shared/DeadlineChip";
 import { Button } from "../components/ui/button";
@@ -40,7 +42,60 @@ const STAGES: { key: OrderStatus; label: string; short: string; Icon: React.Elem
   { key: "done",       label: "Entregue",   short: "Entregue",  Icon: CheckCircle2 },
 ];
 
-const STAGE_ORDER = ["pending", "started", "production", "finishing", "done"];
+const STAGE_ORDER: OrderStatus[] = ["pending", "started", "production", "finishing", "done"];
+
+const NEXT_STAGE_LABEL: Record<OrderStatus, string | null> = {
+  pending:    "Iniciar",
+  started:    "Produção",
+  production: "Acabamento",
+  finishing:  "Entregar",
+  done:       null,
+  cancelled:  null,
+};
+
+function QuickAdvance({ order, canAdvance }: { order: Order; canAdvance: boolean }) {
+  const { user } = useAuth();
+  const { updateStatus } = useOrders();
+  const { addLog } = useLog();
+
+  if (!canAdvance) return null;
+  const idx = STAGE_ORDER.indexOf(order.status);
+  if (idx < 0 || idx >= STAGE_ORDER.length - 1) return null;
+  const next = STAGE_ORDER[idx + 1];
+  const nextLabel = NEXT_STAGE_LABEL[order.status];
+  if (!nextLabel) return null;
+
+  const handle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    updateStatus(order.id, next, undefined, user?.name);
+    addLog({
+      action: "pedido_status",
+      entityType: "Pedido",
+      entityId: order.id,
+      entityName: order.title,
+      userName: user?.name ?? "Usuário",
+      userEmail: user?.email ?? "",
+      userRole: user?.role ?? "operator",
+      tenantSlug: order.tenantSlug,
+      details: `Status: ${order.status} → ${next} (avanço rápido)`,
+    });
+    toast.success(`OS ${order.id} → ${nextLabel}`);
+  };
+
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      className="h-7 px-2 text-xs gap-1 border-primary/30 text-primary hover:bg-primary hover:text-white"
+      onClick={handle}
+      title={`Avançar para ${nextLabel}`}
+    >
+      <ArrowRight className="h-3 w-3" />
+      {nextLabel}
+    </Button>
+  );
+}
 
 function OrderProgressBar({ order }: { order: Order }) {
   const isCancelled = order.status === "cancelled";
@@ -105,8 +160,8 @@ function OrderProgressBar({ order }: { order: Order }) {
   );
 }
 
-function TimelineCard({ order, index, tenantSlug, isSuperAdmin }: {
-  order: Order; index: number; tenantSlug: string; isSuperAdmin: boolean
+function TimelineCard({ order, index, tenantSlug, isSuperAdmin, canManage }: {
+  order: Order; index: number; tenantSlug: string; isSuperAdmin: boolean; canManage: boolean
 }) {
   const navigate = useNavigate();
 
@@ -119,7 +174,7 @@ function TimelineCard({ order, index, tenantSlug, isSuperAdmin }: {
       <Card
         className={cn(
           "p-4 cursor-pointer hover:-translate-y-0.5 transition-all duration-200 bg-gradient-card",
-          isOverdue(order.createdAt, order.status)
+          isOverdue(order.createdAt, order.status, order.deadline)
             ? "border-red-400 border-2 hover:shadow-red-200 hover:shadow-md"
             : "hover:shadow-brand"
         )}
@@ -183,8 +238,9 @@ function TimelineCard({ order, index, tenantSlug, isSuperAdmin }: {
             )}
           </span>
 
-          <div className="ml-auto flex-shrink-0">
-            <DeadlineChip createdAt={order.createdAt} orderStatus={order.status} showDays />
+          <div className="ml-auto flex items-center gap-2 flex-shrink-0">
+            <QuickAdvance order={order} canAdvance={canManage} />
+            <DeadlineChip createdAt={order.createdAt} orderStatus={order.status} deadline={order.deadline} showDays />
           </div>
         </div>
       </Card>
@@ -204,6 +260,7 @@ export function Orders() {
   const [view, setView] = useState<"list" | "timeline">("list");
 
   const isSuperAdmin = user?.role === "super_admin";
+  const canManage = !!user?.permissions.includes("manage_orders");
 
   const tenantOrders = isSuperAdmin ? orders : orders.filter((o) => o.tenantSlug === tenant.slug);
 
@@ -305,7 +362,7 @@ export function Orders() {
               <Card
                 className={cn(
                   "p-4 cursor-pointer hover:-translate-y-0.5 transition-all duration-200 bg-gradient-card",
-                  isOverdue(order.createdAt, order.status)
+                  isOverdue(order.createdAt, order.status, order.deadline)
                     ? "border-red-400 border-2 hover:shadow-red-200 hover:shadow-md"
                     : "hover:shadow-brand"
                 )}
@@ -348,7 +405,8 @@ export function Orders() {
                       <DeadlineChip createdAt={order.createdAt} orderStatus={order.status} showDays={false} />
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 flex-shrink-0">
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <QuickAdvance order={order} canAdvance={canManage} />
                     <StatusBadge status={order.status} size="sm" />
                     <ChevronRight className="h-4 w-4 text-muted-foreground/40" />
                   </div>
@@ -374,6 +432,7 @@ export function Orders() {
               index={i}
               tenantSlug={tenant.slug}
               isSuperAdmin={isSuperAdmin}
+              canManage={canManage}
             />
           ))}
         </div>

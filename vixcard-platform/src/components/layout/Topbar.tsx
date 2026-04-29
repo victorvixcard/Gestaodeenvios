@@ -1,9 +1,11 @@
-import { Menu, Bell, Sun, Moon } from "lucide-react";
+import { Menu, Sun, Moon, User as UserIcon } from "lucide-react";
 import { useTheme } from "next-themes";
+import { useNavigate } from "react-router-dom";
 import { Button } from "../ui/button";
-import { AvatarUpload } from "../shared/AvatarUpload";
+import { NotificationsPanel } from "../shared/NotificationsPanel";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTenant } from "../../contexts/TenantContext";
+import { cn } from "../../lib/utils";
 
 interface TopbarProps {
   onMenuClick: () => void;
@@ -11,9 +13,10 @@ interface TopbarProps {
 }
 
 export function Topbar({ onMenuClick, title }: TopbarProps) {
-  const { user, updateAvatar } = useAuth();
+  const { user } = useAuth();
   const tenant = useTenant();
   const { theme, setTheme } = useTheme();
+  const navigate = useNavigate();
 
   return (
     <header className="sticky top-0 z-30 h-16 bg-background/80 backdrop-blur-md border-b border-border flex items-center gap-3 px-4 lg:px-6">
@@ -43,26 +46,26 @@ export function Topbar({ onMenuClick, title }: TopbarProps) {
           {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </Button>
 
-        <Button variant="ghost" size="icon-sm" aria-label="Notificações" className="relative">
-          <Bell className="h-4 w-4" />
-          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-accent" />
-        </Button>
+        <NotificationsPanel />
 
-        <div className="flex items-center gap-2 ml-1">
-          <AvatarUpload
-            size="sm"
-            currentUrl={user?.avatarUrl}
-            initials={user?.avatarInitials}
-            color="#6366f1"
-            title="Foto do perfil"
-            hint="Use uma foto nítida com rosto centralizado."
-            onSave={updateAvatar}
-          />
-          <div className="hidden sm:block min-w-0">
+        <button
+          type="button"
+          onClick={() => navigate(`/${tenant.slug}/perfil`)}
+          className="flex items-center gap-2 ml-1 rounded-lg hover:bg-muted px-1.5 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label="Abrir perfil"
+        >
+          <div className={cn(
+            "h-8 w-8 rounded-full flex-shrink-0 overflow-hidden flex items-center justify-center bg-primary text-white text-xs font-bold"
+          )}>
+            {user?.avatarUrl
+              ? <img src={user.avatarUrl} alt="" className="w-full h-full object-cover" />
+              : (user?.avatarInitials ?? <UserIcon className="h-4 w-4" />)}
+          </div>
+          <div className="hidden sm:block min-w-0 text-left">
             <p className="text-sm font-medium leading-none truncate max-w-[120px]">{user?.name}</p>
             <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-[120px]">{tenant.name}</p>
           </div>
-        </div>
+        </button>
       </div>
     </header>
   );

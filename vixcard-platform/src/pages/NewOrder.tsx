@@ -1,7 +1,7 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Plus, Trash2, Upload, Send, Check, X, FileText, FileImage, File as FileIcon } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Upload, Send, Check, X, FileText, FileImage, File as FileIcon, CalendarClock } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 import { useTenant } from "../contexts/TenantContext";
@@ -16,6 +16,7 @@ import { Separator } from "../components/ui/separator";
 import {
   Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue,
 } from "../components/ui/select";
+import { getOrderDeadline } from "../lib/holidays";
 import type { OrderFile, OrderItem } from "../types";
 
 export function NewOrder() {
@@ -27,6 +28,11 @@ export function NewOrder() {
 
   const [title, setTitle] = useState("");
   const [items, setItems] = useState<OrderItem[]>([]);
+  const [deadline, setDeadline] = useState(""); // yyyy-mm-dd
+  const suggestedDeadline = useMemo(() => {
+    const d = getOrderDeadline(new Date().toISOString());
+    return d.toISOString().slice(0, 10);
+  }, []);
   const [showItemForm, setShowItemForm] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState("");
   const [quantity, setQuantity] = useState("");
@@ -111,6 +117,9 @@ export function NewOrder() {
     if (items.length === 0) { toast.error("Adicione pelo menos um item."); return; }
 
     const nextId = `ORD-${String(orders.length + 1).padStart(3, "0")}`;
+    const deadlineISO = deadline
+      ? new Date(`${deadline}T18:00:00`).toISOString()
+      : undefined;
     addOrder({
       tenantSlug: tenant.slug,
       tenantName: tenant.name,
@@ -120,6 +129,7 @@ export function NewOrder() {
       notes: [],
       requestedBy: user?.name ?? "Usuário",
       files,
+      deadline: deadlineISO,
     });
     addLog({
       action: "pedido_criado",
@@ -177,7 +187,7 @@ export function NewOrder() {
         </div>
       </div>
 
-      {/* Title */}
+      {/* Title + deadline */}
       <Card>
         <CardHeader><CardTitle>Identificação</CardTitle></CardHeader>
         <CardContent className="space-y-3">
@@ -189,6 +199,33 @@ export function NewOrder() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
             />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="deadline" className="flex items-center gap-1.5">
+              <CalendarClock className="h-3.5 w-3.5 text-primary" />
+              Data de entrega prometida
+              <span className="text-xs text-muted-foreground font-normal ml-1">— opcional</span>
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                id="deadline"
+                type="date"
+                value={deadline}
+                min={new Date().toISOString().slice(0, 10)}
+                onChange={(e) => setDeadline(e.target.value)}
+                className="flex-1"
+              />
+              {deadline && (
+                <Button variant="ghost" size="icon-sm" onClick={() => setDeadline("")} aria-label="Limpar prazo">
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              {deadline
+                ? `Pedido será marcado como em atraso após ${new Date(`${deadline}T00:00:00`).toLocaleDateString("pt-BR")}.`
+                : `Sem data, usaremos o cálculo automático: 7 dias úteis (sugestão: ${new Date(`${suggestedDeadline}T00:00:00`).toLocaleDateString("pt-BR")}).`}
+            </p>
           </div>
         </CardContent>
       </Card>

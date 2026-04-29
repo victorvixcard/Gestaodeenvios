@@ -106,5 +106,6 @@ export interface Order {
   assignedTo?: string;
   createdAt: string;
   updatedAt: string;
+  deadline?: string; // ISO — data de entrega prometida (sobrescreve o cálculo automático de 7 dias úteis)
   files?: OrderFile[];
 }

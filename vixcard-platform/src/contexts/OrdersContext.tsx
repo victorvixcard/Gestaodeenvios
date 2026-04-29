@@ -1,10 +1,11 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 import type { Order, OrderStatus } from "../types";
 
 interface OrdersContextValue {
   orders: Order[];
-  addOrder: (order: Omit<Order, "id" | "createdAt" | "updatedAt" | "events">) => void;
+  addOrder: (order: Omit<Order, "id" | "createdAt" | "updatedAt" | "events">) => string;
   updateStatus: (id: string, status: OrderStatus, reason?: string, author?: string) => void;
+  updateDeadline: (id: string, deadline: string | undefined, author?: string) => void;
   addNote: (orderId: string, content: string, authorName: string, authorRole: import("../types").UserRole) => void;
   getOrder: (id: string) => Order | undefined;
 }
@@ -16,6 +17,12 @@ const yesterday = new Date(Date.now() - 86400000).toISOString();
 const twoDaysAgo = new Date(Date.now() - 2 * 86400000).toISOString();
 const fifteenDaysAgo = new Date(Date.now() - 15 * 86400000).toISOString();
 const tenDaysAgo = new Date(Date.now() - 10 * 86400000).toISOString();
+
+function addDays(iso: string, days: number): string {
+  const d = new Date(iso);
+  d.setDate(d.getDate() + days);
+  return d.toISOString();
+}
 
 const INITIAL_ORDERS: Order[] = [
   {
@@ -38,6 +45,7 @@ const INITIAL_ORDERS: Order[] = [
     assignedTo: "Victor Vixcard",
     createdAt: twoDaysAgo,
     updatedAt: yesterday,
+    deadline: addDays(twoDaysAgo, 10),
   },
   {
     id: "ORD-002",
@@ -55,6 +63,7 @@ const INITIAL_ORDERS: Order[] = [
     requestedBy: "Carlos Operador",
     createdAt: now,
     updatedAt: now,
+    deadline: addDays(now, 12),
   },
   {
     id: "ORD-003",
@@ -74,6 +83,7 @@ const INITIAL_ORDERS: Order[] = [
     requestedBy: "Ana Medsenior",
     createdAt: twoDaysAgo,
     updatedAt: yesterday,
+    deadline: addDays(twoDaysAgo, 7),
   },
   {
     id: "ORD-004",
@@ -112,6 +122,7 @@ const INITIAL_ORDERS: Order[] = [
     requestedBy: "Admin Unimed",
     createdAt: twoDaysAgo,
     updatedAt: now,
+    deadline: addDays(twoDaysAgo, 9),
   },
   {
     id: "ORD-006",
@@ -132,6 +143,7 @@ const INITIAL_ORDERS: Order[] = [
     assignedTo: "Victor Vixcard",
     createdAt: fifteenDaysAgo,
     updatedAt: tenDaysAgo,
+    deadline: addDays(fifteenDaysAgo, 7),
   },
   {
     id: "ORD-007",
@@ -152,29 +164,56 @@ const INITIAL_ORDERS: Order[] = [
     requestedBy: "Ana Medsenior",
     createdAt: now,
     updatedAt: now,
+    deadline: addDays(now, 20),
   },
 ];
 
+const STORAGE_KEY = "vixcard_orders";
+
+function loadOrders(): Order[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return INITIAL_ORDERS;
+    const parsed = JSON.parse(raw) as Order[];
+    if (!Array.isArray(parsed) || parsed.length === 0) return INITIAL_ORDERS;
+    return parsed;
+  } catch {
+    return INITIAL_ORDERS;
+  }
+}
+
 export function OrdersProvider({ children }: { children: ReactNode }) {
-  const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
+  const [orders, setOrders] = useState<Order[]>(() => loadOrders());
+
+  useEffect(() => {
+    // Strip blob: file URLs (não persistem entre reloads)
+    const persistable = orders.map((o) => ({
+      ...o,
+      files: o.files?.filter((f) => !f.url.startsWith("blob:")) ?? [],
+    }));
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(persistable)); } catch { /* quota */ }
+  }, [orders]);
 
   const addOrder = (order: Omit<Order, "id" | "createdAt" | "updatedAt" | "events">) => {
+    const id = `ORD-${String(orders.length + 1).padStart(3, "0")}`;
+    const createdAt = new Date().toISOString();
     const newOrder: Order = {
       ...order,
-      id: `ORD-${String(orders.length + 1).padStart(3, "0")}`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      id,
+      createdAt,
+      updatedAt: createdAt,
       events: [
         {
           id: `e-${Date.now()}`,
           type: "created",
           description: "Pedido criado",
           authorName: order.requestedBy,
-          createdAt: new Date().toISOString(),
+          createdAt,
         },
       ],
     };
     setOrders((prev) => [newOrder, ...prev]);
+    return id;
   };
 
   const updateStatus = (id: string, status: OrderStatus, reason?: string, author = "Sistema") => {
@@ -193,6 +232,29 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
           ...o,
           status,
           cancelReason: status === "cancelled" ? reason : o.cancelReason,
+          updatedAt: new Date().toISOString(),
+          events: [...o.events, event],
+        };
+      })
+    );
+  };
+
+  const updateDeadline = (id: string, deadline: string | undefined, author = "Sistema") => {
+    setOrders((prev) =>
+      prev.map((o) => {
+        if (o.id !== id) return o;
+        const event = {
+          id: `e-${Date.now()}`,
+          type: "status_change" as const,
+          description: deadline
+            ? `Prazo de entrega ajustado para ${new Date(deadline).toLocaleDateString("pt-BR")}`
+            : "Prazo de entrega removido (volta ao cálculo automático)",
+          authorName: author,
+          createdAt: new Date().toISOString(),
+        };
+        return {
+          ...o,
+          deadline,
           updatedAt: new Date().toISOString(),
           events: [...o.events, event],
         };
@@ -231,7 +293,7 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
   const getOrder = (id: string) => orders.find((o) => o.id === id);
 
   return (
-    <OrdersContext.Provider value={{ orders, addOrder, updateStatus, addNote, getOrder }}>
+    <OrdersContext.Provider value={{ orders, addOrder, updateStatus, updateDeadline, addNote, getOrder }}>
       {children}
     </OrdersContext.Provider>
   );

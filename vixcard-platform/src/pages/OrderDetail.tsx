@@ -4,14 +4,17 @@ import { motion } from "framer-motion";
 import {
   ArrowLeft, Play, CheckCircle2, Wrench, PackageCheck,
   XCircle, MessageSquarePlus, Send, Download, FileText, FileImage, File as FileIcon, Paperclip,
+  CalendarClock, Pencil, Check, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 import { useOrders } from "../contexts/OrdersContext";
 import { useLog } from "../contexts/LogsContext";
 import { StatusBadge } from "../components/shared/StatusBadge";
+import { DeadlineChip } from "../components/shared/DeadlineChip";
 import { OrderTimeline } from "../components/shared/OrderTimeline";
 import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
 import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/card";
 import { Separator } from "../components/ui/separator";
@@ -32,12 +35,14 @@ const STAGE_ORDER = ["pending", "started", "production", "finishing", "done"];
 export function OrderDetail() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
-  const { getOrder, updateStatus, addNote } = useOrders();
+  const { getOrder, updateStatus, updateDeadline, addNote } = useOrders();
   const { addLog } = useLog();
   const navigate = useNavigate();
   const [note, setNote] = useState("");
   const [cancelReason, setCancelReason] = useState("");
   const [showCancelForm, setShowCancelForm] = useState(false);
+  const [editingDeadline, setEditingDeadline] = useState(false);
+  const [deadlineDraft, setDeadlineDraft] = useState("");
 
   const order = getOrder(id!);
   if (!order) {
@@ -82,6 +87,31 @@ export function OrderDetail() {
     setShowCancelForm(false);
     setCancelReason("");
     toast.success("Pedido cancelado.");
+  };
+
+  const startEditDeadline = () => {
+    const current = order.deadline ? order.deadline.slice(0, 10) : "";
+    setDeadlineDraft(current);
+    setEditingDeadline(true);
+  };
+
+  const saveDeadline = () => {
+    const newDeadline = deadlineDraft
+      ? new Date(`${deadlineDraft}T18:00:00`).toISOString()
+      : undefined;
+    updateDeadline(order.id, newDeadline, user?.name);
+    addLog({
+      ...actor,
+      action: "pedido_status",
+      entityType: "Pedido",
+      entityId: order.id,
+      entityName: order.title,
+      details: newDeadline
+        ? `Prazo de entrega ajustado para ${new Date(newDeadline).toLocaleDateString("pt-BR")}`
+        : "Prazo de entrega removido (volta para cálculo automático)",
+    });
+    setEditingDeadline(false);
+    toast.success("Prazo atualizado.");
   };
 
   const handleAddNote = () => {
@@ -363,6 +393,71 @@ export function OrderDetail() {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Atualizado</span>
                 <span className="font-medium">{formatDate(order.updatedAt)}</span>
+              </div>
+
+              {/* Deadline */}
+              <Separator />
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-muted-foreground">
+                    <CalendarClock className="h-3.5 w-3.5" />
+                    Prazo de entrega
+                  </span>
+                  {isSuperAdmin && !isCancelled && !isDone && !editingDeadline && (
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="h-6 w-6"
+                      onClick={startEditDeadline}
+                      aria-label="Editar prazo"
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+
+                {!editingDeadline ? (
+                  <div className="space-y-1.5">
+                    <DeadlineChip
+                      createdAt={order.createdAt}
+                      orderStatus={order.status}
+                      deadline={order.deadline}
+                      showDays
+                    />
+                    {!order.deadline && !isCancelled && !isDone && (
+                      <p className="text-[10px] text-muted-foreground/70 italic">
+                        Calculado automaticamente (7 dias úteis)
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Input
+                      type="date"
+                      value={deadlineDraft}
+                      onChange={(e) => setDeadlineDraft(e.target.value)}
+                      className="h-8 text-xs"
+                    />
+                    <div className="flex gap-1.5">
+                      <Button size="sm" variant="brand" onClick={saveDeadline} className="h-7 px-2 text-xs flex-1">
+                        <Check className="h-3 w-3" />
+                        Salvar
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setEditingDeadline(false)} className="h-7 px-2 text-xs">
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    {deadlineDraft && order.deadline && (
+                      <button
+                        type="button"
+                        className="text-[10px] text-destructive hover:underline"
+                        onClick={() => setDeadlineDraft("")}
+                      >
+                        Limpar (voltar ao automático)
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

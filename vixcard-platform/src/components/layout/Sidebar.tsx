@@ -5,6 +5,7 @@ import {
   LayoutDashboard, ShoppingCart, Package, Users,
   LogOut, ChevronRight, X, Shield, Building2,
   FolderOpen, ChevronDown, ClipboardList, BarChart3,
+  UserCircle2,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTenant } from "../../contexts/TenantContext";
@@ -198,7 +199,16 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       </nav>
 
       {/* Footer */}
-      <div className="p-3 border-t border-sidebar-border">
+      <div className="p-3 border-t border-sidebar-border space-y-0.5">
+        <NavLink to={`/${tenant.slug}/perfil`} onClick={onClose} className={navLinkClass}>
+          {({ isActive }) => (
+            <>
+              <UserCircle2 className={cn("h-4 w-4 flex-shrink-0", isActive && "text-sidebar-primary")} />
+              <span>Meu Perfil</span>
+              {isActive && <ChevronRight className="ml-auto h-3.5 w-3.5 text-sidebar-primary/70" />}
+            </>
+          )}
+        </NavLink>
         <button
           onClick={handleLogout}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground/60 hover:bg-destructive/10 hover:text-destructive transition-colors"

@@ -7,6 +7,7 @@ interface AuthContextValue {
   login: (email: string, password: string, tenantSlug: string) => Promise<boolean>;
   logout: () => void;
   updateAvatar: (url: string) => void;
+  updateProfile: (updates: Partial<Pick<User, "name" | "email">>) => void;
   isAuthenticated: boolean;
 }
 
@@ -51,8 +52,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const updateProfile = (updates: Partial<Pick<User, "name" | "email">>) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const merged: User = { ...prev, ...updates };
+      if (updates.name) {
+        merged.avatarInitials = updates.name
+          .split(" ")
+          .filter(Boolean)
+          .map((w) => w[0])
+          .slice(0, 2)
+          .join("")
+          .toUpperCase();
+      }
+      localStorage.setItem("vixcard_user", JSON.stringify(merged));
+      return merged;
+    });
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, updateAvatar, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, login, logout, updateAvatar, updateProfile, isAuthenticated: !!user }}>
       {children}
     </AuthContext.Provider>
   );
