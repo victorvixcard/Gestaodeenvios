@@ -16,7 +16,9 @@ return new class extends Migration
             $table->string('category');
             $table->string('image_url')->nullable();
             $table->string('video_url')->nullable();
+            $table->decimal('price', 10, 2)->nullable();
             $table->integer('stock')->default(0);
+            $table->json('variations')->nullable();
             $table->boolean('active')->default(true);
             $table->timestamps();
         });

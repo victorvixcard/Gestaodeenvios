@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   Plus, Package, Search, Video, Pencil,
-  Power, PowerOff, Boxes, TrendingDown, TrendingUp,
+  Power, PowerOff, Boxes, TrendingDown, TrendingUp, Trash2, Settings2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
@@ -17,18 +17,20 @@ import { Separator } from "../components/ui/separator";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "../components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "../components/ui/select";
 import { Textarea } from "../components/ui/textarea";
 import { cn } from "../lib/utils";
 import { AvatarUpload } from "../components/shared/AvatarUpload";
-import type { Product } from "../types";
+import type { Product, ProductVariation, VariationOption } from "../types";
 
 const CATEGORIES = ["Cartões", "Carnês", "Etiquetas", "Impressão", "Serviços", "Outros"];
 
 const EMPTY_FORM = {
   name: "", description: "", category: "Cartões", price: 0, stock: 0, imageUrl: "", videoUrl: "", active: true,
+  variations: [] as ProductVariation[],
 };
 
 function StockBadge({ stock }: { stock: number }) {
@@ -80,6 +82,7 @@ export function Products() {
       videoUrl: product.videoUrl ?? "",
       price: product.price ?? 0,
       active: product.active,
+      variations: product.variations ?? [],
     });
     setEditId(product.id);
     setDialog("edit");
@@ -93,6 +96,7 @@ export function Products() {
         name: form.name, description: form.description, category: form.category,
         price: Number(form.price), stock: Number(form.stock),
         imageUrl: form.imageUrl || undefined, videoUrl: form.videoUrl || undefined, active: form.active,
+        variations: form.variations.length > 0 ? form.variations : undefined,
       });
       addLog({
         action: "produto_criado", entityType: "Produto", entityId: `new-${Date.now()}`, entityName: form.name,
@@ -106,6 +110,7 @@ export function Products() {
         name: form.name, description: form.description, category: form.category,
         price: Number(form.price), stock: Number(form.stock),
         imageUrl: form.imageUrl || undefined, videoUrl: form.videoUrl || undefined, active: form.active,
+        variations: form.variations.length > 0 ? form.variations : undefined,
       });
       addLog({
         action: "produto_atualizado", entityType: "Produto", entityId: editId, entityName: form.name,
@@ -127,6 +132,50 @@ export function Products() {
     });
     toast.success(product.active ? "Produto desativado." : "Produto ativado.");
   };
+
+  // ── Variation helpers ─────────────────────────────────────────────────────────
+  const addVariation = () =>
+    setForm((f) => ({
+      ...f,
+      variations: [...f.variations, { id: `v-${Date.now()}`, name: "", required: false, options: [] }],
+    }));
+
+  const removeVariation = (vi: number) =>
+    setForm((f) => ({ ...f, variations: f.variations.filter((_, i) => i !== vi) }));
+
+  const updateVariation = (vi: number, updates: Partial<ProductVariation>) =>
+    setForm((f) => ({
+      ...f,
+      variations: f.variations.map((v, i) => (i === vi ? { ...v, ...updates } : v)),
+    }));
+
+  const addOption = (vi: number) =>
+    setForm((f) => ({
+      ...f,
+      variations: f.variations.map((v, i) =>
+        i === vi
+          ? { ...v, options: [...v.options, { id: `o-${Date.now()}-${vi}`, label: "" }] }
+          : v
+      ),
+    }));
+
+  const removeOption = (vi: number, oi: number) =>
+    setForm((f) => ({
+      ...f,
+      variations: f.variations.map((v, i) =>
+        i === vi ? { ...v, options: v.options.filter((_, j) => j !== oi) } : v
+      ),
+    }));
+
+  const updateOption = (vi: number, oi: number, updates: Partial<VariationOption>) =>
+    setForm((f) => ({
+      ...f,
+      variations: f.variations.map((v, i) =>
+        i === vi
+          ? { ...v, options: v.options.map((o, j) => (j === oi ? { ...o, ...updates } : o)) }
+          : v
+      ),
+    }));
 
   const allCategories = ["Todos", ...CATEGORIES];
 
@@ -221,13 +270,18 @@ export function Products() {
                   ) : (
                     <Package className="h-12 w-12 text-muted-foreground/20" />
                   )}
-                  <div className="absolute top-2 left-2 flex gap-1">
+                  <div className="absolute top-2 left-2 flex gap-1 flex-wrap">
                     <Badge variant="muted" className="text-[10px] bg-black/40 text-white border-0">
                       {product.category}
                     </Badge>
                     {product.videoUrl && (
                       <Badge className="text-[10px] bg-accent text-accent-foreground border-0">
                         <Video className="h-2.5 w-2.5 mr-1" />POP
+                      </Badge>
+                    )}
+                    {product.variations && product.variations.length > 0 && (
+                      <Badge className="text-[10px] bg-primary/80 text-white border-0">
+                        <Settings2 className="h-2.5 w-2.5 mr-1" />{product.variations.length} var.
                       </Badge>
                     )}
                   </div>
@@ -287,111 +341,264 @@ export function Products() {
 
       {/* Dialog */}
       <Dialog open={!!dialog} onOpenChange={(v) => !v && setDialog(null)}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="max-w-xl max-h-[90vh] flex flex-col overflow-hidden p-0">
+          <DialogHeader className="px-6 pt-6 pb-0 flex-shrink-0">
             <DialogTitle>{dialog === "create" ? "Novo Produto" : "Editar Produto"}</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4 py-2">
-            <div className="grid sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label>Nome *</Label>
-                <Input
-                  placeholder="Ex: Cartão PVC Personalizado"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Categoria</Label>
-                <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Preço unitário (R$)</Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
+          <Tabs defaultValue="geral" className="flex flex-col flex-1 min-h-0">
+            {/* Tab list */}
+            <div className="px-6 pt-3 flex-shrink-0 border-b border-border">
+              <TabsList className="h-9 gap-0 bg-transparent p-0 w-auto">
+                <TabsTrigger
+                  value="geral"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 text-sm font-medium"
+                >
+                  Geral
+                </TabsTrigger>
+                <TabsTrigger
+                  value="variacoes"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 text-sm font-medium flex items-center gap-1.5"
+                >
+                  <Settings2 className="h-3.5 w-3.5" />
+                  Variações
+                  {form.variations.length > 0 && (
+                    <span className="ml-1 bg-primary text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center leading-none">
+                      {form.variations.length}
+                    </span>
+                  )}
+                </TabsTrigger>
+              </TabsList>
+            </div>
+
+            {/* ── ABA GERAL ─────────────────────────────────────────── */}
+            <TabsContent value="geral" className="flex-1 overflow-y-auto px-6 py-4 mt-0 space-y-4">
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label>Nome *</Label>
                   <Input
-                    type="number"
-                    min={0}
-                    step={0.01}
-                    placeholder="0,00"
-                    className="pl-9"
-                    value={form.price}
-                    onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
+                    placeholder="Ex: Cartão PVC Personalizado"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Categoria</Label>
+                  <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Preço unitário (R$)</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
+                    <Input
+                      type="number" min={0} step={0.01} placeholder="0,00" className="pl-9"
+                      value={form.price}
+                      onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Estoque inicial</Label>
+                  <Input
+                    type="number" placeholder="0"
+                    value={form.stock}
+                    onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })}
+                  />
+                  <p className="text-[10px] text-muted-foreground">Pode ser negativo (em produção)</p>
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label>Descrição</Label>
+                  <Textarea
+                    placeholder="Descreva o produto..." rows={2}
+                    value={form.description}
+                    onChange={(e) => setForm({ ...form, description: e.target.value })}
                   />
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <Label>Estoque inicial</Label>
-                <Input
-                  type="number"
-                  placeholder="0"
-                  value={form.stock}
-                  onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })}
-                />
-                <p className="text-[10px] text-muted-foreground">Pode ser negativo (em produção)</p>
-              </div>
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label>Descrição</Label>
-                <Textarea
-                  placeholder="Descreva o produto..."
-                  rows={2}
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                />
-              </div>
-            </div>
 
-            {/* Photo upload */}
-            <div className="space-y-2">
-              <Label>Foto de referência</Label>
-              <div className="flex items-center gap-4">
-                <AvatarUpload
-                  size="lg"
-                  shape="rect"
-                  aspect={4 / 3}
-                  currentUrl={form.imageUrl || undefined}
-                  initials={form.name ? form.name.substring(0, 2).toUpperCase() : "PR"}
-                  title="Foto do produto"
-                  hint="JPG, PNG, WEBP ou HEIC — qualquer formato."
-                  onSave={(url) => setForm((f) => ({ ...f, imageUrl: url }))}
-                />
-                <div className="text-xs text-muted-foreground space-y-0.5">
-                  <p className="font-medium text-foreground">Clique na imagem para selecionar</p>
-                  <p>Suporta JPG, PNG, WEBP e HEIC (iPhone).</p>
-                  {form.imageUrl && (
-                    <button
-                      type="button"
-                      className="text-destructive hover:underline"
-                      onClick={() => setForm((f) => ({ ...f, imageUrl: "" }))}
-                    >
-                      Remover foto
-                    </button>
-                  )}
+              <div className="space-y-2">
+                <Label>Foto de referência</Label>
+                <div className="flex items-center gap-4">
+                  <AvatarUpload
+                    size="lg" shape="rect" aspect={4 / 3}
+                    currentUrl={form.imageUrl || undefined}
+                    initials={form.name ? form.name.substring(0, 2).toUpperCase() : "PR"}
+                    title="Foto do produto" hint="JPG, PNG, WEBP ou HEIC — qualquer formato."
+                    onSave={(url) => setForm((f) => ({ ...f, imageUrl: url }))}
+                  />
+                  <div className="text-xs text-muted-foreground space-y-0.5">
+                    <p className="font-medium text-foreground">Clique na imagem para selecionar</p>
+                    <p>Suporta JPG, PNG, WEBP e HEIC (iPhone).</p>
+                    {form.imageUrl && (
+                      <button type="button" className="text-destructive hover:underline"
+                        onClick={() => setForm((f) => ({ ...f, imageUrl: "" }))}>
+                        Remover foto
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Video URL */}
-            <div className="space-y-1.5">
-              <Label className="flex items-center gap-1.5">
-                <Video className="h-3.5 w-3.5" />
-                URL do vídeo POP (opcional)
-              </Label>
-              <Input
-                placeholder="https://youtube.com/..."
-                value={form.videoUrl}
-                onChange={(e) => setForm({ ...form, videoUrl: e.target.value })}
-              />
-            </div>
-          </div>
+              <div className="space-y-1.5">
+                <Label className="flex items-center gap-1.5">
+                  <Video className="h-3.5 w-3.5" />
+                  URL do vídeo POP (opcional)
+                </Label>
+                <Input
+                  placeholder="https://youtube.com/..."
+                  value={form.videoUrl}
+                  onChange={(e) => setForm({ ...form, videoUrl: e.target.value })}
+                />
+              </div>
+            </TabsContent>
 
-          <DialogFooter className="gap-2">
+            {/* ── ABA VARIAÇÕES ─────────────────────────────────────── */}
+            <TabsContent value="variacoes" className="flex-1 overflow-y-auto px-6 py-4 mt-0">
+              <div className="space-y-3">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold">Grupos de variação</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Ex: Laminação, Chip, Furo, Tarja — cada grupo tem suas opções.
+                    </p>
+                  </div>
+                  <Button type="button" variant="brand" size="sm" className="h-8 px-3 text-xs gap-1.5 flex-shrink-0" onClick={addVariation}>
+                    <Plus className="h-3.5 w-3.5" />
+                    Novo grupo
+                  </Button>
+                </div>
+
+                {/* Empty state */}
+                {form.variations.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-10 gap-3 rounded-xl border border-dashed border-border text-center">
+                    <Settings2 className="h-8 w-8 text-muted-foreground/30" />
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Nenhuma variação configurada</p>
+                      <p className="text-xs text-muted-foreground/60 mt-0.5">
+                        Clique em "Novo grupo" para adicionar
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Variation groups */}
+                {form.variations.map((variation, vi) => (
+                  <div key={variation.id} className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+                    {/* Group header bar */}
+                    <div className="flex items-center gap-2 px-4 py-3 bg-muted/40 border-b border-border">
+                      <Input
+                        className="flex-1 h-8 font-semibold text-sm bg-transparent border-0 px-0 shadow-none focus-visible:ring-0 placeholder:font-normal"
+                        placeholder="Nome do grupo (ex: Laminação)"
+                        value={variation.name}
+                        onChange={(e) => updateVariation(vi, { name: e.target.value })}
+                      />
+                      <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer whitespace-nowrap select-none">
+                        <input
+                          type="checkbox"
+                          checked={variation.required}
+                          onChange={(e) => updateVariation(vi, { required: e.target.checked })}
+                          className="h-3.5 w-3.5 accent-primary"
+                        />
+                        Obrigatório
+                      </label>
+                      <Button
+                        type="button" variant="ghost" size="icon-sm"
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 flex-shrink-0"
+                        onClick={() => removeVariation(vi)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+
+                    {/* Options list */}
+                    <div className="p-3 space-y-2">
+                      {variation.options.length === 0 && (
+                        <p className="text-xs text-muted-foreground/60 text-center py-2">
+                          Nenhuma opção ainda — clique em "+ Adicionar opção"
+                        </p>
+                      )}
+
+                      {variation.options.map((opt, oi) => (
+                        <div key={opt.id} className="space-y-1.5">
+                          {/* Option row — visual de checkbox + nome + toggle especificar */}
+                          <div className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2">
+                            {/* Checkbox decorativo (preview de como vai aparecer) */}
+                            <div className="h-4 w-4 rounded border-2 border-border bg-muted flex-shrink-0" />
+
+                            <Input
+                              className="flex-1 h-7 text-sm bg-transparent border-0 px-0 shadow-none focus-visible:ring-0"
+                              placeholder="Nome da opção (ex: Fosca)"
+                              value={opt.label}
+                              onChange={(e) => updateOption(vi, oi, { label: e.target.value })}
+                            />
+
+                            <label className="flex items-center gap-1.5 text-xs cursor-pointer whitespace-nowrap select-none shrink-0"
+                              title="Ao marcar esta opção no pedido, abre um campo para o usuário digitar">
+                              <input
+                                type="checkbox"
+                                checked={!!opt.requiresText}
+                                onChange={(e) => updateOption(vi, oi, {
+                                  requiresText: e.target.checked,
+                                  textPlaceholder: e.target.checked ? (opt.textPlaceholder ?? "") : undefined,
+                                })}
+                                className="h-3.5 w-3.5 accent-primary"
+                              />
+                              <span className={opt.requiresText ? "text-primary font-medium" : "text-muted-foreground"}>
+                                Especificar
+                              </span>
+                            </label>
+
+                            <Button
+                              type="button" variant="ghost" size="icon-sm"
+                              className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 flex-shrink-0"
+                              onClick={() => removeOption(vi, oi)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+
+                          {/* Campo de placeholder — aparece quando "Especificar" está marcado */}
+                          {opt.requiresText && (
+                            <div className="ml-8 flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
+                              <div className="w-0.5 h-full bg-primary/30 rounded-full self-stretch" />
+                              <div className="flex-1 space-y-1">
+                                <p className="text-[10px] text-primary font-medium">
+                                  Texto de ajuda para o campo livre:
+                                </p>
+                                <Input
+                                  className="h-7 text-xs bg-white"
+                                  placeholder='Ex: "Informe a frequência do chip"'
+                                  value={opt.textPlaceholder ?? ""}
+                                  onChange={(e) => updateOption(vi, oi, { textPlaceholder: e.target.value })}
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+
+                      <Button
+                        type="button" variant="ghost" size="sm"
+                        className="h-8 w-full text-xs text-muted-foreground border border-dashed border-border hover:bg-muted/50 rounded-lg mt-1"
+                        onClick={() => addOption(vi)}
+                      >
+                        <Plus className="h-3 w-3" />
+                        Adicionar opção
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          <DialogFooter className="px-6 py-4 border-t border-border flex-shrink-0 gap-2">
             <Button variant="ghost" onClick={() => setDialog(null)}>Cancelar</Button>
             <Button variant="brand" onClick={handleSave}>
               {dialog === "create" ? "Cadastrar Produto" : "Salvar Alterações"}

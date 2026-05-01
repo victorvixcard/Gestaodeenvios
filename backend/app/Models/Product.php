@@ -9,12 +9,14 @@ class Product extends Model
 {
     protected $fillable = [
         'code', 'name', 'description', 'category',
-        'image_url', 'video_url', 'stock', 'active',
+        'image_url', 'video_url', 'price', 'stock', 'variations', 'active',
     ];
 
     protected $casts = [
-        'active' => 'boolean',
-        'stock'  => 'integer',
+        'active'     => 'boolean',
+        'stock'      => 'integer',
+        'price'      => 'decimal:2',
+        'variations' => 'array',
     ];
 
     public function companies(): BelongsToMany

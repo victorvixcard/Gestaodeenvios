@@ -16,7 +16,8 @@ import { Separator } from "../components/ui/separator";
 import {
   Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue,
 } from "../components/ui/select";
-import type { OrderFile, OrderItem } from "../types";
+import { cn } from "../lib/utils";
+import type { OrderFile, OrderItem, SelectedVariation } from "../types";
 
 export function NewOrder() {
   const { user } = useAuth();
@@ -31,6 +32,7 @@ export function NewOrder() {
   const [selectedProduct, setSelectedProduct] = useState("");
   const [quantity, setQuantity] = useState("");
   const [specifications, setSpecifications] = useState("");
+  const [selectedVariations, setSelectedVariations] = useState<Record<string, { optionId: string; extraText: string }>>({});
   const [files, setFiles] = useState<OrderFile[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -70,6 +72,7 @@ export function NewOrder() {
     setSelectedProduct("");
     setQuantity("");
     setSpecifications("");
+    setSelectedVariations({});
     setShowItemForm(true);
   };
 
@@ -78,6 +81,7 @@ export function NewOrder() {
     setSelectedProduct("");
     setQuantity("");
     setSpecifications("");
+    setSelectedVariations({});
   };
 
   const incluirItem = () => {
@@ -87,6 +91,29 @@ export function NewOrder() {
     }
     const product = tenant.products.find((p) => p.id === selectedProduct);
     if (!product) return;
+
+    const missingRequired = (product.variations ?? []).filter(
+      (v) => v.required && !selectedVariations[v.id]?.optionId
+    );
+    if (missingRequired.length > 0) {
+      toast.error(`Selecione: ${missingRequired.map((v) => v.name).join(", ")}`);
+      return;
+    }
+
+    const variationsList: SelectedVariation[] = Object.entries(selectedVariations)
+      .filter(([, sel]) => sel.optionId)
+      .map(([varId, sel]) => {
+        const variation = product.variations?.find((v) => v.id === varId);
+        const option = variation?.options.find((o) => o.id === sel.optionId);
+        return {
+          variationId: varId,
+          variationName: variation?.name ?? "",
+          optionId: sel.optionId,
+          optionLabel: option?.label ?? "",
+          extraText: sel.extraText || undefined,
+        };
+      });
+
     setItems((prev) => [
       ...prev,
       {
@@ -94,12 +121,14 @@ export function NewOrder() {
         productName: product.name,
         quantity: parseInt(quantity),
         specifications,
+        selectedVariations: variationsList.length > 0 ? variationsList : undefined,
       },
     ]);
     setShowItemForm(false);
     setSelectedProduct("");
     setQuantity("");
     setSpecifications("");
+    setSelectedVariations({});
   };
 
   const removeItem = (index: number) => {
@@ -209,10 +238,15 @@ export function NewOrder() {
                 >
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold">{item.productName}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                       <Badge variant="default" className="text-[11px]">
                         {item.quantity.toLocaleString("pt-BR")} un
                       </Badge>
+                      {item.selectedVariations?.map((sv) => (
+                        <span key={sv.variationId} className="text-[11px] text-muted-foreground">
+                          {sv.variationName}: <span className="font-medium text-foreground">{sv.optionLabel}{sv.extraText ? ` (${sv.extraText})` : ""}</span>
+                        </span>
+                      ))}
                       {item.specifications && (
                         <span className="text-xs text-muted-foreground truncate">{item.specifications}</span>
                       )}
@@ -297,6 +331,81 @@ export function NewOrder() {
                   </Select>
                 </div>
 
+                {/* Variation selector — shown when selected product has variations */}
+                {(() => {
+                  const prod = tenant.products.find((p) => p.id === selectedProduct);
+                  if (!prod?.variations?.length) return null;
+                  return (
+                    <div className="space-y-4 rounded-xl border border-primary/20 bg-primary/3 p-4">
+                      <p className="text-[10px] font-semibold text-primary uppercase tracking-wide">
+                        Especificações do produto
+                      </p>
+                      {prod.variations.map((variation) => {
+                        const sel = selectedVariations[variation.id];
+                        return (
+                          <div key={variation.id} className="space-y-2">
+                            <p className="text-xs font-semibold text-foreground">
+                              {variation.name}
+                              {variation.required
+                                ? <span className="text-destructive ml-0.5">*</span>
+                                : <span className="text-muted-foreground font-normal ml-1">(opcional)</span>}
+                            </p>
+                            <div className="space-y-1.5">
+                              {variation.options.map((opt) => {
+                                const isChecked = sel?.optionId === opt.id;
+                                return (
+                                  <div key={opt.id} className="space-y-1.5">
+                                    {/* Checkbox row */}
+                                    <label className={cn(
+                                      "flex items-center gap-3 rounded-lg border px-3 py-2.5 cursor-pointer transition-all select-none",
+                                      isChecked
+                                        ? "border-primary/40 bg-primary/8 text-foreground"
+                                        : "border-border bg-background hover:bg-muted/50"
+                                    )}>
+                                      <input
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        onChange={() =>
+                                          setSelectedVariations((prev) => ({
+                                            ...prev,
+                                            [variation.id]: isChecked
+                                              ? { optionId: "", extraText: "" }
+                                              : { optionId: opt.id, extraText: "" },
+                                          }))
+                                        }
+                                        className="h-4 w-4 accent-primary flex-shrink-0"
+                                      />
+                                      <span className="text-sm">{opt.label}</span>
+                                    </label>
+
+                                    {/* Campo livre — aparece só quando marcado E requer texto */}
+                                    {isChecked && opt.requiresText && (
+                                      <div className="ml-7">
+                                        <Input
+                                          className="h-8 text-sm"
+                                          placeholder={opt.textPlaceholder ?? "Especifique..."}
+                                          value={sel?.extraText ?? ""}
+                                          autoFocus
+                                          onChange={(e) =>
+                                            setSelectedVariations((prev) => ({
+                                              ...prev,
+                                              [variation.id]: { ...prev[variation.id], extraText: e.target.value },
+                                            }))
+                                          }
+                                        />
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1.5">
                     <Label htmlFor="qty">Quantidade</Label>
@@ -310,10 +419,10 @@ export function NewOrder() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="specs">Especificações</Label>
+                    <Label htmlFor="specs">Observações</Label>
                     <Input
                       id="specs"
-                      placeholder="Ex: laminação fosca"
+                      placeholder="Ex: urgente, cor especial..."
                       value={specifications}
                       onChange={(e) => setSpecifications(e.target.value)}
                     />

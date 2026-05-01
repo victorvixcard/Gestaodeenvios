@@ -177,8 +177,20 @@ export function OrderDetail() {
               <div className="space-y-3">
                 {order.items.map((item, i) => (
                   <div key={i} className="flex items-start justify-between gap-3 p-3 rounded-lg bg-muted/40">
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold">{item.productName}</p>
+                      {item.selectedVariations && item.selectedVariations.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
+                          {item.selectedVariations.map((sv) => (
+                            <span key={sv.variationId} className="text-xs text-muted-foreground">
+                              {sv.variationName}:{" "}
+                              <span className="font-medium text-foreground">
+                                {sv.optionLabel}{sv.extraText ? ` (${sv.extraText})` : ""}
+                              </span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
                       {item.specifications && (
                         <p className="text-xs text-muted-foreground mt-0.5">{item.specifications}</p>
                       )}

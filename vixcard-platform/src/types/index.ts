@@ -37,6 +37,28 @@ export interface User {
   permissions: Permission[];
 }
 
+export interface VariationOption {
+  id: string;
+  label: string;
+  requiresText?: boolean;
+  textPlaceholder?: string;
+}
+
+export interface ProductVariation {
+  id: string;
+  name: string;
+  required: boolean;
+  options: VariationOption[];
+}
+
+export interface SelectedVariation {
+  variationId: string;
+  variationName: string;
+  optionId: string;
+  optionLabel: string;
+  extraText?: string;
+}
+
 export interface Product {
   id: string;
   code: string;
@@ -48,6 +70,7 @@ export interface Product {
   price?: number;
   stock: number;
   active: boolean;
+  variations?: ProductVariation[];
 }
 
 export interface Company {
@@ -66,6 +89,7 @@ export interface OrderItem {
   productName: string;
   quantity: number;
   specifications: string;
+  selectedVariations?: SelectedVariation[];
 }
 
 export interface OrderNote {
