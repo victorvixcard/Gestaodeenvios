@@ -7,8 +7,10 @@ import { Topbar } from "./Topbar";
 
 export function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
   const tenant = useTenant();
+
+  if (loading) return null;
 
   if (!isAuthenticated) {
     return <Navigate to={`/${tenant.slug}/login`} replace />;

@@ -9,6 +9,13 @@ interface TenantContextValue {
 const TenantContext = createContext<TenantContextValue | null>(null);
 
 export const TENANTS: Record<string, Tenant> = {
+  vixcard: {
+    slug: "vixcard",
+    name: "VIXCard — Admin",
+    logoColor: "#6366f1",
+    logoInitials: "VX",
+    products: [],
+  },
   sistemalegado: {
     slug: "sistemalegado",
     name: "VIXCard — Admin",

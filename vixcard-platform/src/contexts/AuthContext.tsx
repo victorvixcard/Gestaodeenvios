@@ -1,9 +1,11 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 import type { User, UserRole } from "../types";
-import { DEFAULT_PERMISSIONS } from "./DataContext";
+import { api, getToken, setToken, clearToken } from "../lib/api";
+import { mapUser } from "../lib/mappers";
 
 interface AuthContextValue {
   user: User | null;
+  loading: boolean;
   login: (email: string, password: string, tenantSlug: string) => Promise<boolean>;
   logout: () => void;
   updateAvatar: (url: string) => void;
@@ -12,47 +14,45 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-// Mock users for demo
-const MOCK_USERS: User[] = [
-  { id: "1", name: "Victor Vixcard",  email: "admin@vixcard.com.br",      role: "super_admin",  tenantSlug: "sistemalegado", avatarInitials: "VV", active: true, permissions: DEFAULT_PERMISSIONS.super_admin },
-  { id: "2", name: "Ana Medsenior",   email: "admin@medsenior.com.br",    role: "tenant_admin", tenantSlug: "medsenior",     avatarInitials: "AM", active: true, permissions: DEFAULT_PERMISSIONS.tenant_admin },
-  { id: "3", name: "Carlos Operador", email: "operador@medsenior.com.br", role: "operator",     tenantSlug: "medsenior",     avatarInitials: "CO", active: true, permissions: DEFAULT_PERMISSIONS.operator },
-];
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(() => {
-    const stored = localStorage.getItem("vixcard_user");
-    return stored ? JSON.parse(stored) : null;
-  });
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(!!getToken());
 
-  const login = async (email: string, _password: string, tenantSlug: string): Promise<boolean> => {
-    const found = MOCK_USERS.find(
-      (u) => u.email === email && u.tenantSlug === tenantSlug
-    );
-    if (found) {
-      setUser(found);
-      localStorage.setItem("vixcard_user", JSON.stringify(found));
+  useEffect(() => {
+    if (!getToken()) return;
+    api.get<Record<string, unknown>>('/me')
+      .then((data) => setUser(mapUser(data)))
+      .catch(() => clearToken())
+      .finally(() => setLoading(false));
+  }, []);
+
+  const login = async (email: string, password: string, tenantSlug: string): Promise<boolean> => {
+    try {
+      const data = await api.post<{ token: string; user: Record<string, unknown> }>('/login', {
+        email,
+        password,
+        tenant_slug: tenantSlug,
+      });
+      setToken(data.token);
+      setUser(mapUser(data.user));
       return true;
+    } catch {
+      return false;
     }
-    return false;
   };
 
   const logout = () => {
+    api.post('/logout', {}).catch(() => {});
+    clearToken();
     setUser(null);
-    localStorage.removeItem("vixcard_user");
   };
 
   const updateAvatar = (url: string) => {
-    setUser((prev) => {
-      if (!prev) return prev;
-      const updated = { ...prev, avatarUrl: url };
-      localStorage.setItem("vixcard_user", JSON.stringify(updated));
-      return updated;
-    });
+    setUser((prev) => (prev ? { ...prev, avatarUrl: url } : prev));
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, updateAvatar, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, updateAvatar, isAuthenticated: !!user }}>
       {children}
     </AuthContext.Provider>
   );

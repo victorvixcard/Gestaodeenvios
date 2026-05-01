@@ -5,6 +5,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { TenantProvider } from "./contexts/TenantContext";
 import { OrdersProvider } from "./contexts/OrdersContext";
 import { DataProvider } from "./contexts/DataContext";
+import { LogsProvider } from "./contexts/LogsContext";
 import { AppShell } from "./components/layout/AppShell";
 import { Login } from "./pages/Login";
 import { Dashboard } from "./pages/Dashboard";
@@ -17,7 +18,6 @@ import { Empresas } from "./pages/Empresas";
 import { EmpresaDetalhe } from "./pages/EmpresaDetalhe";
 import { Logs } from "./pages/Logs";
 import { Reports } from "./pages/Reports";
-import { LogsProvider } from "./contexts/LogsContext";
 
 function TenantRoutes() {
   return (
@@ -46,27 +46,27 @@ export default function App() {
   return (
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
       <BrowserRouter>
-        <LogsProvider>
-        <DataProvider>
         <AuthProvider>
-          <OrdersProvider>
-            <Routes>
-              <Route path="/" element={<Navigate to="/medsenior/login" replace />} />
-              <Route path="/:tenant/*" element={<TenantRoutes />} />
-              <Route path="/404" element={
-                <div className="min-h-screen flex items-center justify-center">
-                  <div className="text-center">
-                    <p className="font-display text-6xl font-extrabold text-primary/20">404</p>
-                    <p className="text-muted-foreground mt-2">Tenant não encontrado.</p>
-                  </div>
-                </div>
-              } />
-            </Routes>
-            <Toaster position="top-right" richColors closeButton />
-          </OrdersProvider>
+          <DataProvider>
+            <OrdersProvider>
+              <LogsProvider>
+                <Routes>
+                  <Route path="/" element={<Navigate to="/medsenior/login" replace />} />
+                  <Route path="/:tenant/*" element={<TenantRoutes />} />
+                  <Route path="/404" element={
+                    <div className="min-h-screen flex items-center justify-center">
+                      <div className="text-center">
+                        <p className="font-display text-6xl font-extrabold text-primary/20">404</p>
+                        <p className="text-muted-foreground mt-2">Tenant não encontrado.</p>
+                      </div>
+                    </div>
+                  } />
+                </Routes>
+                <Toaster position="top-right" richColors closeButton />
+              </LogsProvider>
+            </OrdersProvider>
+          </DataProvider>
         </AuthProvider>
-        </DataProvider>
-        </LogsProvider>
       </BrowserRouter>
     </ThemeProvider>
   );

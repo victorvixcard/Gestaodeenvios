@@ -62,7 +62,8 @@ class OrderController extends Controller
             'items.*.product_id'       => 'required|exists:products,id',
             'items.*.product_name'     => 'required|string',
             'items.*.quantity'         => 'required|integer|min:1',
-            'items.*.specifications'   => 'nullable|string',
+            'items.*.specifications'        => 'nullable|string',
+            'items.*.selected_variations'  => 'nullable|array',
         ]);
 
         $user  = $request->user();

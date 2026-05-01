@@ -32,8 +32,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     });
 
     // ── Produtos ───────────────────────────────────────────────────────────
+    Route::get('/products', [ProductController::class, 'index']); // todos podem listar
     Route::prefix('products')->middleware('role:super_admin,tenant_admin')->group(function () {
-        Route::get('/',         [ProductController::class, 'index']);
         Route::post('/',        [ProductController::class, 'store']);
         Route::put('/{id}',     [ProductController::class, 'update']);
         Route::delete('/{id}',  [ProductController::class, 'destroy']);

@@ -35,7 +35,11 @@ class ProductController extends Controller
             'name'        => 'required|string|max:255',
             'category'    => 'required|string|max:100',
             'description' => 'nullable|string',
-            'photo_url'   => 'nullable|url|max:500',
+            'image_url'   => 'nullable|max:2000',
+            'video_url'   => 'nullable|max:2000',
+            'price'       => 'nullable|numeric|min:0',
+            'stock'       => 'nullable|integer|min:0',
+            'variations'  => 'nullable|array',
         ]);
 
         $product = Product::create([
@@ -43,7 +47,11 @@ class ProductController extends Controller
             'code'        => Product::generateCode($request->category),
             'category'    => $request->category,
             'description' => $request->description,
-            'photo_url'   => $request->photo_url,
+            'image_url'   => $request->image_url,
+            'video_url'   => $request->video_url,
+            'price'       => $request->price,
+            'stock'       => $request->stock ?? 0,
+            'variations'  => $request->variations,
             'active'      => true,
         ]);
 
@@ -63,10 +71,18 @@ class ProductController extends Controller
             'name'        => 'sometimes|string|max:255',
             'category'    => 'sometimes|string|max:100',
             'description' => 'nullable|string',
-            'photo_url'   => 'nullable|url|max:500',
+            'image_url'   => 'nullable|max:2000',
+            'video_url'   => 'nullable|max:2000',
+            'price'       => 'nullable|numeric|min:0',
+            'stock'       => 'nullable|integer|min:0',
+            'variations'  => 'nullable|array',
+            'active'      => 'sometimes|boolean',
         ]);
 
-        $product->update($request->only(['name', 'category', 'description', 'photo_url']));
+        $product->update($request->only([
+            'name', 'category', 'description',
+            'image_url', 'video_url', 'price', 'stock', 'variations', 'active',
+        ]));
 
         AuditLog::record(
             'produto_atualizado', 'Produto', $product->id, $product->name,

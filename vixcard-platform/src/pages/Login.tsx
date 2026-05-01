@@ -42,7 +42,7 @@ export function Login() {
     }
   };
 
-  const isSuperAdmin = tenant.slug === "sistemalegado";
+  const isSuperAdmin = tenant.slug === "vixcard";
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
@@ -86,7 +86,7 @@ export function Login() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder={isSuperAdmin ? "admin@vixcard.com.br" : `admin@${tenant.slug}.com.br`}
+                  placeholder={isSuperAdmin ? "admin@vixcard.com.br" : `gerente@${tenant.slug}.com.br`}
                   autoComplete="email"
                   {...register("email")}
                   className={errors.email ? "border-destructive" : ""}
@@ -140,7 +140,7 @@ export function Login() {
             <div className="pt-2 border-t border-border/50">
               <p className="text-[11px] text-muted-foreground/60 text-center leading-relaxed">
                 <strong className="text-muted-foreground/80">Demo:</strong>{" "}
-                {isSuperAdmin ? "admin@vixcard.com.br" : `admin@${tenant.slug}.com.br`} / qualquer senha
+                {isSuperAdmin ? "admin@vixcard.com.br" : `gerente@${tenant.slug}.com.br`} / password
               </p>
             </div>
           </div>
