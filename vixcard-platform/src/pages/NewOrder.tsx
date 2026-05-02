@@ -5,6 +5,7 @@ import { ArrowLeft, Plus, Trash2, Upload, Send, Check, X, FileText, FileImage, F
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 import { useTenant } from "../contexts/TenantContext";
+import { useData } from "../contexts/DataContext";
 import { useOrders } from "../contexts/OrdersContext";
 import { useLog } from "../contexts/LogsContext";
 import { Button } from "../components/ui/button";
@@ -22,8 +23,16 @@ import type { OrderFile, OrderItem, SelectedVariation } from "../types";
 export function NewOrder() {
   const { user } = useAuth();
   const tenant = useTenant();
+  const { products: allProducts, companies } = useData();
   const { addOrder, orders } = useOrders();
   const { addLog } = useLog();
+
+  // Super-admin sees all products → filter by company's allowedProductIds.
+  // Other roles: backend already returns only allowed products for their company.
+  const company = companies.find((c) => c.slug === tenant.slug);
+  const allowedProducts = user?.role === 'super_admin'
+    ? allProducts.filter((p) => p.active && (company?.allowedProductIds ?? []).includes(p.id))
+    : allProducts.filter((p) => p.active);
   const navigate = useNavigate();
 
   const [title, setTitle] = useState("");
@@ -34,6 +43,7 @@ export function NewOrder() {
   const [specifications, setSpecifications] = useState("");
   const [selectedVariations, setSelectedVariations] = useState<Record<string, { optionId: string; extraText: string }>>({});
   const [files, setFiles] = useState<OrderFile[]>([]);
+  const [rawFiles, setRawFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -45,6 +55,7 @@ export function NewOrder() {
       url: URL.createObjectURL(f),
     }));
     setFiles((prev) => [...prev, ...newFiles]);
+    setRawFiles((prev) => [...prev, ...picked]);
     toast.success(`${picked.length} arquivo(s) anexado(s).`);
     e.target.value = "";
   };
@@ -54,6 +65,7 @@ export function NewOrder() {
       URL.revokeObjectURL(prev[index].url);
       return prev.filter((_, i) => i !== index);
     });
+    setRawFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const formatBytes = (bytes: number) => {
@@ -89,7 +101,7 @@ export function NewOrder() {
       toast.error("Selecione um produto e informe a quantidade.");
       return;
     }
-    const product = tenant.products.find((p) => p.id === selectedProduct);
+    const product = allowedProducts.find((p) => p.id === selectedProduct);
     if (!product) return;
 
     const missingRequired = (product.variations ?? []).filter(
@@ -135,37 +147,46 @@ export function NewOrder() {
     setItems((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = () => {
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
     if (!title.trim()) { toast.error("Informe o título do pedido."); return; }
     if (items.length === 0) { toast.error("Adicione pelo menos um item."); return; }
 
-    const nextId = `ORD-${String(orders.length + 1).padStart(3, "0")}`;
-    addOrder({
-      tenantSlug: tenant.slug,
-      tenantName: tenant.name,
-      title,
-      status: "pending",
-      items,
-      notes: [],
-      requestedBy: user?.name ?? "Usuário",
-      files,
-    });
-    addLog({
-      action: "pedido_criado",
-      entityType: "Pedido",
-      entityId: nextId,
-      entityName: title,
-      userName: user?.name ?? "Usuário",
-      userEmail: user?.email ?? "",
-      userRole: user?.role ?? "operator",
-      tenantSlug: tenant.slug,
-      details: `${items.length} item(s): ${items.map((i) => `${i.productName} × ${i.quantity}`).join(", ")}`,
-    });
-    toast.success("Pedido criado com sucesso!");
-    navigate(`/${tenant.slug}/pedidos`);
+    setSubmitting(true);
+    try {
+      const created = await addOrder({
+        tenantSlug: tenant.slug,
+        tenantName: tenant.name,
+        title,
+        status: "pending",
+        items,
+        notes: [],
+        requestedBy: user?.name ?? "Usuário",
+        files: [],
+      }, rawFiles);
+
+      addLog({
+        action: "pedido_criado",
+        entityType: "Pedido",
+        entityId: created.id,
+        entityName: title,
+        userName: user?.name ?? "Usuário",
+        userEmail: user?.email ?? "",
+        userRole: user?.role ?? "operator",
+        tenantSlug: tenant.slug,
+        details: `${items.length} item(s): ${items.map((i) => `${i.productName} × ${i.quantity}`).join(", ")}`,
+      });
+      toast.success("Pedido criado com sucesso!");
+      navigate(`/${tenant.slug}/pedidos`);
+    } catch {
+      toast.error("Erro ao criar o pedido. Tente novamente.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const categories = [...new Set(tenant.products.map((p) => p.category))];
+  const categories = [...new Set(allowedProducts.map((p) => p.category))];
 
   const CATEGORY_COLOR: Record<string, string> = {
     "Cartões":   "bg-blue-500",
@@ -308,8 +329,8 @@ export function NewOrder() {
                       {categories.map((cat) => (
                         <SelectGroup key={cat}>
                           <div className="px-2 pt-2 pb-0.5 text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">{cat}</div>
-                          {tenant.products
-                            .filter((p) => p.category === cat && p.active)
+                          {allowedProducts
+                            .filter((p) => p.category === cat)
                             .map((p) => (
                               <SelectItem
                                 key={p.id}
@@ -322,7 +343,7 @@ export function NewOrder() {
                             ))}
                         </SelectGroup>
                       ))}
-                      {tenant.products.filter((p) => p.active).length === 0 && (
+                      {allowedProducts.length === 0 && (
                         <SelectItem value="__empty__" disabled>
                           Nenhum produto disponível
                         </SelectItem>
@@ -333,7 +354,7 @@ export function NewOrder() {
 
                 {/* Variation selector — shown when selected product has variations */}
                 {(() => {
-                  const prod = tenant.products.find((p) => p.id === selectedProduct);
+                  const prod = allowedProducts.find((p) => p.id === selectedProduct);
                   if (!prod?.variations?.length) return null;
                   return (
                     <div className="space-y-4 rounded-xl border border-primary/20 bg-primary/3 p-4">
@@ -512,10 +533,14 @@ export function NewOrder() {
 
       {/* Submit */}
       <div className="flex gap-3 pb-6">
-        <Button variant="ghost" onClick={() => navigate(-1)}>Cancelar</Button>
-        <Button variant="brand" className="flex-1" onClick={handleSubmit}>
-          <Send className="h-4 w-4" />
-          Enviar Pedido
+        <Button variant="ghost" onClick={() => navigate(-1)} disabled={submitting}>Cancelar</Button>
+        <Button variant="brand" className="flex-1" onClick={handleSubmit} disabled={submitting}>
+          {submitting ? (
+            <span className="animate-spin inline-block h-4 w-4 border-2 border-white/30 border-t-white rounded-full" />
+          ) : (
+            <Send className="h-4 w-4" />
+          )}
+          {submitting ? (rawFiles.length > 0 ? "Enviando arquivos..." : "Criando pedido...") : "Enviar Pedido"}
         </Button>
       </div>
     </div>

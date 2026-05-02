@@ -1,9 +1,9 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   ArrowLeft, Save, MessageCircle, KeyRound, Package,
-  User as UserIcon, Eye, EyeOff, Check,
+  User as UserIcon, Eye, EyeOff, Check, Link2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
@@ -60,6 +60,28 @@ export function EmpresaDetalhe() {
   const [pwNew, setPwNew] = useState("");
   const [pwConfirm, setPwConfirm] = useState("");
   const [showPw, setShowPw] = useState(false);
+
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>(
+    () => company?.allowedProductIds ?? []
+  );
+  const [savingProducts, setSavingProducts] = useState(false);
+
+  useEffect(() => {
+    if (company) setSelectedProductIds(company.allowedProductIds);
+  }, [company?.allowedProductIds.join(",")]);
+
+  const toggleProduct = (id: string) => {
+    setSelectedProductIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleSaveProducts = async () => {
+    setSavingProducts(true);
+    await updateCompany(company!.slug, { allowedProductIds: selectedProductIds });
+    setSavingProducts(false);
+    toast.success("Produtos vinculados atualizados!");
+  };
 
   if (!company) {
     return (
@@ -155,7 +177,7 @@ export function EmpresaDetalhe() {
             <TabsTrigger value="produtos">
               Produtos
               <span className="ml-1.5 bg-primary/10 text-primary text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                {companyProducts.length}
+                {selectedProductIds.length}
               </span>
             </TabsTrigger>
           </TabsList>
@@ -309,53 +331,89 @@ export function EmpresaDetalhe() {
 
           {/* ── Produtos ── */}
           <TabsContent value="produtos">
-            {companyProducts.length === 0 ? (
-              <Card className="p-8 bg-gradient-card text-center">
-                <Package className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
-                <p className="text-sm text-muted-foreground">Nenhum produto ativo vinculado a esta empresa.</p>
-                <p className="text-xs text-muted-foreground mt-1">Edite os dados da empresa para vincular produtos.</p>
-              </Card>
-            ) : (
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {companyProducts.map((product, i) => (
-                  <motion.div
-                    key={product.id}
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.05 }}
-                  >
-                    <Card className="overflow-hidden bg-gradient-card hover:shadow-brand hover:-translate-y-0.5 transition-all">
-                      <div className="aspect-video bg-muted/50 flex items-center justify-center overflow-hidden">
-                        {product.imageUrl ? (
-                          <img
-                            src={product.imageUrl}
-                            alt={product.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex flex-col items-center gap-1 text-muted-foreground/40">
-                            <Package className="h-8 w-8" />
-                            <span className="text-[10px]">sem foto</span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="p-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold truncate">{product.name}</p>
-                            <p className="text-[11px] text-muted-foreground font-mono mt-0.5">{product.code}</p>
-                          </div>
-                          <Badge variant="muted" className="text-[10px] flex-shrink-0 mt-0.5">{product.category}</Badge>
-                        </div>
-                        {product.description && (
-                          <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">{product.description}</p>
-                        )}
-                      </div>
-                    </Card>
-                  </motion.div>
-                ))}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div>
+                  <p className="text-sm font-medium">Produtos liberados para esta empresa</p>
+                  <p className="text-xs text-muted-foreground">
+                    Selecione quais produtos esta empresa pode solicitar.{" "}
+                    <span className="font-medium text-primary">{selectedProductIds.length} selecionado(s)</span>
+                  </p>
+                </div>
+                <Button variant="brand" onClick={handleSaveProducts} disabled={savingProducts}>
+                  {savingProducts ? (
+                    <span className="animate-spin inline-block h-4 w-4 border-2 border-white/30 border-t-white rounded-full" />
+                  ) : (
+                    <Link2 className="h-4 w-4" />
+                  )}
+                  {savingProducts ? "Salvando..." : "Salvar Vínculos"}
+                </Button>
               </div>
-            )}
+
+              {products.filter((p) => p.active).length === 0 ? (
+                <Card className="p-8 bg-gradient-card text-center">
+                  <Package className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
+                  <p className="text-sm text-muted-foreground">Nenhum produto cadastrado no sistema.</p>
+                  <p className="text-xs text-muted-foreground mt-1">Cadastre produtos na aba Produtos do admin VIXCard.</p>
+                </Card>
+              ) : (
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {products.filter((p) => p.active).map((product, i) => {
+                    const checked = selectedProductIds.includes(product.id);
+                    return (
+                      <motion.div
+                        key={product.id}
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.04 }}
+                      >
+                        <button
+                          type="button"
+                          className={`w-full text-left rounded-xl border-2 overflow-hidden transition-all focus:outline-none ${
+                            checked
+                              ? "border-primary shadow-brand bg-gradient-card"
+                              : "border-border bg-gradient-card hover:border-primary/40"
+                          }`}
+                          onClick={() => toggleProduct(product.id)}
+                        >
+                          <div className="aspect-video bg-muted/50 flex items-center justify-center overflow-hidden relative">
+                            {product.imageUrl ? (
+                              <img
+                                src={product.imageUrl}
+                                alt={product.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex flex-col items-center gap-1 text-muted-foreground/40">
+                                <Package className="h-8 w-8" />
+                                <span className="text-[10px]">sem foto</span>
+                              </div>
+                            )}
+                            <div className={`absolute top-2 right-2 h-5 w-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                              checked ? "bg-primary border-primary" : "bg-background/80 border-border"
+                            }`}>
+                              {checked && <Check className="h-3 w-3 text-white" />}
+                            </div>
+                          </div>
+                          <div className="p-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold truncate">{product.name}</p>
+                                <p className="text-[11px] text-muted-foreground font-mono mt-0.5">{product.code}</p>
+                              </div>
+                              <Badge variant="muted" className="text-[10px] flex-shrink-0 mt-0.5">{product.category}</Badge>
+                            </div>
+                            {product.description && (
+                              <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">{product.description}</p>
+                            )}
+                          </div>
+                        </button>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
       </div>

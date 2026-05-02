@@ -10,28 +10,33 @@ import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
 import { cn } from "../lib/utils";
 
-const ACTION_META: Record<LogAction, { label: string; color: string }> = {
-  pedido_criado:        { label: "Pedido criado",          color: "bg-blue-100 text-blue-700" },
-  pedido_status:        { label: "Status alterado",        color: "bg-purple-100 text-purple-700" },
-  pedido_cancelado:     { label: "Pedido cancelado",       color: "bg-red-100 text-red-700" },
-  pedido_nota:          { label: "Nota adicionada",        color: "bg-slate-100 text-slate-600" },
-  empresa_criada:       { label: "Empresa criada",         color: "bg-emerald-100 text-emerald-700" },
-  empresa_atualizada:   { label: "Empresa atualizada",     color: "bg-amber-100 text-amber-700" },
-  empresa_ativada:      { label: "Empresa ativada",        color: "bg-emerald-100 text-emerald-700" },
-  empresa_desativada:   { label: "Empresa desativada",     color: "bg-red-100 text-red-700" },
-  produto_criado:       { label: "Produto criado",         color: "bg-emerald-100 text-emerald-700" },
-  produto_atualizado:   { label: "Produto atualizado",     color: "bg-amber-100 text-amber-700" },
-  produto_ativado:      { label: "Produto ativado",        color: "bg-emerald-100 text-emerald-700" },
-  produto_desativado:   { label: "Produto desativado",     color: "bg-red-100 text-red-700" },
-  usuario_criado:       { label: "Usuário criado",         color: "bg-blue-100 text-blue-700" },
-  usuario_atualizado:   { label: "Usuário atualizado",     color: "bg-amber-100 text-amber-700" },
-  usuario_ativado:      { label: "Usuário ativado",        color: "bg-emerald-100 text-emerald-700" },
-  usuario_desativado:   { label: "Usuário desativado",     color: "bg-red-100 text-red-700" },
-  senha_alterada:       { label: "Senha alterada",         color: "bg-orange-100 text-orange-700" },
-  credenciais_enviadas: { label: "Credenciais enviadas",   color: "bg-teal-100 text-teal-700" },
-  login:                { label: "Login",                  color: "bg-slate-100 text-slate-600" },
-  logout:               { label: "Logout",                 color: "bg-slate-100 text-slate-600" },
+const ACTION_META: Record<string, { label: string; color: string }> = {
+  pedido_criado:                    { label: "Pedido criado",          color: "bg-blue-100 text-blue-700" },
+  pedido_status:                    { label: "Status alterado",        color: "bg-purple-100 text-purple-700" },
+  pedido_cancelado:                 { label: "Pedido cancelado",       color: "bg-red-100 text-red-700" },
+  pedido_nota:                      { label: "Nota adicionada",        color: "bg-slate-100 text-slate-600" },
+  empresa_criada:                   { label: "Empresa criada",         color: "bg-emerald-100 text-emerald-700" },
+  empresa_atualizada:               { label: "Empresa atualizada",     color: "bg-amber-100 text-amber-700" },
+  empresa_ativada:                  { label: "Empresa ativada",        color: "bg-emerald-100 text-emerald-700" },
+  empresa_desativada:               { label: "Empresa desativada",     color: "bg-red-100 text-red-700" },
+  empresa_produtos_sincronizados:   { label: "Produtos vinculados",    color: "bg-cyan-100 text-cyan-700" },
+  produto_criado:                   { label: "Produto criado",         color: "bg-emerald-100 text-emerald-700" },
+  produto_atualizado:               { label: "Produto atualizado",     color: "bg-amber-100 text-amber-700" },
+  produto_ativado:                  { label: "Produto ativado",        color: "bg-emerald-100 text-emerald-700" },
+  produto_desativado:               { label: "Produto desativado",     color: "bg-red-100 text-red-700" },
+  produto_removido:                 { label: "Produto removido",       color: "bg-red-100 text-red-700" },
+  usuario_criado:                   { label: "Usuário criado",         color: "bg-blue-100 text-blue-700" },
+  usuario_atualizado:               { label: "Usuário atualizado",     color: "bg-amber-100 text-amber-700" },
+  usuario_ativado:                  { label: "Usuário ativado",        color: "bg-emerald-100 text-emerald-700" },
+  usuario_desativado:               { label: "Usuário desativado",     color: "bg-red-100 text-red-700" },
+  senha_alterada:                   { label: "Senha alterada",         color: "bg-orange-100 text-orange-700" },
+  credenciais_enviadas:             { label: "Credenciais enviadas",   color: "bg-teal-100 text-teal-700" },
+  login:                            { label: "Login",                  color: "bg-slate-100 text-slate-600" },
+  logout:                           { label: "Logout",                 color: "bg-slate-100 text-slate-600" },
 };
+
+const getActionMeta = (action: string) =>
+  ACTION_META[action] ?? { label: action, color: "bg-slate-100 text-slate-600" };
 
 const ENTITY_ICON: Record<LogEntityType, typeof ShoppingCart> = {
   Pedido:   ShoppingCart,
@@ -79,7 +84,7 @@ export function Logs() {
         l.userName.toLowerCase().includes(q) ||
         l.userEmail.toLowerCase().includes(q) ||
         l.details?.toLowerCase().includes(q) ||
-        ACTION_META[l.action].label.toLowerCase().includes(q);
+        getActionMeta(l.action).label.toLowerCase().includes(q);
       return matchEntity && matchSearch;
     });
   }, [logs, search, entityFilter]);
@@ -184,9 +189,9 @@ export function Logs() {
 }
 
 function LogRow({ log, index }: { log: LogEntry; index: number }) {
-  const { date, time } = formatTimestamp(log.timestamp);
-  const meta = ACTION_META[log.action];
-  const Icon = ENTITY_ICON[log.entityType];
+  const { date, time } = formatTimestamp(log.timestamp || new Date().toISOString());
+  const meta = getActionMeta(log.action);
+  const Icon = ENTITY_ICON[log.entityType as LogEntityType] ?? Monitor;
 
   return (
     <motion.div

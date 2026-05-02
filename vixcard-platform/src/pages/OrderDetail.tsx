@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import {
   ArrowLeft, Play, CheckCircle2, Wrench, PackageCheck,
   XCircle, MessageSquarePlus, Send, Download, FileText, FileImage, File as FileIcon, Paperclip,
+  MessageCircle, AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
@@ -56,6 +57,16 @@ export function OrderDetail() {
   const isSuperAdmin = user?.role === "super_admin";
   const isCancelled = order.status === "cancelled";
   const isDone = order.status === "done";
+  const isPending = order.status === "pending";
+
+  // Tenant user can cancel only while still pending
+  const canTenantCancel = !isSuperAdmin && isPending && !isCancelled;
+  // Tenant user sees WhatsApp contact when order already started
+  const tenantNeedsWhatsapp = !isSuperAdmin && !isPending && !isCancelled && !isDone;
+
+  const whatsappMsg = encodeURIComponent(
+    `Olá! Preciso solicitar o cancelamento da OS *${order.id}* — "${order.title}". Por favor, poderia verificar?`
+  );
 
   const actor = {
     userName: user?.name ?? "Usuário",
@@ -294,7 +305,7 @@ export function OrderDetail() {
 
         {/* Sidebar */}
         <div className="lg:col-span-2 space-y-5">
-          {/* Actions (super admin only) */}
+          {/* Actions — super admin */}
           {isSuperAdmin && !isCancelled && !isDone && (
             <Card>
               <CardHeader><CardTitle>Ações</CardTitle></CardHeader>
@@ -340,6 +351,77 @@ export function OrderDetail() {
                     </div>
                   </motion.div>
                 )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Actions — tenant user: can cancel while pending */}
+          {canTenantCancel && (
+            <Card>
+              <CardHeader><CardTitle>Ações</CardTitle></CardHeader>
+              <CardContent className="space-y-2">
+                {!showCancelForm ? (
+                  <Button
+                    variant="outline"
+                    className="w-full border-destructive/30 text-destructive hover:bg-destructive/5"
+                    onClick={() => setShowCancelForm(true)}
+                  >
+                    <XCircle className="h-4 w-4" />
+                    Cancelar Solicitação
+                  </Button>
+                ) : (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    className="space-y-2"
+                  >
+                    <p className="text-xs text-muted-foreground">
+                      Informe o motivo para cancelar esta solicitação.
+                    </p>
+                    <Textarea
+                      placeholder="Ex: pedido feito por engano, dados incorretos..."
+                      value={cancelReason}
+                      onChange={(e) => setCancelReason(e.target.value)}
+                      rows={3}
+                    />
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="destructive" onClick={handleCancel} className="flex-1">
+                        Confirmar Cancelamento
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setShowCancelForm(false)}>
+                        Voltar
+                      </Button>
+                    </div>
+                  </motion.div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Info — tenant user: order already started, contact via WhatsApp */}
+          {tenantNeedsWhatsapp && (
+            <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800/40">
+              <CardContent className="pt-4 space-y-3">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">
+                      Produção já iniciada
+                    </p>
+                    <p className="text-xs text-amber-600/80 dark:text-amber-500/80 mt-1 leading-relaxed">
+                      Esta solicitação já foi iniciada pela equipe VIXCard. Para cancelar, entre em contato pelo WhatsApp.
+                    </p>
+                  </div>
+                </div>
+                <a
+                  href={`https://wa.me/5527999999999?text=${whatsappMsg}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 w-full rounded-lg bg-[#25D366] hover:bg-[#1da851] text-white text-sm font-semibold py-2 transition-colors"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  Falar com VIXCard
+                </a>
               </CardContent>
             </Card>
           )}

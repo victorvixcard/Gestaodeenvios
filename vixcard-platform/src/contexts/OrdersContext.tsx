@@ -6,7 +6,7 @@ import { useAuth } from "./AuthContext";
 
 interface OrdersContextValue {
   orders: Order[];
-  addOrder: (order: Omit<Order, "id" | "createdAt" | "updatedAt" | "events">) => void;
+  addOrder: (order: Omit<Order, "id" | "createdAt" | "updatedAt" | "events">, files?: File[]) => Promise<Order>;
   updateStatus: (id: string, status: OrderStatus, reason?: string, author?: string) => void;
   addNote: (orderId: string, content: string, authorName?: string, authorRole?: UserRole) => void;
   getOrder: (id: string) => Order | undefined;
@@ -28,8 +28,11 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
       .catch(() => {});
   }, [isAuthenticated, authLoading]);
 
-  const addOrder = (order: Omit<Order, "id" | "createdAt" | "updatedAt" | "events">) => {
-    api.post<Record<string, unknown>>('/orders', {
+  const addOrder = async (
+    order: Omit<Order, "id" | "createdAt" | "updatedAt" | "events">,
+    files?: File[]
+  ): Promise<Order> => {
+    const data = await api.post<Record<string, unknown>>('/orders', {
       title: order.title,
       items: order.items.map((item) => ({
         product_id: item.productId,
@@ -38,7 +41,23 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
         specifications: item.specifications,
         selected_variations: item.selectedVariations,
       })),
-    }).then((data) => setOrders((prev) => [mapOrder(data), ...prev]));
+    });
+
+    let mapped = mapOrder(data);
+
+    if (files && files.length > 0) {
+      for (const file of files) {
+        try {
+          const updated = await api.upload<Record<string, unknown>>(`/orders/${mapped.id}/files`, file);
+          mapped = mapOrder(updated);
+        } catch {
+          // continue uploading remaining files
+        }
+      }
+    }
+
+    setOrders((prev) => [mapped, ...prev]);
+    return mapped;
   };
 
   const updateStatus = (id: string, status: OrderStatus, reason?: string) => {

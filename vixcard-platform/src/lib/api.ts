@@ -39,10 +39,31 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return data as T
 }
 
+async function upload<T>(path: string, file: File): Promise<T> {
+  const token = getToken()
+  const form  = new FormData()
+  form.append('file', file)
+
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: form,
+  })
+
+  if (res.status === 204) return undefined as T
+  const data = await res.json()
+  if (!res.ok) throw new ApiError(res.status, data.message ?? 'Erro no upload')
+  return data as T
+}
+
 export const api = {
   get:    <T>(path: string)                => request<T>('GET', path),
   post:   <T>(path: string, body: unknown) => request<T>('POST', path, body),
   put:    <T>(path: string, body: unknown) => request<T>('PUT', path, body),
   patch:  <T>(path: string, body: unknown) => request<T>('PATCH', path, body),
   delete: <T>(path: string)                => request<T>('DELETE', path),
+  upload: <T>(path: string, file: File)    => upload<T>(path, file),
 }

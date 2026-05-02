@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\FileController;
 use Illuminate\Support\Facades\Route;
 
 // ── Autenticação ───────────────────────────────────────────────────────────
@@ -23,12 +24,14 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // ── Ordens de Serviço ──────────────────────────────────────────────────
     Route::prefix('orders')->group(function () {
-        Route::get('/',            [OrderController::class, 'index']);
-        Route::post('/',           [OrderController::class, 'store']);
-        Route::get('/{id}',        [OrderController::class, 'show']);
+        Route::get('/',              [OrderController::class, 'index']);
+        Route::post('/',             [OrderController::class, 'store']);
+        Route::get('/{id}',          [OrderController::class, 'show']);
         Route::patch('/{id}/status', [OrderController::class, 'updateStatus']);
-        Route::post('/{id}/notes', [OrderController::class, 'addNote']);
-        Route::post('/{id}/cancel', [OrderController::class, 'cancel']);
+        Route::post('/{id}/notes',   [OrderController::class, 'addNote']);
+        Route::post('/{id}/cancel',  [OrderController::class, 'cancel']);
+        Route::post('/{id}/files',   [OrderController::class, 'uploadFile']);
+        Route::delete('/{id}/files/{fileIndex}', [OrderController::class, 'deleteFile']);
     });
 
     // ── Produtos ───────────────────────────────────────────────────────────

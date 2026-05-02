@@ -22,8 +22,9 @@ import { formatDateShort } from "../lib/utils";
 import { cn } from "../lib/utils";
 import type { Order, OrderStatus } from "../types";
 
-const STATUS_LABELS: Record<OrderStatus | "all", string> = {
+const STATUS_LABELS: Record<OrderStatus | "all" | "overdue", string> = {
   all: "Todos",
+  overdue: "⚠ Em Atraso",
   pending: "Pendente",
   started: "Iniciado",
   production: "Em Produção",
@@ -201,14 +202,18 @@ export function Orders() {
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>(searchParams.get("status") ?? "all");
-  const [view, setView] = useState<"list" | "timeline">("list");
+  const [view, setView] = useState<"list" | "timeline">("timeline");
 
   const isSuperAdmin = user?.role === "super_admin";
 
   const tenantOrders = isSuperAdmin ? orders : orders.filter((o) => o.tenantSlug === tenant.slug);
 
+  const overdueCount = tenantOrders.filter((o) => isOverdue(o.createdAt, o.status)).length;
+
   const filtered = tenantOrders.filter((o) => {
-    const matchStatus = statusFilter === "all" || o.status === statusFilter;
+    const matchStatus =
+      statusFilter === "all" ||
+      (statusFilter === "overdue" ? isOverdue(o.createdAt, o.status) : o.status === statusFilter);
     const matchSearch =
       !search ||
       o.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -275,13 +280,22 @@ export function Orders() {
           />
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-[180px]">
+          <SelectTrigger className="w-full sm:w-[200px]">
             <Filter className="h-4 w-4 mr-2 text-muted-foreground" />
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {(Object.keys(STATUS_LABELS) as (OrderStatus | "all")[]).map((s) => (
-              <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>
+            {(Object.keys(STATUS_LABELS) as (OrderStatus | "all" | "overdue")[]).map((s) => (
+              <SelectItem key={s} value={s}>
+                <span className="flex items-center gap-2">
+                  {STATUS_LABELS[s]}
+                  {s === "overdue" && overdueCount > 0 && (
+                    <span className="ml-1 bg-destructive text-destructive-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                      {overdueCount}
+                    </span>
+                  )}
+                </span>
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>

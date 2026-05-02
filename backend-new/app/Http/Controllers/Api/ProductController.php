@@ -12,7 +12,13 @@ class ProductController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        $user  = $request->user();
         $query = Product::query();
+
+        // Non-super-admins see only products linked to their company
+        if (!$user->isSuperAdmin()) {
+            $query->whereHas('companies', fn($q) => $q->where('companies.slug', $user->tenant_slug));
+        }
 
         if ($request->search) {
             $query->where(function ($q) use ($request) {

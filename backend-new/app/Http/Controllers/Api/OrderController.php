@@ -11,6 +11,7 @@ use App\Services\BusinessDayService;
 use App\Services\WhatsAppService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class OrderController extends Controller
 {
@@ -163,6 +164,45 @@ class OrderController extends Controller
             'pedido_nota', 'Pedido', $order->id, $order->title,
             $user, mb_substr($request->content, 0, 100)
         );
+
+        return response()->json($this->formatOrder($order->fresh(['items', 'notes', 'events'])));
+    }
+
+    public function uploadFile(Request $request, string $id): JsonResponse
+    {
+        $request->validate([
+            'file' => 'required|file|max:20480', // 20 MB
+        ]);
+
+        $order = Order::findOrFail($id);
+        $file  = $request->file('file');
+        $path  = $file->store('order-files', 'public');
+
+        $entry = [
+            'name' => $file->getClientOriginalName(),
+            'size' => $file->getSize(),
+            'type' => $file->getMimeType(),
+            'url'  => Storage::url($path),
+            'path' => $path,
+        ];
+
+        $files   = $order->files ?? [];
+        $files[] = $entry;
+        $order->update(['files' => $files]);
+
+        return response()->json($this->formatOrder($order->fresh(['items', 'notes', 'events'])));
+    }
+
+    public function deleteFile(Request $request, string $id, int $fileIndex): JsonResponse
+    {
+        $order = Order::findOrFail($id);
+        $files = $order->files ?? [];
+
+        if (isset($files[$fileIndex])) {
+            Storage::disk('public')->delete($files[$fileIndex]['path'] ?? '');
+            array_splice($files, $fileIndex, 1);
+            $order->update(['files' => array_values($files)]);
+        }
 
         return response()->json($this->formatOrder($order->fresh(['items', 'notes', 'events'])));
     }
