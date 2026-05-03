@@ -42,9 +42,6 @@ export function EmpresaDetalhe() {
 
   const company = companies.find((c) => c.slug === slug);
   const companyUsers = users.filter((u) => u.tenantSlug === slug);
-  const companyProducts = products.filter(
-    (p) => p.active && company?.allowedProductIds.includes(p.id)
-  );
 
   const [form, setForm] = useState(() =>
     company

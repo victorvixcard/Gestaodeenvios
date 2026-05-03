@@ -24,7 +24,7 @@ export function NewOrder() {
   const { user } = useAuth();
   const tenant = useTenant();
   const { products: allProducts, companies } = useData();
-  const { addOrder, orders } = useOrders();
+  const { addOrder } = useOrders();
   const { addLog } = useLog();
 
   // Super-admin sees all products → filter by company's allowedProductIds.

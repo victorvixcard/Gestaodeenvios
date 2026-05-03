@@ -1,4 +1,4 @@
-import type { User, Product, Company, Order, OrderItem, OrderNote, OrderEvent } from '../types'
+import type { User, Product, Company, Order, OrderItem, OrderNote, OrderEvent, Permission } from '../types'
 import type { LogEntry, LogAction, LogEntityType } from '../contexts/LogsContext'
 import type { UserRole } from '../types'
 
@@ -20,7 +20,7 @@ export function mapUser(u: Record<string, unknown>): User {
     avatarInitials: String(u.avatar_initials ?? u.avatarInitials ?? initials),
     avatarUrl: (u.avatar_url ?? u.avatarUrl) as string | undefined,
     active: Boolean(u.active),
-    permissions: (u.permissions as string[]) ?? [],
+    permissions: (u.permissions as Permission[]) ?? [],
   }
 }
 

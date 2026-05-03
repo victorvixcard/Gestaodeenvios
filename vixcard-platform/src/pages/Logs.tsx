@@ -4,7 +4,7 @@ import {
   ClipboardList, Search, Filter, ShoppingCart, Building2,
   Package, Users, Monitor, ChevronDown,
 } from "lucide-react";
-import { useLog, type LogEntry, type LogAction, type LogEntityType } from "../contexts/LogsContext";
+import { useLog, type LogEntry, type LogEntityType } from "../contexts/LogsContext";
 import { Card } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
