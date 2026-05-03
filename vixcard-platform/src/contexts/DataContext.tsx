@@ -119,6 +119,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       name: data.name,
       logo_color: data.logoColor,
       logo_initials: data.logoInitials,
+      logo_url: data.logoUrl,
     }).then(async (c) => {
       if (data.allowedProductIds.length > 0) {
         await api.put(`/companies/${slug}/products`, { product_ids: data.allowedProductIds });
@@ -131,11 +132,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const updateCompany = (slug: string, updates: Partial<Company>) => {
     const promises: Promise<unknown>[] = [];
 
-    if (updates.name || updates.logoColor || updates.logoInitials || updates.active !== undefined) {
+    if (updates.name || updates.logoColor || updates.logoInitials || updates.logoUrl !== undefined || updates.active !== undefined) {
       promises.push(api.put(`/companies/${slug}`, {
         name: updates.name,
         logo_color: updates.logoColor,
         logo_initials: updates.logoInitials,
+        logo_url: updates.logoUrl,
       }));
     }
 
@@ -163,6 +165,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       role: data.role,
       tenant_slug: data.tenantSlug,
       whatsapp: (data as Record<string, unknown>).whatsapp,
+      avatar_url: data.avatarUrl,
     }).then((u) => setUsers((prev) => [...prev, mapUser(u)]));
   };
 
@@ -176,6 +179,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       name: updates.name,
       email: updates.email,
       role: updates.role,
+      avatar_url: updates.avatarUrl,
     }).then((u) => setUsers((prev) => prev.map((x) => (x.id === id ? mapUser(u) : x))));
   };
 

@@ -49,6 +49,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateAvatar = (url: string) => {
     setUser((prev) => (prev ? { ...prev, avatarUrl: url } : prev));
+    if (user?.id) {
+      api.put(`/users/${user.id}`, { avatar_url: url }).catch(() => {});
+    }
   };
 
   return (

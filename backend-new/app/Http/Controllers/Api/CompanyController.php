@@ -34,6 +34,7 @@ class CompanyController extends Controller
             'name'           => 'required|string|max:255',
             'logo_color'     => 'required|string',
             'logo_initials'  => 'required|string|max:4',
+            'logo_url'       => 'nullable|string',
         ]);
 
         $company = Company::create([
@@ -41,6 +42,7 @@ class CompanyController extends Controller
             'name'          => $request->name,
             'logo_color'    => $request->logo_color,
             'logo_initials' => $request->logo_initials,
+            'logo_url'      => $request->logo_url,
             'active'        => true,
         ]);
 
@@ -60,9 +62,10 @@ class CompanyController extends Controller
             'name'          => 'sometimes|string|max:255',
             'logo_color'    => 'sometimes|string',
             'logo_initials' => 'sometimes|string|max:4',
+            'logo_url'      => 'nullable|string',
         ]);
 
-        $company->update($request->only(['name', 'logo_color', 'logo_initials']));
+        $company->update($request->only(['name', 'logo_color', 'logo_initials', 'logo_url']));
 
         AuditLog::record(
             'empresa_atualizada', 'Empresa', $company->slug, $company->name,
@@ -119,6 +122,7 @@ class CompanyController extends Controller
             'name'         => $company->name,
             'logoColor'    => $company->logo_color,
             'logoInitials' => $company->logo_initials,
+            'logoUrl'      => $company->logo_url,
             'active'       => (bool) $company->active,
             'usersCount'   => $company->users_count ?? $company->users?->count() ?? 0,
             'users'        => $company->relationLoaded('users') ? $company->users : null,

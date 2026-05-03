@@ -13,7 +13,7 @@ class Company extends Model
     public $incrementing = false;
 
     protected $fillable = [
-        'slug', 'name', 'logo_color', 'logo_initials', 'active',
+        'slug', 'name', 'logo_color', 'logo_initials', 'logo_url', 'active',
     ];
 
     protected $casts = [

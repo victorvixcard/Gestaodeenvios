@@ -41,6 +41,7 @@ class UserController extends Controller
             'role'        => 'required|in:super_admin,tenant_admin,operator',
             'tenant_slug' => 'required|exists:companies,slug',
             'whatsapp'    => 'nullable|string|max:20',
+            'avatar_url'  => 'nullable|string',
         ]);
 
         $password = Str::random(10);
@@ -52,6 +53,7 @@ class UserController extends Controller
             'role'             => $request->role,
             'tenant_slug'      => $request->tenant_slug,
             'avatar_initials'  => $this->initials($request->name),
+            'avatar_url'       => $request->avatar_url,
             'whatsapp'         => $request->whatsapp,
             'active'           => true,
         ]);
@@ -73,13 +75,14 @@ class UserController extends Controller
         $user  = User::findOrFail($id);
 
         $request->validate([
-            'name'      => 'sometimes|string|max:255',
-            'email'     => "sometimes|email|unique:users,email,{$id}",
-            'role'      => 'sometimes|in:super_admin,tenant_admin,operator',
-            'whatsapp'  => 'nullable|string|max:20',
+            'name'       => 'sometimes|string|max:255',
+            'email'      => "sometimes|email|unique:users,email,{$id}",
+            'role'       => 'sometimes|in:super_admin,tenant_admin,operator',
+            'whatsapp'   => 'nullable|string|max:20',
+            'avatar_url' => 'nullable|string',
         ]);
 
-        $user->update($request->only(['name', 'email', 'role', 'whatsapp']));
+        $user->update($request->only(['name', 'email', 'role', 'whatsapp', 'avatar_url']));
 
         if ($request->name) {
             $user->update(['avatar_initials' => $this->initials($request->name)]);

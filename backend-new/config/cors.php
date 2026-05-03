@@ -6,6 +6,8 @@ return [
     'allowed_origins'          => [
         env('FRONTEND_URL', 'http://localhost:5173'),
         'https://gestaodeenvios-two.vercel.app',
+        'https://gestaodenvios.com.br',
+        'https://www.gestaodenvios.com.br',
     ],
     'allowed_origins_patterns' => [],
     'allowed_headers'          => ['*'],
