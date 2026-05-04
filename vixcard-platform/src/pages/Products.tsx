@@ -96,7 +96,7 @@ export function Products() {
         name: form.name, description: form.description, category: form.category,
         price: Number(form.price), stock: Number(form.stock),
         imageUrl: form.imageUrl || undefined, videoUrl: form.videoUrl || undefined, active: form.active,
-        variations: form.variations.length > 0 ? form.variations : undefined,
+        variations: form.variations,
       });
       addLog({
         action: "produto_criado", entityType: "Produto", entityId: `new-${Date.now()}`, entityName: form.name,
@@ -110,7 +110,7 @@ export function Products() {
         name: form.name, description: form.description, category: form.category,
         price: Number(form.price), stock: Number(form.stock),
         imageUrl: form.imageUrl || undefined, videoUrl: form.videoUrl || undefined, active: form.active,
-        variations: form.variations.length > 0 ? form.variations : undefined,
+        variations: form.variations,
       });
       addLog({
         action: "produto_atualizado", entityType: "Produto", entityId: editId, entityName: form.name,
