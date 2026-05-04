@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 use App\Services\BusinessDayService;
 
 class Order extends Model
@@ -46,8 +47,14 @@ class Order extends Model
 
     public static function generateId(): string
     {
-        $count = static::count() + 1;
-        return 'ORD-' . str_pad($count, 3, '0', STR_PAD_LEFT);
+        // Lock de tabela para evitar race condition em operações concorrentes
+        return DB::transaction(function () {
+            $max = static::lockForUpdate()->max(
+                DB::raw("CAST(REPLACE(id, 'ORD-', '') AS UNSIGNED)")
+            );
+            $next = ($max ?? 0) + 1;
+            return 'ORD-' . str_pad($next, 3, '0', STR_PAD_LEFT);
+        });
     }
 
     public function isOverdue(): bool
