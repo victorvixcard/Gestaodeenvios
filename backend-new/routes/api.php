@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Route;
 
 // ── Autenticação ───────────────────────────────────────────────────────────
 // Máximo de 10 tentativas por minuto por IP — proteção contra brute-force
-Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
 
 // ── Rotas protegidas ───────────────────────────────────────────────────────

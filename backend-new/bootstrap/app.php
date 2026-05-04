@@ -19,5 +19,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->throttleApi();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        // Garante que erros de autenticação retornem 401 JSON (nunca redirect)
+        $exceptions->shouldRenderJsonWhen(fn($request) => $request->is('api/*') || $request->expectsJson());
+
+        $exceptions->render(function (\Illuminate\Auth\AuthenticationException $e, $request) {
+            if ($request->is('api/*') || $request->expectsJson()) {
+                return response()->json(['message' => 'Não autenticado.'], 401);
+            }
+        });
     })->create();
