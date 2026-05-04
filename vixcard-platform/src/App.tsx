@@ -8,6 +8,7 @@ import { DataProvider } from "./contexts/DataContext";
 import { LogsProvider } from "./contexts/LogsContext";
 import { AppShell } from "./components/layout/AppShell";
 import { Login } from "./pages/Login";
+import { LoginUniversal } from "./pages/LoginUniversal";
 import { Dashboard } from "./pages/Dashboard";
 import { Orders } from "./pages/Orders";
 import { OrderDetail } from "./pages/OrderDetail";
@@ -51,7 +52,8 @@ export default function App() {
             <OrdersProvider>
               <LogsProvider>
                 <Routes>
-                  <Route path="/" element={<Navigate to="/medsenior/login" replace />} />
+                  <Route path="/" element={<Navigate to="/login" replace />} />
+                  <Route path="/login" element={<LoginUniversal />} />
                   <Route path="/:tenant/*" element={<TenantRoutes />} />
                   <Route path="/404" element={
                     <div className="min-h-screen flex items-center justify-center">

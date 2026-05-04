@@ -13,7 +13,7 @@ export function AppShell() {
   if (loading) return null;
 
   if (!isAuthenticated) {
-    return <Navigate to={`/${tenant.slug}/login`} replace />;
+    return <Navigate to="/login" replace />;
   }
 
   // Block wrong tenant access

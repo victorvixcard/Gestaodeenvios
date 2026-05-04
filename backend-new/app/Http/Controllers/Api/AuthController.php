@@ -16,16 +16,30 @@ class AuthController extends Controller
         $request->validate([
             'email'       => 'required|email',
             'password'    => 'required',
-            'tenant_slug' => 'required|string',
+            'tenant_slug' => 'nullable|string',
         ]);
 
-        $user = User::where('email', $request->email)
-                    ->where('tenant_slug', $request->tenant_slug)
-                    ->where('active', true)
-                    ->first();
+        if ($request->filled('tenant_slug')) {
+            // Login direto com tenant conhecido (URLs como /medsenior/login)
+            $user = User::where('email', $request->email)
+                        ->where('tenant_slug', $request->tenant_slug)
+                        ->where('active', true)
+                        ->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            return response()->json(['message' => 'Credenciais inválidas.'], 401);
+            if (!$user || !Hash::check($request->password, $user->password)) {
+                return response()->json(['message' => 'Credenciais inválidas.'], 401);
+            }
+        } else {
+            // Login universal: busca o usuário pelo e-mail em todos os tenants
+            $candidates = User::where('email', $request->email)
+                              ->where('active', true)
+                              ->get();
+
+            $user = $candidates->first(fn ($u) => Hash::check($request->password, $u->password));
+
+            if (!$user) {
+                return response()->json(['message' => 'Credenciais inválidas.'], 401);
+            }
         }
 
         $token = $user->createToken('api-token')->plainTextToken;
@@ -33,8 +47,9 @@ class AuthController extends Controller
         AuditLog::record('login', 'Sistema', $user->tenant_slug, 'Login', $user);
 
         return response()->json([
-            'token' => $token,
-            'user'  => $user,
+            'token'       => $token,
+            'user'        => $user,
+            'tenant_slug' => $user->tenant_slug,
         ]);
     }
 

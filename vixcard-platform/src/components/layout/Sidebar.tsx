@@ -29,7 +29,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
   const handleLogout = () => {
     logout();
-    navigate(`/${tenant.slug}/login`);
+    navigate("/login");
   };
 
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
