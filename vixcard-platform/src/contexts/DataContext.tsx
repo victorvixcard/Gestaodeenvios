@@ -33,8 +33,8 @@ interface DataContextValue {
   updateCompany: (slug: string, updates: Partial<Company>) => void;
 
   users: User[];
-  addUser: (data: Omit<User, "id" | "avatarInitials">) => void;
-  updateUser: (id: string, updates: Partial<User>) => void;
+  addUser: (data: Omit<User, "id" | "avatarInitials"> & { password?: string }) => Promise<Record<string, unknown>>;
+  updateUser: (id: string, updates: Partial<User>) => Promise<void>;
 
   getProductsForTenant: (tenantSlug: string) => Product[];
   getUsersForTenant: (tenantSlug: string) => User[];
@@ -158,31 +158,35 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   // ── Users ─────────────────────────────────────────────────────────────────
-  const addUser = (data: Omit<User, "id" | "avatarInitials">) => {
-    api.post<Record<string, unknown>>('/users', {
+  const addUser = async (data: Omit<User, "id" | "avatarInitials"> & { password?: string }) => {
+    const u = await api.post<Record<string, unknown>>('/users', {
       name: data.name,
       email: data.email,
       role: data.role,
       tenant_slug: data.tenantSlug,
+      password: data.password,
       whatsapp: (data as Record<string, unknown>).whatsapp,
       avatar_url: data.avatarUrl,
       permissions: data.permissions,
-    }).then((u) => setUsers((prev) => [...prev, mapUser(u)]));
+    });
+    setUsers((prev) => [...prev, mapUser(u)]);
+    return u;
   };
 
-  const updateUser = (id: string, updates: Partial<User>) => {
+  const updateUser = async (id: string, updates: Partial<User>) => {
     if (updates.active !== undefined && Object.keys(updates).length === 1) {
-      api.patch<Record<string, unknown>>(`/users/${id}/toggle`, {})
-        .then((u) => setUsers((prev) => prev.map((x) => (x.id === id ? mapUser(u) : x))));
+      const u = await api.patch<Record<string, unknown>>(`/users/${id}/toggle`, {});
+      setUsers((prev) => prev.map((x) => (x.id === id ? mapUser(u) : x)));
       return;
     }
-    api.put<Record<string, unknown>>(`/users/${id}`, {
+    const u = await api.put<Record<string, unknown>>(`/users/${id}`, {
       name: updates.name,
       email: updates.email,
       role: updates.role,
       avatar_url: updates.avatarUrl,
       permissions: updates.permissions,
-    }).then((u) => setUsers((prev) => prev.map((x) => (x.id === id ? mapUser(u) : x))));
+    });
+    setUsers((prev) => prev.map((x) => (x.id === id ? mapUser(u) : x)));
   };
 
   // ── Helpers ───────────────────────────────────────────────────────────────

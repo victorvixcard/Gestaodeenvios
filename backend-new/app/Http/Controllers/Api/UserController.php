@@ -65,6 +65,7 @@ class UserController extends Controller
             'email'         => 'required|email|unique:users,email',
             'role'          => 'required|in:' . implode(',', $allowedRoles),
             'tenant_slug'   => 'required|exists:companies,slug',
+            'password'      => 'nullable|string|min:8',
             'whatsapp'      => 'nullable|string|max:20',
             'avatar_url'    => 'nullable|string',
             'permissions'   => 'nullable|array',
@@ -76,7 +77,8 @@ class UserController extends Controller
             return response()->json(['message' => 'Você não pode criar usuários em outro tenant.'], 403);
         }
 
-        $password = Str::random(10);
+        // Aceita senha definida pelo admin. Se não vier, gera uma aleatória.
+        $password = $request->filled('password') ? $request->password : Str::random(10);
 
         $user = User::create([
             'name'            => $request->name,
