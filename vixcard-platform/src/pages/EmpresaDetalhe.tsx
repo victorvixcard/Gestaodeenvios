@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 import { useData } from "../contexts/DataContext";
 import { useLog } from "../contexts/LogsContext";
+import { api, ApiError } from "../lib/api";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -118,19 +119,28 @@ export function EmpresaDetalhe() {
     setWaPhone("");
   };
 
-  const handleChangePassword = () => {
+  const handleChangePassword = async () => {
     if (!pwUser) return;
-    if (pwNew.length < 6) { toast.error("Senha deve ter no mínimo 6 caracteres."); return; }
+    if (pwNew.length < 8) { toast.error("Senha deve ter no mínimo 8 caracteres."); return; }
     if (pwNew !== pwConfirm) { toast.error("As senhas não conferem."); return; }
-    addLog({
-      action: "senha_alterada", entityType: "Usuário", entityId: pwUser.id, entityName: pwUser.name,
-      userName: user?.name ?? "", userEmail: user?.email ?? "", userRole: user?.role ?? "super_admin",
-      tenantSlug: "sistemalegado", details: `Senha alterada para o usuário ${pwUser.email}`,
-    });
-    toast.success(`Senha de ${pwUser.name} atualizada!`);
-    setPwUser(null);
-    setPwNew("");
-    setPwConfirm("");
+    try {
+      await api.patch(`/users/${pwUser.id}/password`, {
+        password: pwNew,
+        password_confirmation: pwConfirm,
+      });
+      addLog({
+        action: "senha_alterada", entityType: "Usuário", entityId: pwUser.id, entityName: pwUser.name,
+        userName: user?.name ?? "", userEmail: user?.email ?? "", userRole: user?.role ?? "super_admin",
+        tenantSlug: "sistemalegado", details: `Senha alterada para o usuário ${pwUser.email}`,
+      });
+      toast.success(`Senha de ${pwUser.name} atualizada!`);
+      setPwUser(null);
+      setPwNew("");
+      setPwConfirm("");
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "Erro ao alterar senha.";
+      toast.error(message);
+    }
   };
 
   return (
