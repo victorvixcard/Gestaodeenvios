@@ -31,21 +31,6 @@ export function clearToken(): void {
   localStorage.removeItem('vixcard_token')
 }
 
-async function withTimeout<T>(promise: Promise<T>, ms = DEFAULT_TIMEOUT_MS): Promise<T> {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), ms)
-  try {
-    return await promise
-  } catch (err) {
-    if (err instanceof DOMException && err.name === 'AbortError') {
-      throw new ApiTimeoutError()
-    }
-    throw err
-  } finally {
-    clearTimeout(timer)
-  }
-}
-
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS)
