@@ -166,6 +166,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       tenant_slug: data.tenantSlug,
       whatsapp: (data as Record<string, unknown>).whatsapp,
       avatar_url: data.avatarUrl,
+      permissions: data.permissions,
     }).then((u) => setUsers((prev) => [...prev, mapUser(u)]));
   };
 
@@ -180,6 +181,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       email: updates.email,
       role: updates.role,
       avatar_url: updates.avatarUrl,
+      permissions: updates.permissions,
     }).then((u) => setUsers((prev) => prev.map((x) => (x.id === id ? mapUser(u) : x))));
   };
 

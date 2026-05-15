@@ -61,12 +61,14 @@ class UserController extends Controller
         $allowedRoles = $this->allowedRolesFor($actor);
 
         $request->validate([
-            'name'        => 'required|string|max:255',
-            'email'       => 'required|email|unique:users,email',
-            'role'        => 'required|in:' . implode(',', $allowedRoles),
-            'tenant_slug' => 'required|exists:companies,slug',
-            'whatsapp'    => 'nullable|string|max:20',
-            'avatar_url'  => 'nullable|string',
+            'name'          => 'required|string|max:255',
+            'email'         => 'required|email|unique:users,email',
+            'role'          => 'required|in:' . implode(',', $allowedRoles),
+            'tenant_slug'   => 'required|exists:companies,slug',
+            'whatsapp'      => 'nullable|string|max:20',
+            'avatar_url'    => 'nullable|string',
+            'permissions'   => 'nullable|array',
+            'permissions.*' => 'string',
         ]);
 
         // Tenant admin só pode criar usuários no próprio tenant
@@ -85,6 +87,7 @@ class UserController extends Controller
             'avatar_initials' => $this->initials($request->name),
             'avatar_url'      => $request->avatar_url,
             'whatsapp'        => $request->whatsapp,
+            'permissions'     => $request->permissions ?? [],
             'active'          => true,
         ]);
 
@@ -111,14 +114,16 @@ class UserController extends Controller
         $allowedRoles = $this->allowedRolesFor($actor);
 
         $request->validate([
-            'name'       => 'sometimes|string|max:255',
-            'email'      => "sometimes|email|unique:users,email,{$id}",
-            'role'       => 'sometimes|in:' . implode(',', $allowedRoles),
-            'whatsapp'   => 'nullable|string|max:20',
-            'avatar_url' => 'nullable|string',
+            'name'          => 'sometimes|string|max:255',
+            'email'         => "sometimes|email|unique:users,email,{$id}",
+            'role'          => 'sometimes|in:' . implode(',', $allowedRoles),
+            'whatsapp'      => 'nullable|string|max:20',
+            'avatar_url'    => 'nullable|string',
+            'permissions'   => 'sometimes|array',
+            'permissions.*' => 'string',
         ]);
 
-        $target->update($request->only(['name', 'email', 'role', 'whatsapp', 'avatar_url']));
+        $target->update($request->only(['name', 'email', 'role', 'whatsapp', 'avatar_url', 'permissions']));
 
         if ($request->name) {
             $target->update(['avatar_initials' => $this->initials($request->name)]);
