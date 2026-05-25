@@ -33,6 +33,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/{id}/cancel',  [OrderController::class, 'cancel']);
         Route::post('/{id}/files',   [OrderController::class, 'uploadFile']);
         Route::delete('/{id}/files/{fileIndex}', [OrderController::class, 'deleteFile']);
+
+        // Exclusão definitiva — somente super admin
+        Route::delete('/{id}', [OrderController::class, 'destroy'])
+            ->middleware('role:super_admin');
     });
 
     // ── Produtos ───────────────────────────────────────────────────────────

@@ -7,8 +7,9 @@ import { useAuth } from "./AuthContext";
 interface OrdersContextValue {
   orders: Order[];
   addOrder: (order: Omit<Order, "id" | "createdAt" | "updatedAt" | "events">, files?: File[]) => Promise<Order>;
-  updateStatus: (id: string, status: OrderStatus, reason?: string, author?: string) => void;
+  updateStatus: (id: string, status: OrderStatus, reason?: string, author?: string) => Promise<void>;
   addNote: (orderId: string, content: string, authorName?: string, authorRole?: UserRole) => void;
+  deleteOrder: (id: string) => Promise<void>;
   getOrder: (id: string) => Order | undefined;
 }
 
@@ -60,14 +61,16 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
     return mapped;
   };
 
-  const updateStatus = (id: string, status: OrderStatus, reason?: string) => {
-    if (status === 'cancelled') {
-      api.post<Record<string, unknown>>(`/orders/${id}/cancel`, { reason: reason ?? '' })
-        .then((data) => setOrders((prev) => prev.map((o) => (o.id === id ? mapOrder(data) : o))));
+  const updateStatus = async (id: string, status: OrderStatus, reason?: string) => {
+    // Quando o admin fornece motivo, usa o endpoint /cancel (que persiste o cancel_reason).
+    // Sem motivo, usa /status — permite reabrir um pedido cancelado para qualquer outro status.
+    if (status === 'cancelled' && reason) {
+      const data = await api.post<Record<string, unknown>>(`/orders/${id}/cancel`, { reason });
+      setOrders((prev) => prev.map((o) => (o.id === id ? mapOrder(data) : o)));
       return;
     }
-    api.patch<Record<string, unknown>>(`/orders/${id}/status`, { status })
-      .then((data) => setOrders((prev) => prev.map((o) => (o.id === id ? mapOrder(data) : o))));
+    const data = await api.patch<Record<string, unknown>>(`/orders/${id}/status`, { status });
+    setOrders((prev) => prev.map((o) => (o.id === id ? mapOrder(data) : o)));
   };
 
   const addNote = (orderId: string, content: string, _authorName?: string, _authorRole?: UserRole) => {
@@ -75,10 +78,15 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
       .then((data) => setOrders((prev) => prev.map((o) => (o.id === orderId ? mapOrder(data) : o))));
   };
 
+  const deleteOrder = async (id: string) => {
+    await api.delete(`/orders/${id}`);
+    setOrders((prev) => prev.filter((o) => o.id !== id));
+  };
+
   const getOrder = (id: string) => orders.find((o) => o.id === id);
 
   return (
-    <OrdersContext.Provider value={{ orders, addOrder, updateStatus, addNote, getOrder }}>
+    <OrdersContext.Provider value={{ orders, addOrder, updateStatus, addNote, deleteOrder, getOrder }}>
       {children}
     </OrdersContext.Provider>
   );

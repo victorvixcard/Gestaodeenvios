@@ -107,8 +107,16 @@ class OrderController extends Controller
 
     public function updateStatus(Request $request, string $id): JsonResponse
     {
+        $user = $request->user();
+
+        // Super admin pode usar qualquer status, inclusive cancelled (reabrir/cancelar livremente).
+        // Demais usuários ficam restritos aos status do fluxo normal.
+        $allowedStatuses = $user->isSuperAdmin()
+            ? 'pending,started,production,finishing,done,cancelled'
+            : 'pending,started,production,finishing,done';
+
         $request->validate([
-            'status' => 'required|in:pending,started,production,finishing,done',
+            'status' => "required|in:{$allowedStatuses}",
         ]);
 
         $order = Order::findOrFail($id);
@@ -238,6 +246,36 @@ class OrderController extends Controller
         );
 
         return response()->json($this->formatOrder($order->fresh(['items', 'notes', 'events'])));
+    }
+
+    public function destroy(Request $request, string $id): JsonResponse
+    {
+        // Rota já está protegida por role:super_admin, mas mantemos a checagem
+        // como defesa em profundidade.
+        if (!$request->user()->isSuperAdmin()) {
+            return response()->json(['message' => 'Apenas super admin pode excluir pedidos.'], 403);
+        }
+
+        $order = Order::findOrFail($id);
+        $title = $order->title;
+        $tenant = $order->tenant_slug;
+
+        // Remove arquivos do storage para não deixar lixo
+        foreach (($order->files ?? []) as $file) {
+            if (!empty($file['path'])) {
+                Storage::disk('public')->delete($file['path']);
+            }
+        }
+
+        // Cascade: items, notes e events devem ter onDelete('cascade') na migration.
+        $order->delete();
+
+        AuditLog::record(
+            'pedido_removido', 'Pedido', $id, $title,
+            $request->user(), "Tenant: {$tenant}"
+        );
+
+        return response()->json(null, 204);
     }
 
     public function deleteFile(Request $request, string $id, int $fileIndex): JsonResponse

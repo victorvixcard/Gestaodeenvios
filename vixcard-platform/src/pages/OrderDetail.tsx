@@ -4,12 +4,13 @@ import { motion } from "framer-motion";
 import {
   ArrowLeft, Play, CheckCircle2, Wrench, PackageCheck,
   XCircle, MessageSquarePlus, Send, Download, FileText, FileImage, File as FileIcon, Paperclip,
-  MessageCircle, AlertTriangle,
+  MessageCircle, AlertTriangle, Undo2, RotateCcw, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 import { useOrders } from "../contexts/OrdersContext";
 import { useLog } from "../contexts/LogsContext";
+import { ApiError } from "../lib/api";
 import { StatusBadge } from "../components/shared/StatusBadge";
 import { OrderTimeline } from "../components/shared/OrderTimeline";
 import { Button } from "../components/ui/button";
@@ -33,12 +34,13 @@ const STAGE_ORDER = ["pending", "started", "production", "finishing", "done"];
 export function OrderDetail() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
-  const { getOrder, updateStatus, addNote } = useOrders();
+  const { getOrder, updateStatus, addNote, deleteOrder } = useOrders();
   const { addLog } = useLog();
   const navigate = useNavigate();
   const [note, setNote] = useState("");
   const [cancelReason, setCancelReason] = useState("");
   const [showCancelForm, setShowCancelForm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const order = getOrder(id!);
   if (!order) {
@@ -75,24 +77,71 @@ export function OrderDetail() {
     tenantSlug: order.tenantSlug,
   };
 
-  const handleAdvance = () => {
+  const handleAdvance = async () => {
     const nextIndex = STAGE_ORDER.indexOf(order.status) + 1;
     if (nextIndex >= STAGE_ORDER.length) return;
     const nextStatus = STAGE_ORDER[nextIndex] as OrderStatus;
     const prevLabel = STAGES.find((s) => s.key === order.status)?.label ?? order.status;
     const nextLabel = STAGES.find((s) => s.key === nextStatus)?.label ?? nextStatus;
-    updateStatus(order.id, nextStatus, undefined, user?.name);
-    addLog({ ...actor, action: "pedido_status", entityType: "Pedido", entityId: order.id, entityName: order.title, details: `Status: ${prevLabel} → ${nextLabel}` });
-    toast.success(`Status atualizado para: ${nextLabel}`);
+    try {
+      await updateStatus(order.id, nextStatus, undefined, user?.name);
+      addLog({ ...actor, action: "pedido_status", entityType: "Pedido", entityId: order.id, entityName: order.title, details: `Status: ${prevLabel} → ${nextLabel}` });
+      toast.success(`Status atualizado para: ${nextLabel}`);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Erro ao atualizar status.");
+    }
   };
 
-  const handleCancel = () => {
+  // Super admin: voltar uma etapa no fluxo
+  const handleGoBack = async () => {
+    const prevIndex = STAGE_ORDER.indexOf(order.status) - 1;
+    if (prevIndex < 0) return;
+    const prevStatus = STAGE_ORDER[prevIndex] as OrderStatus;
+    const currentLabel = STAGES.find((s) => s.key === order.status)?.label ?? order.status;
+    const prevLabel = STAGES.find((s) => s.key === prevStatus)?.label ?? prevStatus;
+    try {
+      await updateStatus(order.id, prevStatus, undefined, user?.name);
+      addLog({ ...actor, action: "pedido_status", entityType: "Pedido", entityId: order.id, entityName: order.title, details: `Status revertido: ${currentLabel} → ${prevLabel}` });
+      toast.success(`Status revertido para: ${prevLabel}`);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Erro ao voltar status.");
+    }
+  };
+
+  // Super admin: reabre pedido cancelado/concluido voltando para o início do fluxo
+  const handleReopen = async () => {
+    try {
+      await updateStatus(order.id, "pending", undefined, user?.name);
+      addLog({ ...actor, action: "pedido_status", entityType: "Pedido", entityId: order.id, entityName: order.title, details: `Pedido reaberto (status anterior: ${order.status})` });
+      toast.success("Pedido reaberto.");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Erro ao reabrir pedido.");
+    }
+  };
+
+  const handleCancel = async () => {
     if (!cancelReason.trim()) { toast.error("Informe o motivo do cancelamento."); return; }
-    updateStatus(order.id, "cancelled", cancelReason, user?.name);
-    addLog({ ...actor, action: "pedido_cancelado", entityType: "Pedido", entityId: order.id, entityName: order.title, details: `Motivo: ${cancelReason}` });
-    setShowCancelForm(false);
-    setCancelReason("");
-    toast.success("Pedido cancelado.");
+    try {
+      await updateStatus(order.id, "cancelled", cancelReason, user?.name);
+      addLog({ ...actor, action: "pedido_cancelado", entityType: "Pedido", entityId: order.id, entityName: order.title, details: `Motivo: ${cancelReason}` });
+      setShowCancelForm(false);
+      setCancelReason("");
+      toast.success("Pedido cancelado.");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Erro ao cancelar pedido.");
+    }
+  };
+
+  // Super admin: exclusão definitiva
+  const handleDelete = async () => {
+    try {
+      await deleteOrder(order.id);
+      addLog({ ...actor, action: "pedido_status", entityType: "Pedido", entityId: order.id, entityName: order.title, details: "Pedido EXCLUÍDO definitivamente" });
+      toast.success("Pedido excluído.");
+      navigate(-1);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Erro ao excluir pedido.");
+    }
   };
 
   const handleAddNote = () => {
@@ -305,47 +354,114 @@ export function OrderDetail() {
 
         {/* Sidebar */}
         <div className="lg:col-span-2 space-y-5">
-          {/* Actions — super admin */}
-          {isSuperAdmin && !isCancelled && !isDone && (
+          {/* Actions — super admin (controle total, qualquer status) */}
+          {isSuperAdmin && (
             <Card>
               <CardHeader><CardTitle>Ações</CardTitle></CardHeader>
               <CardContent className="space-y-2">
-                <Button
-                  className="w-full"
-                  variant="brand"
-                  onClick={handleAdvance}
-                  disabled={currentStageIndex >= STAGE_ORDER.length - 1}
-                >
-                  <Play className="h-4 w-4" />
-                  {currentStageIndex === 0 ? "▶ START — Iniciar Produção" : "Avançar Etapa"}
-                </Button>
-                <Separator />
-                {!showCancelForm ? (
+                {/* Avançar — fluxo ativo (pendente até acabamento) */}
+                {!isCancelled && !isDone && (
                   <Button
-                    variant="outline"
-                    className="w-full border-destructive/30 text-destructive hover:bg-destructive/5"
-                    onClick={() => setShowCancelForm(true)}
+                    className="w-full"
+                    variant="brand"
+                    onClick={handleAdvance}
+                    disabled={currentStageIndex >= STAGE_ORDER.length - 1}
                   >
-                    <XCircle className="h-4 w-4" />
-                    Cancelar Pedido
+                    <Play className="h-4 w-4" />
+                    {currentStageIndex === 0 ? "▶ START — Iniciar Produção" : "Avançar Etapa"}
+                  </Button>
+                )}
+
+                {/* Voltar etapa — fluxo ativo a partir de started */}
+                {!isCancelled && !isDone && currentStageIndex > 0 && (
+                  <Button
+                    className="w-full"
+                    variant="outline"
+                    onClick={handleGoBack}
+                  >
+                    <Undo2 className="h-4 w-4" />
+                    Voltar Etapa
+                  </Button>
+                )}
+
+                {/* Reabrir — quando cancelado ou concluído */}
+                {(isCancelled || isDone) && (
+                  <Button
+                    className="w-full"
+                    variant="outline"
+                    onClick={handleReopen}
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    Reabrir Pedido
+                  </Button>
+                )}
+
+                {/* Cancelar — apenas se não estiver já cancelado */}
+                {!isCancelled && (
+                  <>
+                    <Separator />
+                    {!showCancelForm ? (
+                      <Button
+                        variant="outline"
+                        className="w-full border-destructive/30 text-destructive hover:bg-destructive/5"
+                        onClick={() => setShowCancelForm(true)}
+                      >
+                        <XCircle className="h-4 w-4" />
+                        Cancelar Pedido
+                      </Button>
+                    ) : (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        className="space-y-2"
+                      >
+                        <Textarea
+                          placeholder="Motivo do cancelamento..."
+                          value={cancelReason}
+                          onChange={(e) => setCancelReason(e.target.value)}
+                          rows={3}
+                        />
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="destructive" onClick={handleCancel} className="flex-1">
+                            Confirmar
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => setShowCancelForm(false)}>
+                            Cancelar
+                          </Button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </>
+                )}
+
+                {/* Excluir definitivamente — sempre disponível para super admin, com confirmação dupla */}
+                <Separator />
+                {!showDeleteConfirm ? (
+                  <Button
+                    variant="ghost"
+                    className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => setShowDeleteConfirm(true)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Excluir Pedido
                   </Button>
                 ) : (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
-                    className="space-y-2"
+                    className="space-y-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3"
                   >
-                    <Textarea
-                      placeholder="Motivo do cancelamento..."
-                      value={cancelReason}
-                      onChange={(e) => setCancelReason(e.target.value)}
-                      rows={3}
-                    />
+                    <p className="text-xs text-destructive font-semibold">
+                      Esta ação é irreversível.
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      O pedido <span className="font-mono">{order.id}</span> e todos os anexos serão apagados permanentemente.
+                    </p>
                     <div className="flex gap-2">
-                      <Button size="sm" variant="destructive" onClick={handleCancel} className="flex-1">
-                        Confirmar
+                      <Button size="sm" variant="destructive" onClick={handleDelete} className="flex-1">
+                        Sim, excluir
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setShowCancelForm(false)}>
+                      <Button size="sm" variant="ghost" onClick={() => setShowDeleteConfirm(false)}>
                         Cancelar
                       </Button>
                     </div>
