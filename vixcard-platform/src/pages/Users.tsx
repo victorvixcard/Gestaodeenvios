@@ -22,6 +22,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "../components/ui/select";
 import { cn } from "../lib/utils";
+import { ApiError } from "../lib/api";
 import type { Permission, User as UserType, UserRole } from "../types";
 
 const ROLE_LABELS: Record<UserRole, { label: string; variant: "default" | "accent" | "success" }> = {
@@ -31,7 +32,7 @@ const ROLE_LABELS: Record<UserRole, { label: string; variant: "default" | "accen
 };
 
 const EMPTY_FORM = {
-  name: "", email: "", role: "operator" as UserRole, tenantSlug: "", permissions: [] as Permission[], active: true, avatarUrl: "",
+  name: "", email: "", role: "operator" as UserRole, tenantSlug: "", permissions: [] as Permission[], active: true, avatarUrl: "", password: "",
 };
 
 export function Users() {
@@ -51,7 +52,21 @@ export function Users() {
     ? users.filter((u) => u.tenantSlug !== "sistemalegado")
     : users.filter((u) => u.tenantSlug === tenant.slug);
 
-  const visibleCompanies = isSuperAdmin ? companies : companies.filter((c) => c.slug === tenant.slug);
+  // Super admin usa a lista de empresas vinda da API.
+  // Tenant admin / operador não tem permissão de listar empresas — monta um grupo sintético com o tenant atual.
+  const visibleCompanies = isSuperAdmin
+    ? companies
+    : companies.length > 0
+      ? companies.filter((c) => c.slug === tenant.slug)
+      : [{
+          slug: tenant.slug,
+          name: tenant.name,
+          logoColor: tenant.logoColor,
+          logoInitials: tenant.logoInitials,
+          allowedProductIds: [],
+          active: true,
+          createdAt: new Date().toISOString(),
+        }];
 
   const openCreate = () => {
     const defaultSlug = isSuperAdmin ? (companies[0]?.slug ?? "") : tenant.slug;
@@ -70,6 +85,7 @@ export function Users() {
     setForm({
       name: u.name, email: u.email, role: u.role,
       tenantSlug: u.tenantSlug, permissions: [...u.permissions], active: u.active, avatarUrl: u.avatarUrl ?? "",
+      password: "",
     });
     setEditId(u.id);
     setDialog("edit");
@@ -92,22 +108,32 @@ export function Users() {
     if (!form.name.trim()) { toast.error("Informe o nome."); return; }
     if (!form.email.trim()) { toast.error("Informe o e-mail."); return; }
     if (!form.tenantSlug) { toast.error("Selecione a empresa."); return; }
+    if (dialog === "create" && form.password && form.password.length < 8) {
+      toast.error("Senha deve ter no mínimo 8 caracteres.");
+      return;
+    }
 
     setSaving(true);
     const actor = { userName: currentUser?.name ?? "", userEmail: currentUser?.email ?? "", userRole: currentUser?.role ?? "super_admin" as const, tenantSlug: currentUser?.tenantSlug ?? "sistemalegado" };
     try {
       if (dialog === "create") {
-        await addUser(form);
-        addLog({ ...actor, action: "usuario_criado", entityType: "Usuário", entityId: `new-${Date.now()}`, entityName: form.name, details: `Perfil: ${form.role} — Empresa: ${form.tenantSlug}` });
-        toast.success("Usuário criado!");
+        const created = await addUser(form);
+        addLog({ ...actor, action: "usuario_criado", entityType: "Usuário", entityId: String(created.id ?? `new-${Date.now()}`), entityName: form.name, details: `Perfil: ${form.role} — Empresa: ${form.tenantSlug}` });
+        const plainPassword = created.plain_password as string | undefined;
+        if (plainPassword) {
+          toast.success(`Usuário criado! Senha inicial: ${plainPassword}`, { duration: 15000 });
+        } else {
+          toast.success("Usuário criado!");
+        }
       } else if (editId) {
         await updateUser(editId, form);
         addLog({ ...actor, action: "usuario_atualizado", entityType: "Usuário", entityId: editId, entityName: form.name, details: `Perfil: ${form.role} — Empresa: ${form.tenantSlug}` });
         toast.success("Usuário atualizado!");
       }
       setDialog(null);
-    } catch {
-      toast.error("Erro ao salvar usuário. Tente novamente.");
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "Erro ao salvar usuário.";
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -306,6 +332,22 @@ export function Users() {
                       {companies.map((c) => <SelectItem key={c.slug} value={c.slug}>{c.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
+                </div>
+              )}
+
+              {dialog === "create" && (
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label>Senha inicial</Label>
+                  <Input
+                    type="password"
+                    placeholder="Mínimo 8 caracteres (deixe em branco para gerar automaticamente)"
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    autoComplete="new-password"
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    Se deixar em branco, o sistema gera uma senha aleatória e mostra na tela após criar.
+                  </p>
                 </div>
               )}
             </div>

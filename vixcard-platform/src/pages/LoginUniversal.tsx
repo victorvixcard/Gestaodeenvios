@@ -7,7 +7,6 @@ import { z } from "zod";
 import { Eye, EyeOff, LogIn, Layers } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
-import { useTenant } from "../contexts/TenantContext";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -19,9 +18,8 @@ const schema = z.object({
 });
 type FormData = z.infer<typeof schema>;
 
-export function Login() {
+export function LoginUniversal() {
   const { login } = useAuth();
-  const tenant = useTenant();
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -32,26 +30,26 @@ export function Login() {
 
   const onSubmit = async (data: FormData) => {
     setLoading(true);
-    const result = await login(data.email, data.password, tenant.slug);
+    // Login universal: sem tenant_slug — o backend descobre pelo e-mail
+    const result = await login(data.email, data.password);
     setLoading(false);
-    if (result.success) {
-      toast.success(`Bem-vindo, ${tenant.name}!`);
-      navigate(`/${tenant.slug}/dashboard`);
+
+    if (result.success && result.tenantSlug) {
+      navigate(`/${result.tenantSlug}/dashboard`, { replace: true });
     } else {
       toast.error("E-mail ou senha incorretos.");
     }
   };
 
-  const isSuperAdmin = tenant.slug === "vixcard";
-
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
       {/* Background gradient */}
       <div
-        className="absolute inset-0 opacity-20"
+        className="absolute inset-0 opacity-15"
         style={{
-          background: `radial-gradient(ellipse at 30% 40%, ${tenant.logoColor}40 0%, transparent 60%),
-                       radial-gradient(ellipse at 70% 70%, hsl(var(--accent) / 0.15) 0%, transparent 50%)`,
+          background:
+            "radial-gradient(ellipse at 30% 40%, hsl(var(--primary) / 0.4) 0%, transparent 60%), " +
+            "radial-gradient(ellipse at 70% 70%, hsl(var(--accent) / 0.15) 0%, transparent 50%)",
         }}
       />
 
@@ -61,24 +59,25 @@ export function Login() {
         transition={{ duration: 0.5 }}
         className="w-full max-w-[400px] relative z-10"
       >
-        {/* Logo */}
+        {/* Logo / marca */}
         <div className="text-center mb-8">
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 0.1, type: "spring", stiffness: 300 }}
-            className="inline-flex items-center justify-center h-16 w-16 rounded-2xl text-white text-xl font-bold mb-4 shadow-glow"
-            style={{ background: tenant.logoColor }}
+            className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-primary text-primary-foreground text-xl font-bold mb-4 shadow-lg"
           >
-            {tenant.logoInitials}
+            GE
           </motion.div>
-          <h1 className="font-display text-2xl font-extrabold text-foreground">{tenant.name}</h1>
+          <h1 className="font-display text-2xl font-extrabold text-foreground">
+            Gestão de Envios
+          </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {isSuperAdmin ? "Acesso administrativo da VIXCard" : "Portal do cliente — acesse sua conta"}
+            Acesse sua conta para continuar
           </p>
         </div>
 
-        <Card className="shadow-glow border-border/60">
+        <Card className="shadow-lg border-border/60">
           <div className="p-6 space-y-5">
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div className="space-y-1.5">
@@ -86,7 +85,7 @@ export function Login() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder={isSuperAdmin ? "admin@vixcard.com.br" : `gerente@${tenant.slug}.com.br`}
+                  placeholder="seu@email.com.br"
                   autoComplete="email"
                   {...register("email")}
                   className={errors.email ? "border-destructive" : ""}
@@ -121,12 +120,7 @@ export function Login() {
                 )}
               </div>
 
-              <Button
-                type="submit"
-                className="w-full"
-                variant={isSuperAdmin ? "brand" : "default"}
-                disabled={loading}
-              >
+              <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? (
                   <span className="animate-spin inline-block h-4 w-4 border-2 border-white/30 border-t-white rounded-full" />
                 ) : (
@@ -135,14 +129,6 @@ export function Login() {
                 {loading ? "Entrando..." : "Entrar"}
               </Button>
             </form>
-
-            {/* Demo credentials hint */}
-            <div className="pt-2 border-t border-border/50">
-              <p className="text-[11px] text-muted-foreground/60 text-center leading-relaxed">
-                <strong className="text-muted-foreground/80">Demo:</strong>{" "}
-                {isSuperAdmin ? "admin@vixcard.com.br" : `gerente@${tenant.slug}.com.br`} / password
-              </p>
-            </div>
           </div>
         </Card>
 

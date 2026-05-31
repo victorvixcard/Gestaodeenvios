@@ -3,10 +3,15 @@ import type { User, UserRole } from "../types";
 import { api, getToken, setToken, clearToken } from "../lib/api";
 import { mapUser } from "../lib/mappers";
 
+export interface LoginResult {
+  success: boolean;
+  tenantSlug?: string;
+}
+
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string, tenantSlug: string) => Promise<boolean>;
+  login: (email: string, password: string, tenantSlug?: string) => Promise<LoginResult>;
   logout: () => void;
   updateAvatar: (url: string) => void;
   isAuthenticated: boolean;
@@ -26,18 +31,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const login = async (email: string, password: string, tenantSlug: string): Promise<boolean> => {
+  const login = async (email: string, password: string, tenantSlug?: string): Promise<LoginResult> => {
     try {
-      const data = await api.post<{ token: string; user: Record<string, unknown> }>('/login', {
-        email,
-        password,
-        tenant_slug: tenantSlug,
-      });
+      const body: Record<string, string> = { email, password };
+      if (tenantSlug) body.tenant_slug = tenantSlug;
+
+      const data = await api.post<{ token: string; user: Record<string, unknown>; tenant_slug: string }>('/login', body);
       setToken(data.token);
       setUser(mapUser(data.user));
-      return true;
+      return { success: true, tenantSlug: data.tenant_slug };
     } catch {
-      return false;
+      return { success: false };
     }
   };
 
