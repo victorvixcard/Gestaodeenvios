@@ -26,41 +26,57 @@ export async function normalizeImageFile(file: File): Promise<File> {
   });
 }
 
+/** Dimensão máxima do canvas de saída (px). Evita base64 gigantesco. */
+const MAX_OUTPUT_PX = 1200;
+
 /**
  * Extrai a área de recorte do elemento <img> exibido e retorna base64.
  * Os valores de PixelCrop são em pixels do elemento renderizado —
- * escalonamos para o tamanho natural da imagem.
+ * escalonamos para o tamanho natural e limitamos a MAX_OUTPUT_PX.
  */
 export function getCroppedImg(
   imgEl: HTMLImageElement,
   crop: PixelCrop,
   mimeType: "image/jpeg" | "image/png" | "image/webp" = "image/jpeg",
-  quality = 0.92
+  quality = 0.88
 ): string {
   const scaleX = imgEl.naturalWidth  / imgEl.width;
   const scaleY = imgEl.naturalHeight / imgEl.height;
 
-  const cropW = Math.round(crop.width  * scaleX);
-  const cropH = Math.round(crop.height * scaleY);
+  let outW = Math.round(crop.width  * scaleX);
+  let outH = Math.round(crop.height * scaleY);
+
+  // Reduz proporcionalmente se exceder o limite
+  if (outW > MAX_OUTPUT_PX || outH > MAX_OUTPUT_PX) {
+    const ratio = Math.min(MAX_OUTPUT_PX / outW, MAX_OUTPUT_PX / outH);
+    outW = Math.round(outW * ratio);
+    outH = Math.round(outH * ratio);
+  }
 
   const canvas = document.createElement("canvas");
-  canvas.width  = cropW;
-  canvas.height = cropH;
+  canvas.width  = outW;
+  canvas.height = outH;
 
   const ctx = canvas.getContext("2d")!;
   ctx.drawImage(
     imgEl,
     Math.round(crop.x * scaleX),
     Math.round(crop.y * scaleY),
-    cropW,
-    cropH,
-    0,
-    0,
-    cropW,
-    cropH
+    Math.round(crop.width  * scaleX),
+    Math.round(crop.height * scaleY),
+    0, 0, outW, outH
   );
 
   return canvas.toDataURL(mimeType, quality);
+}
+
+/**
+ * Retorna o tamanho aproximado em MB de um data URL base64.
+ * Útil para validar antes de enviar ao backend.
+ */
+export function getBase64SizeMB(dataUrl: string): number {
+  const base64 = dataUrl.split(",")[1] ?? dataUrl;
+  return (base64.length * 0.75) / (1024 * 1024);
 }
 
 export function readFileAsDataUrl(file: File): Promise<string> {

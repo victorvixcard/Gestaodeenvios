@@ -57,6 +57,7 @@ export function Products() {
   const [categoryFilter, setCategoryFilter] = useState("Todos");
   const [dialog, setDialog] = useState<"create" | "edit" | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ ...EMPTY_FORM });
 
   const filtered = products.filter((p) => {
@@ -88,38 +89,44 @@ export function Products() {
     setDialog("edit");
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.name.trim()) { toast.error("Informe o nome do produto."); return; }
-
-    if (dialog === "create") {
-      addProduct({
-        name: form.name, description: form.description, category: form.category,
-        price: Number(form.price), stock: Number(form.stock),
-        imageUrl: form.imageUrl || undefined, videoUrl: form.videoUrl || undefined, active: form.active,
-        variations: form.variations.length > 0 ? form.variations : undefined,
-      });
-      addLog({
-        action: "produto_criado", entityType: "Produto", entityId: `new-${Date.now()}`, entityName: form.name,
-        userName: user?.name ?? "", userEmail: user?.email ?? "", userRole: user?.role ?? "super_admin",
-        tenantSlug: "sistemalegado", details: `Categoria: ${form.category}`,
-      });
-      toast.success("Produto cadastrado!");
-    } else if (editId) {
-      const product = products.find((p) => p.id === editId);
-      updateProduct(editId, {
-        name: form.name, description: form.description, category: form.category,
-        price: Number(form.price), stock: Number(form.stock),
-        imageUrl: form.imageUrl || undefined, videoUrl: form.videoUrl || undefined, active: form.active,
-        variations: form.variations.length > 0 ? form.variations : undefined,
-      });
-      addLog({
-        action: "produto_atualizado", entityType: "Produto", entityId: editId, entityName: form.name,
-        userName: user?.name ?? "", userEmail: user?.email ?? "", userRole: user?.role ?? "super_admin",
-        tenantSlug: "sistemalegado", details: product ? `Editado: ${product.name}` : undefined,
-      });
-      toast.success("Produto atualizado!");
+    setSaving(true);
+    try {
+      if (dialog === "create") {
+        await addProduct({
+          name: form.name, description: form.description, category: form.category,
+          price: Number(form.price), stock: Number(form.stock),
+          imageUrl: form.imageUrl || undefined, videoUrl: form.videoUrl || undefined, active: form.active,
+          variations: form.variations.length > 0 ? form.variations : undefined,
+        });
+        addLog({
+          action: "produto_criado", entityType: "Produto", entityId: `new-${Date.now()}`, entityName: form.name,
+          userName: user?.name ?? "", userEmail: user?.email ?? "", userRole: user?.role ?? "super_admin",
+          tenantSlug: "sistemalegado", details: `Categoria: ${form.category}`,
+        });
+        toast.success("Produto cadastrado!");
+      } else if (editId) {
+        const product = products.find((p) => p.id === editId);
+        await updateProduct(editId, {
+          name: form.name, description: form.description, category: form.category,
+          price: Number(form.price), stock: Number(form.stock),
+          imageUrl: form.imageUrl || undefined, videoUrl: form.videoUrl || undefined, active: form.active,
+          variations: form.variations.length > 0 ? form.variations : undefined,
+        });
+        addLog({
+          action: "produto_atualizado", entityType: "Produto", entityId: editId, entityName: form.name,
+          userName: user?.name ?? "", userEmail: user?.email ?? "", userRole: user?.role ?? "super_admin",
+          tenantSlug: "sistemalegado", details: product ? `Editado: ${product.name}` : undefined,
+        });
+        toast.success("Produto atualizado!");
+      }
+      setDialog(null);
+    } catch {
+      toast.error("Erro ao salvar produto. Verifique os dados e tente novamente.");
+    } finally {
+      setSaving(false);
     }
-    setDialog(null);
   };
 
   const toggleActive = (product: Product) => {
@@ -599,9 +606,9 @@ export function Products() {
           </Tabs>
 
           <DialogFooter className="px-6 py-4 border-t border-border flex-shrink-0 gap-2">
-            <Button variant="ghost" onClick={() => setDialog(null)}>Cancelar</Button>
-            <Button variant="brand" onClick={handleSave}>
-              {dialog === "create" ? "Cadastrar Produto" : "Salvar Alterações"}
+            <Button variant="ghost" onClick={() => setDialog(null)} disabled={saving}>Cancelar</Button>
+            <Button variant="brand" onClick={handleSave} disabled={saving}>
+              {saving ? "Salvando..." : dialog === "create" ? "Cadastrar Produto" : "Salvar Alterações"}
             </Button>
           </DialogFooter>
         </DialogContent>

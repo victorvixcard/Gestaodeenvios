@@ -24,17 +24,17 @@ export const ALL_PERMISSIONS: { key: Permission; label: string; description: str
 // ── Context ───────────────────────────────────────────────────────────────────
 interface DataContextValue {
   products: Product[];
-  addProduct: (data: Omit<Product, "id" | "code">) => void;
-  updateProduct: (id: string, updates: Partial<Product>) => void;
-  deleteProduct: (id: string) => void;
+  addProduct: (data: Omit<Product, "id" | "code">) => Promise<void>;
+  updateProduct: (id: string, updates: Partial<Product>) => Promise<void>;
+  deleteProduct: (id: string) => Promise<void>;
 
   companies: Company[];
-  addCompany: (data: Omit<Company, "slug" | "createdAt">) => void;
-  updateCompany: (slug: string, updates: Partial<Company>) => void;
+  addCompany: (data: Omit<Company, "slug" | "createdAt">) => Promise<void>;
+  updateCompany: (slug: string, updates: Partial<Company>) => Promise<void>;
 
   users: User[];
-  addUser: (data: Omit<User, "id" | "avatarInitials">) => void;
-  updateUser: (id: string, updates: Partial<User>) => void;
+  addUser: (data: Omit<User, "id" | "avatarInitials">) => Promise<void>;
+  updateUser: (id: string, updates: Partial<User>) => Promise<void>;
 
   getProductsForTenant: (tenantSlug: string) => Product[];
   getUsersForTenant: (tenantSlug: string) => User[];
@@ -74,7 +74,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [isAuthenticated, authLoading]);
 
   // ── Products ──────────────────────────────────────────────────────────────
-  const addProduct = (data: Omit<Product, "id" | "code">) => {
+  const addProduct = (data: Omit<Product, "id" | "code">): Promise<void> =>
     api.post<Record<string, unknown>>('/products', {
       name: data.name,
       category: data.category,
@@ -85,9 +85,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       stock: data.stock,
       variations: data.variations,
     }).then((p) => setProducts((prev) => [...prev, mapProduct(p)]));
-  };
 
-  const updateProduct = (id: string, updates: Partial<Product>) => {
+  const updateProduct = (id: string, updates: Partial<Product>): Promise<void> =>
     api.put<Record<string, unknown>>(`/products/${id}`, {
       name: updates.name,
       category: updates.category,
@@ -99,22 +98,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
       variations: updates.variations,
       active: updates.active,
     }).then((p) => setProducts((prev) => prev.map((x) => (x.id === id ? mapProduct(p) : x))));
-  };
 
-  const deleteProduct = (id: string) => {
+  const deleteProduct = (id: string): Promise<void> =>
     api.delete(`/products/${id}`)
       .then(() => setProducts((prev) => prev.filter((x) => x.id !== id)));
-  };
 
   // ── Companies ─────────────────────────────────────────────────────────────
-  const addCompany = (data: Omit<Company, "slug" | "createdAt">) => {
+  const addCompany = (data: Omit<Company, "slug" | "createdAt">): Promise<void> => {
     const slug = data.name
       .toLowerCase()
       .normalize("NFD")
       .replace(/[̀-ͯ]/g, "")
       .replace(/\s+/g, "");
 
-    api.post<Record<string, unknown>>('/companies', {
+    return api.post<Record<string, unknown>>('/companies', {
       slug,
       name: data.name,
       logo_color: data.logoColor,
@@ -129,7 +126,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const updateCompany = (slug: string, updates: Partial<Company>) => {
+  const updateCompany = (slug: string, updates: Partial<Company>): Promise<void> => {
     const promises: Promise<unknown>[] = [];
 
     if (updates.name || updates.logoColor || updates.logoInitials || updates.logoUrl !== undefined || updates.active !== undefined) {
@@ -151,14 +148,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
       promises.push(api.patch(`/companies/${slug}/toggle`, {}));
     }
 
-    Promise.all(promises).then(async () => {
+    return Promise.all(promises).then(async () => {
       const fresh = await api.get<Record<string, unknown>>(`/companies/${slug}`);
       setCompanies((prev) => prev.map((x) => (x.slug === slug ? mapCompany(fresh) : x)));
     });
   };
 
   // ── Users ─────────────────────────────────────────────────────────────────
-  const addUser = (data: Omit<User, "id" | "avatarInitials">) => {
+  const addUser = (data: Omit<User, "id" | "avatarInitials">): Promise<void> =>
     api.post<Record<string, unknown>>('/users', {
       name: data.name,
       email: data.email,
@@ -167,15 +164,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
       whatsapp: (data as Record<string, unknown>).whatsapp,
       avatar_url: data.avatarUrl,
     }).then((u) => setUsers((prev) => [...prev, mapUser(u)]));
-  };
 
-  const updateUser = (id: string, updates: Partial<User>) => {
+  const updateUser = (id: string, updates: Partial<User>): Promise<void> => {
     if (updates.active !== undefined && Object.keys(updates).length === 1) {
-      api.patch<Record<string, unknown>>(`/users/${id}/toggle`, {})
+      return api.patch<Record<string, unknown>>(`/users/${id}/toggle`, {})
         .then((u) => setUsers((prev) => prev.map((x) => (x.id === id ? mapUser(u) : x))));
-      return;
     }
-    api.put<Record<string, unknown>>(`/users/${id}`, {
+    return api.put<Record<string, unknown>>(`/users/${id}`, {
       name: updates.name,
       email: updates.email,
       role: updates.role,

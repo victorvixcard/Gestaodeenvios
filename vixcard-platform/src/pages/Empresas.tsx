@@ -44,20 +44,29 @@ export function Empresas() {
     setDialog("create");
   };
 
-  const handleSave = () => {
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
     if (!form.name.trim()) { toast.error("Informe o nome da empresa."); return; }
     if (!form.logoInitials.trim()) { toast.error("Informe as iniciais do logo."); return; }
-    addCompany(form);
-    addLog({
-      action: "empresa_criada", entityType: "Empresa",
-      entityId: form.name.toLowerCase().replace(/\s+/g, "").normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
-      entityName: form.name,
-      userName: user?.name ?? "", userEmail: user?.email ?? "", userRole: user?.role ?? "super_admin",
-      tenantSlug: "sistemalegado",
-      details: `${form.allowedProductIds.length} produto(s) vinculado(s)`,
-    });
-    toast.success("Empresa criada com sucesso!");
-    setDialog(null);
+    setSaving(true);
+    try {
+      await addCompany(form);
+      addLog({
+        action: "empresa_criada", entityType: "Empresa",
+        entityId: form.name.toLowerCase().replace(/\s+/g, "").normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
+        entityName: form.name,
+        userName: user?.name ?? "", userEmail: user?.email ?? "", userRole: user?.role ?? "super_admin",
+        tenantSlug: "sistemalegado",
+        details: `${form.allowedProductIds.length} produto(s) vinculado(s)`,
+      });
+      toast.success("Empresa criada com sucesso!");
+      setDialog(null);
+    } catch {
+      toast.error("Erro ao criar empresa. Tente novamente.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const toggleProduct = (id: string) => {
@@ -310,9 +319,9 @@ export function Empresas() {
           </div>
 
           <DialogFooter className="gap-2">
-            <Button variant="ghost" onClick={() => setDialog(null)}>Cancelar</Button>
-            <Button variant="brand" onClick={handleSave}>
-              Criar Empresa
+            <Button variant="ghost" onClick={() => setDialog(null)} disabled={saving}>Cancelar</Button>
+            <Button variant="brand" onClick={handleSave} disabled={saving}>
+              {saving ? "Salvando..." : "Criar Empresa"}
             </Button>
           </DialogFooter>
         </DialogContent>

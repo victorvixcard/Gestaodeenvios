@@ -45,6 +45,7 @@ export function Users() {
   const [dialog, setDialog] = useState<"create" | "edit" | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState({ ...EMPTY_FORM, tenantSlug: tenant.slug });
+  const [saving, setSaving] = useState(false);
 
   const visibleUsers = isSuperAdmin
     ? users.filter((u) => u.tenantSlug !== "sistemalegado")
@@ -87,22 +88,29 @@ export function Users() {
     }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.name.trim()) { toast.error("Informe o nome."); return; }
     if (!form.email.trim()) { toast.error("Informe o e-mail."); return; }
     if (!form.tenantSlug) { toast.error("Selecione a empresa."); return; }
 
+    setSaving(true);
     const actor = { userName: currentUser?.name ?? "", userEmail: currentUser?.email ?? "", userRole: currentUser?.role ?? "super_admin" as const, tenantSlug: currentUser?.tenantSlug ?? "sistemalegado" };
-    if (dialog === "create") {
-      addUser(form);
-      addLog({ ...actor, action: "usuario_criado", entityType: "Usuário", entityId: `new-${Date.now()}`, entityName: form.name, details: `Perfil: ${form.role} — Empresa: ${form.tenantSlug}` });
-      toast.success("Usuário criado!");
-    } else if (editId) {
-      updateUser(editId, form);
-      addLog({ ...actor, action: "usuario_atualizado", entityType: "Usuário", entityId: editId, entityName: form.name, details: `Perfil: ${form.role} — Empresa: ${form.tenantSlug}` });
-      toast.success("Usuário atualizado!");
+    try {
+      if (dialog === "create") {
+        await addUser(form);
+        addLog({ ...actor, action: "usuario_criado", entityType: "Usuário", entityId: `new-${Date.now()}`, entityName: form.name, details: `Perfil: ${form.role} — Empresa: ${form.tenantSlug}` });
+        toast.success("Usuário criado!");
+      } else if (editId) {
+        await updateUser(editId, form);
+        addLog({ ...actor, action: "usuario_atualizado", entityType: "Usuário", entityId: editId, entityName: form.name, details: `Perfil: ${form.role} — Empresa: ${form.tenantSlug}` });
+        toast.success("Usuário atualizado!");
+      }
+      setDialog(null);
+    } catch {
+      toast.error("Erro ao salvar usuário. Tente novamente.");
+    } finally {
+      setSaving(false);
     }
-    setDialog(null);
   };
 
   const toggleActive = (u: UserType) => {
@@ -354,9 +362,9 @@ export function Users() {
           </div>
 
           <DialogFooter className="gap-2">
-            <Button variant="ghost" onClick={() => setDialog(null)}>Cancelar</Button>
-            <Button variant="brand" onClick={handleSave}>
-              {dialog === "create" ? "Criar Usuário" : "Salvar Alterações"}
+            <Button variant="ghost" onClick={() => setDialog(null)} disabled={saving}>Cancelar</Button>
+            <Button variant="brand" onClick={handleSave} disabled={saving}>
+              {saving ? "Salvando..." : dialog === "create" ? "Criar Usuário" : "Salvar Alterações"}
             </Button>
           </DialogFooter>
         </DialogContent>

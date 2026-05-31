@@ -75,9 +75,14 @@ export function EmpresaDetalhe() {
 
   const handleSaveProducts = async () => {
     setSavingProducts(true);
-    await updateCompany(company!.slug, { allowedProductIds: selectedProductIds });
-    setSavingProducts(false);
-    toast.success("Produtos vinculados atualizados!");
+    try {
+      await updateCompany(company!.slug, { allowedProductIds: selectedProductIds });
+      toast.success("Produtos vinculados atualizados!");
+    } catch {
+      toast.error("Erro ao atualizar produtos. Tente novamente.");
+    } finally {
+      setSavingProducts(false);
+    }
   };
 
   if (!company) {
@@ -89,16 +94,25 @@ export function EmpresaDetalhe() {
     );
   }
 
-  const handleSaveDados = () => {
+  const [savingDados, setSavingDados] = useState(false);
+
+  const handleSaveDados = async () => {
     if (!form.name.trim()) { toast.error("Informe o nome."); return; }
     if (!form.logoInitials.trim()) { toast.error("Informe as iniciais."); return; }
-    updateCompany(company.slug, { name: form.name, logoColor: form.logoColor, logoInitials: form.logoInitials, logoUrl: form.logoUrl, active: form.active });
-    addLog({
-      action: "empresa_atualizada", entityType: "Empresa", entityId: company.slug, entityName: form.name,
-      userName: user?.name ?? "", userEmail: user?.email ?? "", userRole: user?.role ?? "super_admin",
-      tenantSlug: "sistemalegado", details: `Dados cadastrais atualizados`,
-    });
-    toast.success("Dados atualizados!");
+    setSavingDados(true);
+    try {
+      await updateCompany(company.slug, { name: form.name, logoColor: form.logoColor, logoInitials: form.logoInitials, logoUrl: form.logoUrl, active: form.active });
+      addLog({
+        action: "empresa_atualizada", entityType: "Empresa", entityId: company.slug, entityName: form.name,
+        userName: user?.name ?? "", userEmail: user?.email ?? "", userRole: user?.role ?? "super_admin",
+        tenantSlug: "sistemalegado", details: `Dados cadastrais atualizados`,
+      });
+      toast.success("Dados atualizados!");
+    } catch {
+      toast.error("Erro ao atualizar empresa. Tente novamente.");
+    } finally {
+      setSavingDados(false);
+    }
   };
 
   const handleWhatsApp = () => {
@@ -259,9 +273,9 @@ export function EmpresaDetalhe() {
                   </button>
                 </div>
 
-                <Button variant="brand" onClick={handleSaveDados} className="w-full">
+                <Button variant="brand" onClick={handleSaveDados} className="w-full" disabled={savingDados}>
                   <Save className="h-4 w-4" />
-                  Salvar Alterações
+                  {savingDados ? "Salvando..." : "Salvar Alterações"}
                 </Button>
               </div>
             </Card>
