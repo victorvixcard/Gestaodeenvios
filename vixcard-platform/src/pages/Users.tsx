@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   Plus, Mail, Shield, User, Power, PowerOff, Pencil, Check, KeyRound, Eye, EyeOff,
+  Sparkles, Copy, MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
@@ -54,18 +55,39 @@ export function Users() {
   const [pwConfirm, setPwConfirm] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [savingPw, setSavingPw] = useState(false);
+  // Após salvar, mostra tela com a senha definida + botões de copiar/whatsapp
+  const [pwSuccessPwd, setPwSuccessPwd] = useState<string | null>(null);
+
+  // Gera senha aleatoria forte e legivel (sem caracteres ambiguos como 0/O, 1/l/I)
+  const generatePassword = (length = 12): string => {
+    const chars = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789@#$%";
+    const arr = new Uint32Array(length);
+    crypto.getRandomValues(arr);
+    let out = "";
+    for (let i = 0; i < length; i++) out += chars[arr[i] % chars.length];
+    return out;
+  };
 
   const openPasswordReset = (u: UserType) => {
     setPwUser(u);
     setPwNew("");
     setPwConfirm("");
     setShowPw(false);
+    setPwSuccessPwd(null);
   };
 
   const closePasswordReset = () => {
     setPwUser(null);
     setPwNew("");
     setPwConfirm("");
+    setPwSuccessPwd(null);
+  };
+
+  const handleGeneratePassword = () => {
+    const generated = generatePassword();
+    setPwNew(generated);
+    setPwConfirm(generated);
+    setShowPw(true);
   };
 
   const handlePasswordReset = async () => {
@@ -84,14 +106,35 @@ export function Users() {
         action: "senha_alterada", entityType: "Usuário", entityId: pwUser.id, entityName: pwUser.name,
         details: `Senha redefinida pelo administrador para ${pwUser.email}`,
       });
-      toast.success(`Senha de ${pwUser.name} redefinida com sucesso!`);
-      closePasswordReset();
+      // Mostra a tela de sucesso com a senha em texto claro para o admin copiar e enviar
+      setPwSuccessPwd(pwNew);
+      setShowPw(true);
     } catch (err) {
       const message = err instanceof ApiError ? err.message : "Erro ao redefinir senha.";
       toast.error(message);
     } finally {
       setSavingPw(false);
     }
+  };
+
+  const copyCredentials = async () => {
+    if (!pwUser || !pwSuccessPwd) return;
+    const text = `Acesso ao sistema Gestão de Envios\n\nE-mail: ${pwUser.email}\nSenha: ${pwSuccessPwd}\n\nLink: https://gestaodenvios.com.br`;
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Credenciais copiadas! Cole no WhatsApp/e-mail.");
+    } catch {
+      toast.error("Não foi possível copiar. Selecione o texto manualmente.");
+    }
+  };
+
+  const openWhatsApp = () => {
+    if (!pwUser || !pwSuccessPwd) return;
+    const text = encodeURIComponent(
+      `Olá ${pwUser.name}! 👋\n\nSuas credenciais de acesso ao *Gestão de Envios*:\n\n📧 E-mail: ${pwUser.email}\n🔑 Senha: ${pwSuccessPwd}\n\n🔗 Acesse: https://gestaodenvios.com.br\n\nRecomendamos alterar a senha no primeiro acesso.`
+    );
+    // Abre o WhatsApp Web/Desktop sem numero pre-preenchido — o admin escolhe o contato
+    window.open(`https://wa.me/?text=${text}`, "_blank");
   };
 
   const visibleUsers = isSuperAdmin
@@ -478,7 +521,7 @@ export function Users() {
                 <KeyRound className="h-4 w-4 text-amber-600" />
               </div>
               <div>
-                <DialogTitle>Redefinir senha</DialogTitle>
+                <DialogTitle>{pwSuccessPwd ? "Senha redefinida!" : "Redefinir senha"}</DialogTitle>
                 {pwUser && (
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {pwUser.name} · <span className="font-mono">{pwUser.email}</span>
@@ -488,54 +531,117 @@ export function Users() {
             </div>
           </DialogHeader>
 
-          <div className="space-y-3 py-2">
-            <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800/30 p-3">
-              <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed">
-                <strong>Por segurança, a senha atual não pode ser exibida</strong> — todas as senhas são guardadas como hash irreversível.
-                Defina uma nova senha aqui e envie ao usuário pelo canal de sua preferência (WhatsApp, e-mail, etc.).
-              </p>
-            </div>
+          {/* ── ETAPA 1: Definir senha ───────────────────────────────────── */}
+          {!pwSuccessPwd && (
+            <>
+              <div className="space-y-3 py-2">
+                <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800/30 p-3">
+                  <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed">
+                    <strong>Por segurança, a senha atual não pode ser exibida</strong> — senhas são guardadas como hash irreversível.
+                    Defina uma nova senha aqui. Na próxima etapa você poderá copiar/enviar pelo WhatsApp.
+                  </p>
+                </div>
 
-            <div className="space-y-1.5">
-              <Label>Nova senha</Label>
-              <div className="relative">
-                <Input
-                  type={showPw ? "text" : "password"}
-                  placeholder="Mínimo 8 caracteres"
-                  value={pwNew}
-                  onChange={(e) => setPwNew(e.target.value)}
-                  autoComplete="new-password"
-                  className="pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPw((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  aria-label={showPw ? "Ocultar senha" : "Mostrar senha"}
-                >
-                  {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label>Nova senha</Label>
+                    <button
+                      type="button"
+                      onClick={handleGeneratePassword}
+                      className="text-[11px] text-primary hover:underline flex items-center gap-1"
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      Gerar senha aleatória
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <Input
+                      type={showPw ? "text" : "password"}
+                      placeholder="Mínimo 8 caracteres"
+                      value={pwNew}
+                      onChange={(e) => setPwNew(e.target.value)}
+                      autoComplete="new-password"
+                      className="pr-10 font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPw((v) => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      aria-label={showPw ? "Ocultar senha" : "Mostrar senha"}
+                    >
+                      {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>Confirmar nova senha</Label>
+                  <Input
+                    type={showPw ? "text" : "password"}
+                    placeholder="Repita a senha"
+                    value={pwConfirm}
+                    onChange={(e) => setPwConfirm(e.target.value)}
+                    autoComplete="new-password"
+                    className="font-mono"
+                  />
+                </div>
               </div>
-            </div>
 
-            <div className="space-y-1.5">
-              <Label>Confirmar nova senha</Label>
-              <Input
-                type={showPw ? "text" : "password"}
-                placeholder="Repita a senha"
-                value={pwConfirm}
-                onChange={(e) => setPwConfirm(e.target.value)}
-                autoComplete="new-password"
-              />
-            </div>
-          </div>
+              <DialogFooter className="gap-2">
+                <Button variant="ghost" onClick={closePasswordReset} disabled={savingPw}>Cancelar</Button>
+                <Button variant="brand" onClick={handlePasswordReset} disabled={savingPw}>
+                  {savingPw ? "Salvando..." : "Redefinir senha"}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
 
-          <DialogFooter className="gap-2">
-            <Button variant="ghost" onClick={closePasswordReset} disabled={savingPw}>Cancelar</Button>
-            <Button variant="brand" onClick={handlePasswordReset} disabled={savingPw}>
-              {savingPw ? "Salvando..." : "Redefinir senha"}
-            </Button>
-          </DialogFooter>
+          {/* ── ETAPA 2: Sucesso + envio manual ──────────────────────────── */}
+          {pwSuccessPwd && (
+            <>
+              <div className="space-y-3 py-2">
+                <div className="rounded-lg border border-success/30 bg-success/5 p-3">
+                  <p className="text-[11px] text-success font-semibold">
+                    ✓ Senha alterada com sucesso no servidor.
+                  </p>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Envie as credenciais abaixo para o usuário. <strong>Esta é a última vez que a senha será exibida</strong> — depois disso, não há como visualizá-la novamente.
+                  </p>
+                </div>
+
+                <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">E-mail</span>
+                    <code className="text-xs font-mono">{pwUser?.email}</code>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Senha</span>
+                    <code className="text-xs font-mono font-bold text-foreground bg-yellow-50 dark:bg-yellow-950/30 px-2 py-0.5 rounded">
+                      {pwSuccessPwd}
+                    </code>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="outline" onClick={copyCredentials} className="w-full">
+                    <Copy className="h-3.5 w-3.5" />
+                    Copiar
+                  </Button>
+                  <Button onClick={openWhatsApp} className="w-full bg-[#25D366] hover:bg-[#1da851] text-white">
+                    <MessageCircle className="h-3.5 w-3.5" />
+                    WhatsApp
+                  </Button>
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button variant="brand" onClick={closePasswordReset} className="w-full">
+                  <Check className="h-4 w-4" />
+                  Concluído
+                </Button>
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>
