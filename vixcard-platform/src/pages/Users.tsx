@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import {
-  Plus, Mail, Shield, User, Power, PowerOff, Pencil, Check,
+  Plus, Mail, Shield, User, Power, PowerOff, Pencil, Check, KeyRound, Eye, EyeOff,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
@@ -22,7 +22,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "../components/ui/select";
 import { cn } from "../lib/utils";
-import { ApiError } from "../lib/api";
+import { api, ApiError } from "../lib/api";
 import type { Permission, User as UserType, UserRole } from "../types";
 
 const ROLE_LABELS: Record<UserRole, { label: string; variant: "default" | "accent" | "success" }> = {
@@ -47,6 +47,52 @@ export function Users() {
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState({ ...EMPTY_FORM, tenantSlug: tenant.slug });
   const [saving, setSaving] = useState(false);
+
+  // Reset de senha
+  const [pwUser, setPwUser] = useState<UserType | null>(null);
+  const [pwNew, setPwNew] = useState("");
+  const [pwConfirm, setPwConfirm] = useState("");
+  const [showPw, setShowPw] = useState(false);
+  const [savingPw, setSavingPw] = useState(false);
+
+  const openPasswordReset = (u: UserType) => {
+    setPwUser(u);
+    setPwNew("");
+    setPwConfirm("");
+    setShowPw(false);
+  };
+
+  const closePasswordReset = () => {
+    setPwUser(null);
+    setPwNew("");
+    setPwConfirm("");
+  };
+
+  const handlePasswordReset = async () => {
+    if (!pwUser) return;
+    if (pwNew.length < 8) { toast.error("Senha deve ter no mínimo 8 caracteres."); return; }
+    if (pwNew !== pwConfirm) { toast.error("As senhas não conferem."); return; }
+    setSavingPw(true);
+    try {
+      await api.patch(`/users/${pwUser.id}/password`, {
+        password: pwNew,
+        password_confirmation: pwConfirm,
+      });
+      addLog({
+        userName: currentUser?.name ?? "", userEmail: currentUser?.email ?? "",
+        userRole: currentUser?.role ?? "super_admin", tenantSlug: currentUser?.tenantSlug ?? "sistemalegado",
+        action: "senha_alterada", entityType: "Usuário", entityId: pwUser.id, entityName: pwUser.name,
+        details: `Senha redefinida pelo administrador para ${pwUser.email}`,
+      });
+      toast.success(`Senha de ${pwUser.name} redefinida com sucesso!`);
+      closePasswordReset();
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "Erro ao redefinir senha.";
+      toast.error(message);
+    } finally {
+      setSavingPw(false);
+    }
+  };
 
   const visibleUsers = isSuperAdmin
     ? users.filter((u) => u.tenantSlug !== "sistemalegado")
@@ -260,12 +306,23 @@ export function Users() {
                           <Pencil className="h-3 w-3" />Editar
                         </Button>
                         <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs border-amber-300/40 text-amber-600 hover:bg-amber-50 hover:text-amber-700 dark:hover:bg-amber-950/30"
+                          onClick={() => openPasswordReset(u)}
+                          title="Redefinir senha"
+                        >
+                          <KeyRound className="h-3 w-3" />
+                          Senha
+                        </Button>
+                        <Button
                           variant="ghost"
                           size="sm"
-                          className={cn("flex-1 text-xs", u.active ? "text-destructive hover:bg-destructive/10 hover:text-destructive" : "text-success hover:bg-success/10 hover:text-success")}
+                          className={cn("text-xs", u.active ? "text-destructive hover:bg-destructive/10 hover:text-destructive" : "text-success hover:bg-success/10 hover:text-success")}
                           onClick={() => toggleActive(u)}
+                          title={u.active ? "Desativar usuário" : "Ativar usuário"}
                         >
-                          {u.active ? <><PowerOff className="h-3 w-3" />Off</> : <><Power className="h-3 w-3" />On</>}
+                          {u.active ? <PowerOff className="h-3 w-3" /> : <Power className="h-3 w-3" />}
                         </Button>
                       </div>
                     </Card>
@@ -407,6 +464,76 @@ export function Users() {
             <Button variant="ghost" onClick={() => setDialog(null)} disabled={saving}>Cancelar</Button>
             <Button variant="brand" onClick={handleSave} disabled={saving}>
               {saving ? "Salvando..." : dialog === "create" ? "Criar Usuário" : "Salvar Alterações"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Redefinir senha */}
+      <Dialog open={!!pwUser} onOpenChange={(v) => !v && closePasswordReset()}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-2">
+              <div className="h-9 w-9 rounded-lg bg-amber-100 dark:bg-amber-950/40 flex items-center justify-center">
+                <KeyRound className="h-4 w-4 text-amber-600" />
+              </div>
+              <div>
+                <DialogTitle>Redefinir senha</DialogTitle>
+                {pwUser && (
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {pwUser.name} · <span className="font-mono">{pwUser.email}</span>
+                  </p>
+                )}
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800/30 p-3">
+              <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed">
+                <strong>Por segurança, a senha atual não pode ser exibida</strong> — todas as senhas são guardadas como hash irreversível.
+                Defina uma nova senha aqui e envie ao usuário pelo canal de sua preferência (WhatsApp, e-mail, etc.).
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Nova senha</Label>
+              <div className="relative">
+                <Input
+                  type={showPw ? "text" : "password"}
+                  placeholder="Mínimo 8 caracteres"
+                  value={pwNew}
+                  onChange={(e) => setPwNew(e.target.value)}
+                  autoComplete="new-password"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPw((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label={showPw ? "Ocultar senha" : "Mostrar senha"}
+                >
+                  {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Confirmar nova senha</Label>
+              <Input
+                type={showPw ? "text" : "password"}
+                placeholder="Repita a senha"
+                value={pwConfirm}
+                onChange={(e) => setPwConfirm(e.target.value)}
+                autoComplete="new-password"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={closePasswordReset} disabled={savingPw}>Cancelar</Button>
+            <Button variant="brand" onClick={handlePasswordReset} disabled={savingPw}>
+              {savingPw ? "Salvando..." : "Redefinir senha"}
             </Button>
           </DialogFooter>
         </DialogContent>
