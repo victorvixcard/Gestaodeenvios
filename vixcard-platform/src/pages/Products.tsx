@@ -24,6 +24,7 @@ import {
 import { Textarea } from "../components/ui/textarea";
 import { cn } from "../lib/utils";
 import { AvatarUpload } from "../components/shared/AvatarUpload";
+import { ApiError } from "../lib/api";
 import type { Product, ProductVariation, VariationOption } from "../types";
 
 const CATEGORIES = ["Cartões", "Carnês", "Etiquetas", "Impressão", "Serviços", "Outros"];
@@ -49,7 +50,7 @@ function StockBadge({ stock }: { stock: number }) {
 
 export function Products() {
   const { user } = useAuth();
-  const { products, addProduct, updateProduct } = useData();
+  const { products, addProduct, updateProduct, deleteProduct } = useData();
   const { addLog } = useLog();
   const isSuperAdmin = user?.role === "super_admin";
 
@@ -59,6 +60,29 @@ export function Products() {
   const [editId, setEditId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ ...EMPTY_FORM });
+  // Confirmacao de exclusao
+  const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deleteProduct(deleteTarget.id);
+      addLog({
+        action: "produto_removido", entityType: "Produto", entityId: deleteTarget.id, entityName: deleteTarget.name,
+        userName: user?.name ?? "", userEmail: user?.email ?? "", userRole: user?.role ?? "super_admin",
+        tenantSlug: "sistemalegado", details: `Código: ${deleteTarget.code}`,
+      });
+      toast.success(`Produto "${deleteTarget.name}" excluído.`);
+      setDeleteTarget(null);
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "Erro ao excluir produto.";
+      toast.error(message);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const filtered = products.filter((p) => {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -331,10 +355,20 @@ export function Products() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className={cn("flex-1 text-xs", product.active ? "text-destructive hover:bg-destructive/10 hover:text-destructive" : "text-success hover:bg-success/10 hover:text-success")}
+                          className={cn("text-xs px-2", product.active ? "text-destructive hover:bg-destructive/10 hover:text-destructive" : "text-success hover:bg-success/10 hover:text-success")}
                           onClick={() => toggleActive(product)}
+                          title={product.active ? "Desativar" : "Ativar"}
                         >
-                          {product.active ? <><PowerOff className="h-3 w-3" />Off</> : <><Power className="h-3 w-3" />On</>}
+                          {product.active ? <PowerOff className="h-3 w-3" /> : <Power className="h-3 w-3" />}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs px-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() => setDeleteTarget(product)}
+                          title="Excluir produto"
+                        >
+                          <Trash2 className="h-3 w-3" />
                         </Button>
                       </div>
                     </>
@@ -609,6 +643,48 @@ export function Products() {
             <Button variant="ghost" onClick={() => setDialog(null)} disabled={saving}>Cancelar</Button>
             <Button variant="brand" onClick={handleSave} disabled={saving}>
               {saving ? "Salvando..." : dialog === "create" ? "Cadastrar Produto" : "Salvar Alterações"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: confirmacao de exclusao */}
+      <Dialog open={!!deleteTarget} onOpenChange={(v) => !v && !deleting && setDeleteTarget(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-2">
+              <div className="h-9 w-9 rounded-lg bg-destructive/10 flex items-center justify-center">
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </div>
+              <DialogTitle>Excluir produto</DialogTitle>
+            </div>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            <p className="text-sm">
+              Você está prestes a excluir definitivamente:
+            </p>
+            <div className="rounded-lg border border-border bg-muted/30 p-3">
+              <p className="font-semibold text-sm">{deleteTarget?.name}</p>
+              <p className="text-xs font-mono text-muted-foreground mt-0.5">{deleteTarget?.code}</p>
+            </div>
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+              <p className="text-[11px] text-destructive font-semibold">
+                Esta ação é irreversível.
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Se este produto está vinculado a empresas ou pedidos, a exclusão pode falhar.
+                Considere apenas desativá-lo (botão Off) para mantê-lo no histórico.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setDeleteTarget(null)} disabled={deleting}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+              {deleting ? "Excluindo..." : "Sim, excluir"}
             </Button>
           </DialogFooter>
         </DialogContent>

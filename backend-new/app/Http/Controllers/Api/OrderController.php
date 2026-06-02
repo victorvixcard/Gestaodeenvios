@@ -248,6 +248,55 @@ class OrderController extends Controller
         return response()->json($this->formatOrder($order->fresh(['items', 'notes', 'events'])));
     }
 
+    public function updateItems(Request $request, string $id): JsonResponse
+    {
+        // Apenas super admin pode editar itens de pedidos ja criados.
+        // Tenant comum nao deve mexer em pedidos depois que a producao iniciou.
+        if (!$request->user()->isSuperAdmin()) {
+            return response()->json(['message' => 'Apenas super admin pode editar itens do pedido.'], 403);
+        }
+
+        $request->validate([
+            'items'                       => 'required|array|min:1',
+            'items.*.product_id'          => 'required|exists:products,id',
+            'items.*.product_name'        => 'required|string',
+            'items.*.quantity'            => 'required|integer|min:1',
+            'items.*.specifications'      => 'nullable|string',
+            'items.*.selected_variations' => 'nullable|array',
+        ]);
+
+        $order = Order::with('items')->findOrFail($id);
+
+        $previousCount = $order->items->count();
+        $previousTotal = $order->items->sum('quantity');
+
+        // Estrategia simples e robusta: substituir todos os items.
+        // As linhas filhas usam onDelete('cascade'), entao o delete e seguro.
+        $order->items()->delete();
+        foreach ($request->items as $item) {
+            $order->items()->create($item);
+        }
+
+        $newCount = count($request->items);
+        $newTotal = collect($request->items)->sum('quantity');
+
+        $order->events()->create([
+            'type'        => 'note',
+            'description' => "Itens do pedido editados por {$request->user()->name} "
+                . "(antes: {$previousCount} item(s)/{$previousTotal} un. — "
+                . "agora: {$newCount} item(s)/{$newTotal} un.)",
+            'author_name' => $request->user()->name,
+        ]);
+
+        AuditLog::record(
+            'pedido_itens_editados', 'Pedido', $order->id, $order->title,
+            $request->user(),
+            "De {$previousCount} item(s)/{$previousTotal} un. para {$newCount} item(s)/{$newTotal} un."
+        );
+
+        return response()->json($this->formatOrder($order->fresh(['items', 'notes', 'events'])));
+    }
+
     public function destroy(Request $request, string $id): JsonResponse
     {
         // Rota já está protegida por role:super_admin, mas mantemos a checagem

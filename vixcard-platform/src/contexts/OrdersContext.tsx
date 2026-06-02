@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
-import type { Order, OrderStatus, UserRole } from "../types";
+import type { Order, OrderItem, OrderStatus, UserRole } from "../types";
 import { api } from "../lib/api";
 import { mapOrder } from "../lib/mappers";
 import { useAuth } from "./AuthContext";
@@ -9,6 +9,7 @@ interface OrdersContextValue {
   addOrder: (order: Omit<Order, "id" | "createdAt" | "updatedAt" | "events">, files?: File[]) => Promise<Order>;
   updateStatus: (id: string, status: OrderStatus, reason?: string, author?: string) => Promise<void>;
   addNote: (orderId: string, content: string, authorName?: string, authorRole?: UserRole) => void;
+  updateItems: (id: string, items: OrderItem[]) => Promise<void>;
   deleteOrder: (id: string) => Promise<void>;
   getOrder: (id: string) => Order | undefined;
 }
@@ -78,6 +79,19 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
       .then((data) => setOrders((prev) => prev.map((o) => (o.id === orderId ? mapOrder(data) : o))));
   };
 
+  const updateItems = async (id: string, items: OrderItem[]) => {
+    const data = await api.put<Record<string, unknown>>(`/orders/${id}/items`, {
+      items: items.map((item) => ({
+        product_id: item.productId,
+        product_name: item.productName,
+        quantity: item.quantity,
+        specifications: item.specifications,
+        selected_variations: item.selectedVariations,
+      })),
+    });
+    setOrders((prev) => prev.map((o) => (o.id === id ? mapOrder(data) : o)));
+  };
+
   const deleteOrder = async (id: string) => {
     await api.delete(`/orders/${id}`);
     setOrders((prev) => prev.filter((o) => o.id !== id));
@@ -86,7 +100,7 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
   const getOrder = (id: string) => orders.find((o) => o.id === id);
 
   return (
-    <OrdersContext.Provider value={{ orders, addOrder, updateStatus, addNote, deleteOrder, getOrder }}>
+    <OrdersContext.Provider value={{ orders, addOrder, updateStatus, addNote, updateItems, deleteOrder, getOrder }}>
       {children}
     </OrdersContext.Provider>
   );

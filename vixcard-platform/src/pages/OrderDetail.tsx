@@ -4,11 +4,12 @@ import { motion } from "framer-motion";
 import {
   ArrowLeft, Play, CheckCircle2, Wrench, PackageCheck,
   XCircle, MessageSquarePlus, Send, Download, FileText, FileImage, File as FileIcon, Paperclip,
-  MessageCircle, AlertTriangle, Undo2, RotateCcw, Trash2,
+  MessageCircle, AlertTriangle, Undo2, RotateCcw, Trash2, Pencil, Plus, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 import { useOrders } from "../contexts/OrdersContext";
+import { useData } from "../contexts/DataContext";
 import { useLog } from "../contexts/LogsContext";
 import { ApiError } from "../lib/api";
 import { StatusBadge } from "../components/shared/StatusBadge";
@@ -18,8 +19,15 @@ import { Textarea } from "../components/ui/textarea";
 import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/card";
 import { Separator } from "../components/ui/separator";
 import { Badge } from "../components/ui/badge";
+import { Input } from "../components/ui/input";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "../components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "../components/ui/select";
 import { formatDate } from "../lib/utils";
-import type { OrderStatus } from "../types";
+import type { OrderItem, OrderStatus } from "../types";
 
 const STAGES: { key: OrderStatus; label: string; icon: React.ElementType }[] = [
   { key: "pending",    label: "Recebido",   icon: CheckCircle2 },
@@ -34,13 +42,21 @@ const STAGE_ORDER = ["pending", "started", "production", "finishing", "done"];
 export function OrderDetail() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
-  const { getOrder, updateStatus, addNote, deleteOrder } = useOrders();
+  const { getOrder, updateStatus, addNote, updateItems, deleteOrder } = useOrders();
+  const { products } = useData();
   const { addLog } = useLog();
   const navigate = useNavigate();
   const [note, setNote] = useState("");
   const [cancelReason, setCancelReason] = useState("");
   const [showCancelForm, setShowCancelForm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Edicao de itens (super admin)
+  const [showItemsEditor, setShowItemsEditor] = useState(false);
+  const [editingItems, setEditingItems] = useState<OrderItem[]>([]);
+  const [newProductId, setNewProductId] = useState("");
+  const [newQuantity, setNewQuantity] = useState("");
+  const [savingItems, setSavingItems] = useState(false);
 
   const order = getOrder(id!);
   if (!order) {
@@ -144,6 +160,70 @@ export function OrderDetail() {
     }
   };
 
+  // Super admin: editor de itens
+  const openItemsEditor = () => {
+    // Copia profunda para nao mexer no estado original ate o salvar
+    setEditingItems(order.items.map((it) => ({ ...it })));
+    setNewProductId("");
+    setNewQuantity("");
+    setShowItemsEditor(true);
+  };
+
+  const closeItemsEditor = () => {
+    setShowItemsEditor(false);
+    setEditingItems([]);
+    setNewProductId("");
+    setNewQuantity("");
+  };
+
+  const updateItemQty = (index: number, qty: number) => {
+    setEditingItems((prev) => prev.map((it, i) => (i === index ? { ...it, quantity: Math.max(1, qty) } : it)));
+  };
+
+  const removeItemAt = (index: number) => {
+    setEditingItems((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const addNewItem = () => {
+    if (!newProductId) { toast.error("Selecione um produto."); return; }
+    const qty = parseInt(newQuantity || "0", 10);
+    if (!qty || qty < 1) { toast.error("Informe a quantidade."); return; }
+    const product = products.find((p) => p.id === newProductId);
+    if (!product) return;
+    setEditingItems((prev) => [
+      ...prev,
+      { productId: product.id, productName: product.name, quantity: qty, specifications: "" },
+    ]);
+    setNewProductId("");
+    setNewQuantity("");
+  };
+
+  const handleSaveItems = async () => {
+    if (editingItems.length === 0) { toast.error("O pedido deve ter pelo menos 1 item."); return; }
+    setSavingItems(true);
+    try {
+      await updateItems(order.id, editingItems);
+      const prevCount = order.items.length;
+      const prevTotal = order.items.reduce((s, it) => s + it.quantity, 0);
+      const newCount = editingItems.length;
+      const newTotal = editingItems.reduce((s, it) => s + it.quantity, 0);
+      addLog({
+        ...actor,
+        action: "pedido_nota",
+        entityType: "Pedido",
+        entityId: order.id,
+        entityName: order.title,
+        details: `Itens editados — de ${prevCount} item(s)/${prevTotal} un. para ${newCount} item(s)/${newTotal} un.`,
+      });
+      toast.success("Itens atualizados!");
+      closeItemsEditor();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Erro ao salvar itens.");
+    } finally {
+      setSavingItems(false);
+    }
+  };
+
   const handleAddNote = () => {
     if (!note.trim()) return;
     addNote(order.id, note, user?.name ?? "Usuário", user?.role ?? "operator");
@@ -232,7 +312,15 @@ export function OrderDetail() {
         <div className="lg:col-span-3 space-y-5">
           {/* Items */}
           <Card>
-            <CardHeader><CardTitle>Itens do Pedido</CardTitle></CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <CardTitle>Itens do Pedido</CardTitle>
+              {isSuperAdmin && !isCancelled && (
+                <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5" onClick={openItemsEditor}>
+                  <Pencil className="h-3 w-3" />
+                  Editar itens
+                </Button>
+              )}
+            </CardHeader>
             <CardContent className="pt-3">
               <div className="space-y-3">
                 {order.items.map((item, i) => (
@@ -586,6 +674,113 @@ export function OrderDetail() {
           </Card>
         </div>
       </div>
+
+      {/* Dialog: editor de itens (super admin) */}
+      <Dialog open={showItemsEditor} onOpenChange={(v) => !v && closeItemsEditor()}>
+        <DialogContent className="max-w-xl max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Editar itens do pedido</DialogTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              <span className="font-mono">{order.id}</span> · {order.title}
+            </p>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto space-y-4 py-2">
+            {/* Lista atual */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Itens atuais ({editingItems.length})
+              </p>
+              {editingItems.length === 0 ? (
+                <div className="text-center py-6 text-xs text-muted-foreground border border-dashed border-border rounded-lg">
+                  Nenhum item. Adicione ao menos um abaixo.
+                </div>
+              ) : (
+                editingItems.map((item, i) => (
+                  <div key={i} className="flex items-center gap-2 p-2.5 rounded-lg border border-border bg-card">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{item.productName}</p>
+                      {item.selectedVariations && item.selectedVariations.length > 0 && (
+                        <p className="text-[10px] text-muted-foreground truncate">
+                          {item.selectedVariations.map((sv) => `${sv.variationName}: ${sv.optionLabel}`).join(" · ")}
+                        </p>
+                      )}
+                      {item.specifications && (
+                        <p className="text-[10px] text-muted-foreground truncate">{item.specifications}</p>
+                      )}
+                    </div>
+                    <Input
+                      type="number"
+                      min={1}
+                      className="w-24 h-9 text-sm"
+                      value={item.quantity}
+                      onChange={(e) => updateItemQty(i, parseInt(e.target.value || "1", 10))}
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => removeItemAt(i)}
+                      title="Remover item"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <Separator />
+
+            {/* Adicionar novo item */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Adicionar item
+              </p>
+              <div className="flex gap-2">
+                <Select value={newProductId} onValueChange={setNewProductId}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Selecione o produto..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {products
+                      .filter((p) => p.active)
+                      .map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name} <span className="text-muted-foreground text-[10px]">({p.code})</span>
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  type="number"
+                  min={1}
+                  placeholder="Qtd"
+                  className="w-24"
+                  value={newQuantity}
+                  onChange={(e) => setNewQuantity(e.target.value)}
+                />
+                <Button variant="brand" onClick={addNewItem}>
+                  <Plus className="h-4 w-4" />
+                  Adicionar
+                </Button>
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                Para variações/especificações, crie o item novo aqui e ajuste em uma nova OS se necessário.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 pt-3 border-t border-border">
+            <Button variant="ghost" onClick={closeItemsEditor} disabled={savingItems}>
+              Cancelar
+            </Button>
+            <Button variant="brand" onClick={handleSaveItems} disabled={savingItems || editingItems.length === 0}>
+              {savingItems ? "Salvando..." : "Salvar alterações"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

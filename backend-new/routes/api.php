@@ -29,6 +29,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/',             [OrderController::class, 'store']);
         Route::get('/{id}',          [OrderController::class, 'show']);
         Route::patch('/{id}/status', [OrderController::class, 'updateStatus']);
+        Route::put('/{id}/items',    [OrderController::class, 'updateItems'])
+            ->middleware('role:super_admin');
         Route::post('/{id}/notes',   [OrderController::class, 'addNote']);
         Route::post('/{id}/cancel',  [OrderController::class, 'cancel']);
         Route::post('/{id}/files',   [OrderController::class, 'uploadFile']);
