@@ -204,12 +204,35 @@ class OrderController extends Controller
 
     public function uploadFile(Request $request, string $id): JsonResponse
     {
+        // Lista permissiva: imagens, documentos office, planilhas, texto, arte, compactados,
+        // video curto e formatos de e-mail/log. Executaveis (exe, bat, sh, etc) ficam de fora.
+        $allowedExtensions = implode(',', [
+            // Imagens
+            'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'tif', 'tiff', 'heic', 'heif', 'ico',
+            // PDFs e documentos
+            'pdf', 'doc', 'docx', 'odt', 'rtf', 'txt', 'md',
+            // Planilhas
+            'xls', 'xlsx', 'xlsm', 'xlsb', 'csv', 'tsv', 'ods', 'numbers',
+            // Apresentacoes
+            'ppt', 'pptx', 'odp', 'key',
+            // Arte e design
+            'ai', 'eps', 'cdr', 'psd', 'indd', 'sketch', 'fig', 'xd',
+            // Compactados
+            'zip', 'rar', '7z', 'tar', 'gz', 'bz2',
+            // Video curto
+            'mp4', 'mov', 'webm', 'm4v', 'mkv', 'avi',
+            // E-mail e logs
+            'eml', 'msg', 'log', 'xml', 'json', 'yaml', 'yml',
+            // Audio
+            'mp3', 'wav', 'm4a', 'ogg',
+        ]);
+
         $request->validate([
             'file' => [
                 'required',
                 'file',
-                'max:20480', // 20 MB
-                'mimes:pdf,jpg,jpeg,png,gif,webp,ai,eps,cdr,psd,tif,tiff,svg,zip,rar,doc,docx,xls,xlsx',
+                'max:51200', // 50 MB
+                "extensions:{$allowedExtensions}",
             ],
         ]);
 

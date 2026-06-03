@@ -494,7 +494,7 @@ export function NewOrder() {
           >
             <Upload className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
             <p className="text-sm font-medium text-muted-foreground">Clique ou arraste os arquivos aqui</p>
-            <p className="text-xs text-muted-foreground/50 mt-1">PDF, AI, CDR, PSD, PNG, JPG — qualquer formato</p>
+            <p className="text-xs text-muted-foreground/50 mt-1">PDF, Excel, CSV, TXT, AI, CDR, PSD, imagens, ZIP — até 50 MB cada</p>
           </div>
 
           {/* Lista de arquivos */}
