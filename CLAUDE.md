@@ -375,7 +375,8 @@ Victor (`victoruli@gmail.com`) é o dono e prefere:
 - O bundle do frontend está com 2.5 MB minificado — considerar `build.rolldownOptions.output.codeSplitting` ou `manualChunks` para split de vendor
 - Não há testes automatizados — adicionar PHPUnit no backend e Vitest no frontend
 - Workers/queue ainda em `database` driver — migrar para Redis quando o volume aumentar
-- Backup roda no próprio droplet — falta cópia off-site (DigitalOcean Spaces ou similar). Se o droplet for perdido, os backups vão junto.
+- Servidor tem upgrade de kernel pendente aguardando reboot — agendar janela de manutenção
+- Nunca foi feito um teste de restauração real do backup — vale testar num banco descartável antes de precisar de verdade
 
 ---
 
@@ -384,10 +385,16 @@ Victor (`victoruli@gmail.com`) é o dono e prefere:
 Script: `backend-new/scripts/backup-db.sh` (versionado no repo, instalado no servidor no mesmo caminho).
 
 - **Agendamento:** cron diário às `06:00 UTC` = **03:00 horário de Brasília**
-- **Destino:** `/var/backups/gestaodeenvios/gestaodeenvios_AAAA-MM-DD_HH-MM-SS.sql.gz`
-- **Retenção:** 14 dias (rotação automática, apaga os mais antigos)
+- **Destino local:** `/var/backups/gestaodeenvios/gestaodeenvios_AAAA-MM-DD_HH-MM-SS.sql.gz`
+- **Destino off-site:** Google Drive, pasta `backups-gestaodeenvios` (via rclone, remote `gdrive`)
+- **Retenção:** 14 dias nos dois lados (rotação automática)
 - **Log:** `/var/log/gestaodeenvios-backup.log`
 - **Tamanho atual:** ~292 KB por dump comprimido
+
+O rclone usa OAuth com escopo `drive.file` — alcança **apenas os arquivos que ele mesmo cria**,
+não o resto do Drive. Config em `/root/.config/rclone/rclone.conf` (contém refresh token, `chmod 600`).
+Se o token for comprometido, revogue em https://myaccount.google.com/permissions e refaça
+o `rclone config`.
 
 O script lê credenciais do `.env` (sem senha hardcoded), usa `--single-transaction` para não travar
 tabelas em uso, e `--no-tablespaces` porque o usuário da aplicação não tem `PROCESS` privilege.
@@ -414,4 +421,4 @@ Nunca rode isso em produção sem confirmar com o Victor antes.
 
 ---
 
-**Última atualização:** 2026-07-31 — backup automático diário configurado (cron 06:00 UTC).
+**Última atualização:** 2026-07-31 — backup automático diário com cópia off-site no Google Drive.
