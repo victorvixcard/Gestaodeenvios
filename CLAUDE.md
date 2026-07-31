@@ -375,8 +375,43 @@ Victor (`victoruli@gmail.com`) é o dono e prefere:
 - O bundle do frontend está com 2.5 MB minificado — considerar `build.rolldownOptions.output.codeSplitting` ou `manualChunks` para split de vendor
 - Não há testes automatizados — adicionar PHPUnit no backend e Vitest no frontend
 - Workers/queue ainda em `database` driver — migrar para Redis quando o volume aumentar
-- Backup do banco MySQL produção não está automatizado — configurar dump diário (ex: cron + S3)
+- Backup roda no próprio droplet — falta cópia off-site (DigitalOcean Spaces ou similar). Se o droplet for perdido, os backups vão junto.
 
 ---
 
-**Última atualização:** 2026-05-15 — após deploy do fix de criação de usuário por tenant_admin (commit `21c9edd`).
+## 17. Backup do banco de produção
+
+Script: `backend-new/scripts/backup-db.sh` (versionado no repo, instalado no servidor no mesmo caminho).
+
+- **Agendamento:** cron diário às `06:00 UTC` = **03:00 horário de Brasília**
+- **Destino:** `/var/backups/gestaodeenvios/gestaodeenvios_AAAA-MM-DD_HH-MM-SS.sql.gz`
+- **Retenção:** 14 dias (rotação automática, apaga os mais antigos)
+- **Log:** `/var/log/gestaodeenvios-backup.log`
+- **Tamanho atual:** ~292 KB por dump comprimido
+
+O script lê credenciais do `.env` (sem senha hardcoded), usa `--single-transaction` para não travar
+tabelas em uso, e `--no-tablespaces` porque o usuário da aplicação não tem `PROCESS` privilege.
+Falha com exit 1 se o dump sair menor que 1 KB (proteção contra falha silenciosa).
+
+### Rodar backup manual
+```bash
+/var/www/gestaodeenvios/backend-new/scripts/backup-db.sh
+```
+
+### Verificar se um backup está íntegro
+```bash
+zcat /var/backups/gestaodeenvios/ARQUIVO.sql.gz | grep "CREATE TABLE"
+```
+Deve listar 14 tabelas: `audit_logs`, `cache`, `cache_locks`, `companies`, `company_products`,
+`migrations`, `order_events`, `order_items`, `order_notes`, `orders`, `personal_access_tokens`,
+`products`, `sessions`, `users`.
+
+### Restaurar (CUIDADO — sobrescreve o banco)
+```bash
+zcat /var/backups/gestaodeenvios/ARQUIVO.sql.gz | mysql -u vixcard -p gestaodeenvios
+```
+Nunca rode isso em produção sem confirmar com o Victor antes.
+
+---
+
+**Última atualização:** 2026-07-31 — backup automático diário configurado (cron 06:00 UTC).
