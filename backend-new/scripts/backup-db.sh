@@ -33,6 +33,8 @@ chmod 700 "$BACKUP_DIR"
 FILENAME="$BACKUP_DIR/gestaodeenvios_${DATE}.sql.gz"
 TMP_FILE="${FILENAME}.tmp"
 
+# --no-tablespaces: o usuário da app não tem PROCESS privilege (nem precisa).
+# Sem essa flag o mysqldump emite erro ao tentar ler metadados de tablespace.
 mysqldump \
   -h "$DB_HOST" \
   -u "$DB_USERNAME" \
@@ -41,6 +43,7 @@ mysqldump \
   --quick \
   --routines \
   --triggers \
+  --no-tablespaces \
   "$DB_DATABASE" | gzip > "$TMP_FILE"
 
 mv "$TMP_FILE" "$FILENAME"
