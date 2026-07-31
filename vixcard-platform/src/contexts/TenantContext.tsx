@@ -1,6 +1,8 @@
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useParams, Navigate } from "react-router-dom";
 import type { Tenant } from "../types";
+import { api } from "../lib/api";
+import { useAuth } from "./AuthContext";
 
 interface TenantContextValue {
   tenant: Tenant;
@@ -8,72 +10,70 @@ interface TenantContextValue {
 
 const TenantContext = createContext<TenantContextValue | null>(null);
 
-export const TENANTS: Record<string, Tenant> = {
-  vixcard: {
-    slug: "vixcard",
-    name: "VIXCard — Admin",
-    logoColor: "#6366f1",
-    logoInitials: "VX",
-    products: [],
-  },
-  sistemalegado: {
-    slug: "sistemalegado",
-    name: "VIXCard — Admin",
-    logoColor: "#1C508A",
-    logoInitials: "VX",
-    products: [
-      { id: "p1", code: "VIX-CAR-001", name: "Cartão PVC",               description: "Cartão em PVC personalizado",            category: "Cartões",   stock: 0, active: true },
-      { id: "p2", code: "VIX-CRN-001", name: "Carnê 2-4 lâminas",        description: "Carnê com 2 a 4 lâminas",               category: "Carnês",    stock: 0, active: true },
-      { id: "p3", code: "VIX-CRN-002", name: "Carnê 2-6 lâminas",        description: "Carnê com 2 a 6 lâminas",               category: "Carnês",    stock: 0, active: true },
-      { id: "p4", code: "VIX-CRN-003", name: "Carnê 11-12 lâminas",      description: "Carnê com 11 a 12 lâminas",             category: "Carnês",    stock: 0, active: true },
-      { id: "p5", code: "VIX-ETI-001", name: "Etiqueta",                  description: "Etiquetas personalizadas",              category: "Etiquetas", stock: 0, active: true },
-      { id: "p6", code: "VIX-SRV-001", name: "Serviço de Manuseio",      description: "Serviço completo de manuseio",          category: "Serviços",  stock: 0, active: true },
-      { id: "p7", code: "VIX-IMP-001", name: "Impressão Carta Notificação", description: "Impressão de cartas de notificação", category: "Impressão", stock: 0, active: true },
-      { id: "p8", code: "VIX-IMP-002", name: "Impressão Carta Timbrada",  description: "Impressão de cartas timbradas",         category: "Impressão", stock: 0, active: true },
-    ],
-  },
-  medsenior: {
-    slug: "medsenior",
-    name: "MedSênior",
-    logoColor: "#0F7A5A",
-    logoInitials: "MS",
-    products: [
-      { id: "p1", code: "VIX-CAR-001", name: "Cartão PVC",                   description: "Cartão em PVC personalizado",            category: "Cartões",   stock: 0, active: true },
-      { id: "p2", code: "VIX-CRN-001", name: "Carnê 2-4 lâminas",            description: "Carnê com 2 a 4 lâminas",               category: "Carnês",    stock: 0, active: true },
-      { id: "p3", code: "VIX-CRN-002", name: "Carnê 2-6 lâminas",            description: "Carnê com 2 a 6 lâminas",               category: "Carnês",    stock: 0, active: true },
-      { id: "p4", code: "VIX-CRN-003", name: "Carnê 11-12 lâminas",          description: "Carnê com 11 a 12 lâminas",             category: "Carnês",    stock: 0, active: true },
-      { id: "p5", code: "VIX-ETI-001", name: "Etiqueta",                      description: "Etiquetas personalizadas",               category: "Etiquetas", stock: 0, active: true },
-      { id: "p6", code: "VIX-SRV-001", name: "Serviço de Manuseio",          description: "Serviço completo de manuseio",          category: "Serviços",  stock: 0, active: true },
-      { id: "p7", code: "VIX-IMP-001", name: "Impressão Carta Notificação",   description: "Impressão de cartas de notificação",    category: "Impressão", stock: 0, active: true },
-      { id: "p8", code: "VIX-IMP-002", name: "Impressão Carta Timbrada",      description: "Impressão de cartas timbradas",         category: "Impressão", stock: 0, active: true },
-    ],
-  },
-  unimed: {
-    slug: "unimed",
-    name: "Unimed",
-    logoColor: "#00875A",
-    logoInitials: "UN",
-    products: [
-      { id: "p1", code: "VIX-CAR-001", name: "Cartão PVC", description: "Cartão em PVC personalizado", category: "Cartões",   stock: 0, active: true },
-      { id: "p5", code: "VIX-ETI-001", name: "Etiqueta",   description: "Etiquetas personalizadas",    category: "Etiquetas", stock: 0, active: true },
-    ],
-  },
-  sebrae: {
-    slug: "sebrae",
-    name: "SEBRAE",
-    logoColor: "#003DA5",
-    logoInitials: "SB",
-    products: [
-      { id: "p1", code: "VIX-CAR-001", name: "Cartão PVC",               description: "Cartão em PVC personalizado",   category: "Cartões",   stock: 0, active: true },
-      { id: "p8", code: "VIX-IMP-002", name: "Impressão Carta Timbrada", description: "Impressão de cartas timbradas", category: "Impressão", stock: 0, active: true },
-    ],
-  },
-};
+type Status = "loading" | "ok" | "notfound";
 
+/**
+ * Resolve o tenant da URL consultando a API.
+ *
+ * Antes existia um objeto TENANTS hardcoded aqui. Isso fazia com que empresa
+ * criada pela tela "Nova Empresa" caísse em /404 até alguém editar este arquivo
+ * e publicar um build novo — o cadastro funcionava no banco mas não no sistema.
+ */
 export function TenantProvider({ children }: { children: ReactNode }) {
   const { tenant: slug } = useParams<{ tenant: string }>();
-  const tenant = slug ? TENANTS[slug] : null;
-  if (!tenant) return <Navigate to="/404" replace />;
+  const { user, loading: authLoading } = useAuth();
+  const [tenant, setTenant] = useState<Tenant | null>(null);
+  const [status, setStatus] = useState<Status>("loading");
+
+  useEffect(() => {
+    if (!slug) {
+      setStatus("notfound");
+      return;
+    }
+
+    let cancelled = false;
+    setStatus("loading");
+
+    api.get<Record<string, unknown>>(`/tenants/${slug}`)
+      .then((c) => {
+        if (cancelled) return;
+        setTenant({
+          slug: String(c.slug),
+          name: String(c.name),
+          logoColor: String(c.logoColor ?? "#1C508A"),
+          logoInitials: String(c.logoInitials ?? ""),
+          logoUrl: (c.logoUrl as string | null) ?? undefined,
+        });
+        setStatus("ok");
+      })
+      .catch(() => {
+        if (!cancelled) setStatus("notfound");
+      });
+
+    return () => { cancelled = true; };
+  }, [slug]);
+
+  // Espera a autenticação e o tenant resolverem antes de decidir qualquer
+  // redirecionamento — sem isso o usuário via um 404 piscando antes da tela.
+  if (authLoading || status === "loading") {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
+  if (status === "notfound" || !tenant) {
+    return <Navigate to="/404" replace />;
+  }
+
+  // Quem não é super admin só acessa a própria empresa. A API já filtra os dados
+  // pelo tenant do token, então isso não é a barreira de segurança — evita que o
+  // usuário navegue para /outraempresa/dashboard e veja a marca errada na tela.
+  if (user && user.role !== "super_admin" && user.tenantSlug !== slug) {
+    return <Navigate to={`/${user.tenantSlug}/dashboard`} replace />;
+  }
+
   return (
     <TenantContext.Provider value={{ tenant }}>
       {children}

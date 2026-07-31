@@ -27,6 +27,31 @@ class CompanyController extends Controller
         return response()->json($this->formatCompany($company));
     }
 
+    /**
+     * Branding público — rota SEM autenticação, consumida pela tela de login
+     * do tenant. Retorna somente a identidade visual que já apareceria nessa
+     * tela. Nunca use formatCompany() aqui: ele carrega usuários, produtos e
+     * contadores, que não podem vazar para quem não está autenticado.
+     *
+     * Empresa inativa responde 404 para não indicar que o slug existe.
+     */
+    public function publicShow(string $slug): JsonResponse
+    {
+        $company = Company::where('slug', $slug)->where('active', true)->first();
+
+        if (!$company) {
+            return response()->json(['message' => 'Tenant não encontrado.'], 404);
+        }
+
+        return response()->json([
+            'slug'         => $company->slug,
+            'name'         => $company->name,
+            'logoColor'    => $company->logo_color,
+            'logoInitials' => $company->logo_initials,
+            'logoUrl'      => $company->logo_url,
+        ]);
+    }
+
     public function store(Request $request): JsonResponse
     {
         $request->validate([

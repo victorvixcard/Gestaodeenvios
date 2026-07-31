@@ -22,7 +22,7 @@ export interface Tenant {
   name: string;
   logoColor: string;
   logoInitials: string;
-  products: Product[];
+  logoUrl?: string;
 }
 
 export interface User {

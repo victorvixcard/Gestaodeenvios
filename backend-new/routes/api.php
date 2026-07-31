@@ -15,6 +15,13 @@ use Illuminate\Support\Facades\Route;
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
 
+// ── Branding público do tenant ─────────────────────────────────────────────
+// Necessário ANTES do login, para a tela /{tenant}/login exibir nome e logo.
+// Devolve apenas a identidade visual — nunca usuários, produtos ou pedidos.
+// Antes disso os tenants eram hardcoded no bundle do frontend, o que fazia
+// empresa criada pela UI cair em 404 até alguém editar o código e publicar.
+Route::get('/tenants/{slug}', [CompanyController::class, 'publicShow']);
+
 // ── Rotas protegidas ───────────────────────────────────────────────────────
 Route::middleware(['auth:sanctum'])->group(function () {
 

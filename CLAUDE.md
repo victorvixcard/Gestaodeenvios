@@ -189,10 +189,23 @@ O frontend usa o `tenant_slug` da resposta para redirecionar a `/{tenant_slug}/d
 
 ### 7.2 Tenants
 
-Tenants são hardcoded em `vixcard-platform/src/contexts/TenantContext.tsx` no objeto `TENANTS`. Cada um tem `slug`, `name`, `logoColor`, `logoInitials`. Para criar um tenant novo de verdade você precisa:
-1. Adicionar entrada em `TENANTS`
-2. Criar a empresa correspondente via API `/companies` (super_admin only)
-3. Subir build do frontend
+Tenants vêm do banco. Criar a empresa pela tela **Cadastros → Empresas → Nova Empresa**
+(ou via `POST /companies`) já basta — **não precisa mexer em código nem publicar build**.
+
+`TenantContext.tsx` resolve o tenant da URL consultando `GET /api/tenants/{slug}`, uma rota
+pública que devolve só a identidade visual (slug, nome, cor e iniciais do logo). Ela é pública
+porque a tela `/{tenant}/login` precisa da marca antes de existir usuário autenticado; por isso
+mesmo, **nunca** devolva usuários, produtos ou contadores nesse endpoint — use `publicShow()`,
+não `formatCompany()`. Empresa inativa responde 404.
+
+Até 2026-07-31 os tenants eram hardcoded num objeto `TENANTS` dentro do
+`TenantContext.tsx`. O efeito era que o botão "Nova Empresa" criava a empresa no banco mas ela
+caía em `/404`, porque o frontend não sabia que ela existia. Se algo parecido reaparecer,
+confira primeiro se a informação está sendo lida do banco e não de uma constante no bundle.
+
+`TenantProvider` também redireciona quem não é `super_admin` para a própria empresa ao tentar
+abrir a URL de outra. Isso é consistência de tela, **não** é a barreira de segurança — quem
+isola os dados é a API, que filtra pelo tenant do token e ignora o slug da URL.
 
 ### 7.3 Papéis (roles)
 
