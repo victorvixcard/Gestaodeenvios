@@ -207,8 +207,29 @@ Há um campo extra `permissions` (JSON array) na tabela `users` para permissões
 ### 7.4 Rotas com restrição
 
 - `/companies/*` → super_admin only
-- `/users/*`, `/products/{store,update,destroy}` → super_admin OU tenant_admin
+- `/audit-logs` → super_admin only
+- `/orders/{id}` (DELETE) → super_admin only
+- `/products` (POST/PUT/DELETE/toggle) → **super_admin only** — o catálogo é da VIXCard
+- `GET /products` → qualquer autenticado (filtrado pelos produtos vinculados à empresa)
+- `/users/*` → super_admin OU tenant_admin (tenant_admin restrito ao próprio tenant)
 - Demais → qualquer autenticado
+
+### 7.5 Isolamento entre tenants — o que foi verificado
+
+Auditado em 2026-07-31 com login real de um `tenant_admin` atacando outro tenant:
+
+| Recurso | Isolamento | Onde é garantido |
+|---|---|---|
+| Pedidos | OK | `OrderController::authorizeOrder` em todos os métodos |
+| Usuários | OK | `UserController::authorizeUserAccess` + filtro no `index` |
+| Empresas | OK | rota `role:super_admin` |
+| Logs de auditoria | OK | rota `role:super_admin` |
+| Dashboard | OK | filtro `where('tenant_slug')` quando não é super admin |
+| Produtos | Corrigido | era o furo — ver tabela da seção 10 |
+
+**Regra ao criar endpoint novo:** listar filtrado por tenant não basta. IDs são sequenciais,
+então qualquer rota que receba `{id}` precisa checar o tenant do registro, não só esconder
+da listagem.
 
 ---
 
@@ -283,6 +304,7 @@ Estes foram resolvidos em sessões anteriores. Documentando para evitar regress�
 | Race condition no ID de pedido | `max(id)+1` sem lock | `Order.php` (DB::transaction + lockForUpdate) |
 | Sem rate limiting | API exposta a brute force | `AppServiceProvider.php` + `bootstrap/app.php` (`throttleApi`) |
 | Login redirecionava para `/{tenant}/login` | Antes do login universal, URL exigia tenant | Endpoint `/api/login` agora aceita sem tenant_slug; rota `/login` no React |
+| **Tenant_admin podia editar e EXCLUIR produto de outra empresa** | Rota liberava `tenant_admin` e `update/toggle/destroy` faziam `findOrFail($id)` sem checar tenant. A listagem escondia os produtos dos outros, mas os IDs são sequenciais — bastava chamar `/products/1`, `/products/2`. O frontend já escondia os botões, então só era explorável via API direta. | `routes/api.php` (rota → `role:super_admin`) + `ProductController` (`denyIfNotSuperAdmin` como defesa em profundidade) |
 
 ### Erros silenciosos — padrão a seguir
 
@@ -421,4 +443,4 @@ Nunca rode isso em produção sem confirmar com o Victor antes.
 
 ---
 
-**Última atualização:** 2026-07-31 — backup automático diário com cópia off-site no Google Drive.
+**Última atualização:** 2026-07-31 — correção de isolamento de produtos entre tenants + backup off-site.

@@ -10,6 +10,25 @@ use Illuminate\Http\Request;
 
 class ProductController extends Controller
 {
+    /**
+     * O catálogo de produtos pertence à VIXCard e é compartilhado entre todas as
+     * empresas. Alterar ou excluir um produto afeta todo mundo que o utiliza, por
+     * isso a escrita é exclusiva do super admin.
+     *
+     * As rotas já aplicam role:super_admin — esta checagem é defesa em profundidade,
+     * para o caso de alguém afrouxar o middleware no futuro.
+     */
+    private function denyIfNotSuperAdmin(Request $request): ?JsonResponse
+    {
+        if (!$request->user()->isSuperAdmin()) {
+            return response()->json(
+                ['message' => 'Apenas o super admin pode gerenciar o catálogo de produtos.'],
+                403
+            );
+        }
+        return null;
+    }
+
     public function index(Request $request): JsonResponse
     {
         $user  = $request->user();
@@ -37,6 +56,8 @@ class ProductController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        if ($deny = $this->denyIfNotSuperAdmin($request)) return $deny;
+
         $request->validate([
             'name'        => 'required|string|max:255',
             'category'    => 'required|string|max:100',
@@ -71,6 +92,8 @@ class ProductController extends Controller
 
     public function update(Request $request, string $id): JsonResponse
     {
+        if ($deny = $this->denyIfNotSuperAdmin($request)) return $deny;
+
         $product = Product::findOrFail($id);
 
         $request->validate([
@@ -100,6 +123,8 @@ class ProductController extends Controller
 
     public function toggleActive(Request $request, string $id): JsonResponse
     {
+        if ($deny = $this->denyIfNotSuperAdmin($request)) return $deny;
+
         $product = Product::findOrFail($id);
         $product->update(['active' => !$product->active]);
 
@@ -114,6 +139,8 @@ class ProductController extends Controller
 
     public function destroy(Request $request, string $id): JsonResponse
     {
+        if ($deny = $this->denyIfNotSuperAdmin($request)) return $deny;
+
         $product = Product::findOrFail($id);
         $name    = $product->name;
         $product->delete();

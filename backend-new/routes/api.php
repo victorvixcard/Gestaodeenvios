@@ -40,8 +40,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
     });
 
     // ── Produtos ───────────────────────────────────────────────────────────
+    // O catálogo é da VIXCard. Empresas apenas LISTAM para montar pedidos —
+    // criar/editar/excluir é exclusivo do super admin. Antes isso liberava
+    // tenant_admin, o que permitia a uma empresa apagar produto de outra.
     Route::get('/products', [ProductController::class, 'index']); // todos podem listar
-    Route::prefix('products')->middleware('role:super_admin,tenant_admin')->group(function () {
+    Route::prefix('products')->middleware('role:super_admin')->group(function () {
         Route::post('/',        [ProductController::class, 'store']);
         Route::put('/{id}',     [ProductController::class, 'update']);
         Route::delete('/{id}',  [ProductController::class, 'destroy']);
