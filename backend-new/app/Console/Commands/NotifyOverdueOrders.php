@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\AuditLog;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\User;
 use App\Services\WhatsAppService;
 use Illuminate\Console\Command;
@@ -23,7 +24,7 @@ class NotifyOverdueOrders extends Command
         $overdueOrders = Order::with('company')
             ->whereNotIn('status', ['done', 'cancelled'])
             ->whereNotNull('deadline')
-            ->where('deadline', '<', now()->toDateString())
+            ->where('deadline', '<', OrderItem::hoje()->toDateString())
             ->get();
 
         if ($overdueOrders->isEmpty()) {
@@ -34,7 +35,7 @@ class NotifyOverdueOrders extends Command
         $this->info("Processando {$overdueOrders->count()} OS(s) em atraso...");
 
         foreach ($overdueOrders as $order) {
-            $overdueDays = now()->diffInDays($order->deadline);
+            $overdueDays = (int) abs(OrderItem::hoje()->diffInDays($order->deadline->startOfDay()));
 
             // Notifica admins/tenants da empresa
             $admins = User::where('tenant_slug', $order->tenant_slug)

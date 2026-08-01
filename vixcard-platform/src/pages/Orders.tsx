@@ -10,7 +10,8 @@ import { useAuth } from "../contexts/AuthContext";
 import { useTenant } from "../contexts/TenantContext";
 import { useOrders } from "../contexts/OrdersContext";
 import { StatusBadge } from "../components/shared/StatusBadge";
-import { DeadlineChip, isOverdue } from "../components/shared/DeadlineChip";
+import { ItemDeadlineBadge, OrderDeadlineSummary } from "../components/shared/ItemDeadlineBadge";
+import { orderIsOverdue } from "../lib/itemDeadline";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Card } from "../components/ui/card";
@@ -120,7 +121,7 @@ function TimelineCard({ order, index, tenantSlug, isSuperAdmin }: {
       <Card
         className={cn(
           "p-4 cursor-pointer hover:-translate-y-0.5 transition-all duration-200 bg-gradient-card",
-          isOverdue(order.createdAt, order.status)
+          orderIsOverdue(order.items, order.status)
             ? "border-red-400 border-2 hover:shadow-red-200 hover:shadow-md"
             : "hover:shadow-brand"
         )}
@@ -156,36 +157,24 @@ function TimelineCard({ order, index, tenantSlug, isSuperAdmin }: {
             {order.requestedBy}
           </span>
 
-          {/* Items display — inline for 1 item, pills for 2+ */}
-          <span className="flex items-start gap-1 flex-wrap flex-1 min-w-0">
+          {/* Cada item carrega o próprio prazo — a cor do badge é o alerta */}
+          <span className="flex items-start gap-1.5 flex-wrap flex-1 min-w-0">
             <span className="flex items-center gap-1 flex-shrink-0">
               <Package className="h-3 w-3" />
               <span className="font-medium">{order.items.length} {order.items.length === 1 ? "item" : "itens"}</span>
             </span>
-            {order.items.length === 1 ? (
-              <span className="text-muted-foreground/60 truncate">
-                · {order.items[0].productName} × {order.items[0].quantity.toLocaleString("pt-BR")}
-              </span>
-            ) : (
-              <span className="flex items-center gap-1 flex-wrap">
-                {order.items.slice(0, 3).map((item, idx) => (
-                  <span
-                    key={idx}
-                    className="inline-flex items-center bg-muted/70 border border-border/60 text-foreground/70 text-[10px] px-1.5 py-0.5 rounded font-medium leading-tight"
-                  >
-                    {item.productName}
-                    <span className="text-muted-foreground/60 ml-1">×{item.quantity.toLocaleString("pt-BR")}</span>
-                  </span>
-                ))}
-                {order.items.length > 3 && (
-                  <span className="text-muted-foreground/60 text-[10px]">+{order.items.length - 3} mais</span>
-                )}
-              </span>
-            )}
+            <span className="flex items-center gap-1.5 flex-wrap">
+              {order.items.slice(0, 3).map((item, idx) => (
+                <ItemDeadlineBadge key={idx} item={item} orderStatus={order.status} />
+              ))}
+              {order.items.length > 3 && (
+                <span className="text-muted-foreground/60 text-[10px]">+{order.items.length - 3} mais</span>
+              )}
+            </span>
           </span>
 
           <div className="ml-auto flex-shrink-0">
-            <DeadlineChip createdAt={order.createdAt} orderStatus={order.status} showDays />
+            <OrderDeadlineSummary items={order.items} orderStatus={order.status} />
           </div>
         </div>
       </Card>
@@ -208,12 +197,12 @@ export function Orders() {
 
   const tenantOrders = isSuperAdmin ? orders : orders.filter((o) => o.tenantSlug === tenant.slug);
 
-  const overdueCount = tenantOrders.filter((o) => isOverdue(o.createdAt, o.status)).length;
+  const overdueCount = tenantOrders.filter((o) => orderIsOverdue(o.items, o.status)).length;
 
   const filtered = tenantOrders.filter((o) => {
     const matchStatus =
       statusFilter === "all" ||
-      (statusFilter === "overdue" ? isOverdue(o.createdAt, o.status) : o.status === statusFilter);
+      (statusFilter === "overdue" ? orderIsOverdue(o.items, o.status) : o.status === statusFilter);
     const matchSearch =
       !search ||
       o.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -319,7 +308,7 @@ export function Orders() {
               <Card
                 className={cn(
                   "p-4 cursor-pointer hover:-translate-y-0.5 transition-all duration-200 bg-gradient-card",
-                  isOverdue(order.createdAt, order.status)
+                  orderIsOverdue(order.items, order.status)
                     ? "border-red-400 border-2 hover:shadow-red-200 hover:shadow-md"
                     : "hover:shadow-brand"
                 )}
@@ -359,7 +348,7 @@ export function Orders() {
                       <span>{formatDateShort(order.updatedAt)}</span>
                     </div>
                     <div className="mt-2">
-                      <DeadlineChip createdAt={order.createdAt} orderStatus={order.status} showDays={false} />
+                      <OrderDeadlineSummary items={order.items} orderStatus={order.status} />
                     </div>
                   </div>
                   <div className="flex items-center gap-3 flex-shrink-0">

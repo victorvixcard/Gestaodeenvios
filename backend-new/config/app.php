@@ -69,6 +69,23 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Fuso do negócio
+    |--------------------------------------------------------------------------
+    |
+    | A aplicação guarda timestamps em UTC (não mexa em 'timezone' acima: os
+    | created_at já gravados seriam reinterpretados e apareceriam 3h deslocados).
+    | Mas prazo de entrega é DATA, e a data que vale é a do Brasil — senão, das
+    | 21h à meia-noite o servidor já considera o dia seguinte e um pedido feito
+    | à noite nasce com um dia útil a menos.
+    |
+    | Use business_timezone em toda conta de prazo: criação, vencimento e atraso.
+    |
+    */
+
+    'business_timezone' => env('BUSINESS_TIMEZONE', 'America/Sao_Paulo'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------
     |

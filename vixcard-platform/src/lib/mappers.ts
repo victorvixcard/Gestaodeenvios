@@ -65,6 +65,10 @@ export function mapOrderItem(item: Record<string, unknown>): OrderItem {
     quantity: Number(item.quantity ?? 0),
     specifications: String(item.specifications ?? ''),
     selectedVariations: (item.selected_variations ?? item.selectedVariations) as OrderItem['selectedVariations'],
+    deadline: (item.deadline as string | null) ?? undefined,
+    deadlineDays: item.deadlineDays != null ? Number(item.deadlineDays) : undefined,
+    isOverdue: Boolean(item.isOverdue),
+    overdueDays: Number(item.overdueDays ?? 0),
   }
 }
 

@@ -100,10 +100,12 @@ class OrderController extends Controller
         foreach ($request->items as $item) {
             $dias = (int) ($diasPorProduto[$item['product_id']] ?? $default);
 
+            // Conta a partir de HOJE no fuso do negócio. Em UTC, um pedido feito
+            // às 22h de Brasília já contaria a partir do dia seguinte.
             $order->items()->create($item + [
                 'deadline_days' => $dias,
                 'deadline'      => $this->businessDayService
-                    ->addBusinessDays($order->created_at ?? now(), $dias)
+                    ->addBusinessDays(OrderItem::hoje(), $dias)
                     ->toDateString(),
             ]);
         }

@@ -90,6 +90,25 @@ export interface OrderItem {
   quantity: number;
   specifications: string;
   selectedVariations?: SelectedVariation[];
+  /**
+   * Prazo do item, calculado pelo backend com o prazo negociado entre a empresa
+   * e o produto e congelado na criação do pedido. A tela apenas exibe — nunca
+   * recalcula, senão volta a divergir do que está gravado no banco.
+   */
+  deadline?: string;
+  deadlineDays?: number;
+  isOverdue?: boolean;
+  overdueDays?: number;
+}
+
+/** Prazo de entrega de um produto dentro de uma empresa. */
+export interface ProductDeadline {
+  id: string;
+  code: string;
+  name: string;
+  category: string;
+  active: boolean;
+  deadlineDays: number | null;
 }
 
 export interface OrderNote {
