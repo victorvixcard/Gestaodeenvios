@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
+use App\Models\Company;
 use App\Models\Order;
 use App\Services\BusinessDayService;
 use App\Services\WhatsAppService;
@@ -87,9 +88,28 @@ class OrderController extends Controller
             'files'        => [],
         ]);
 
+        // Prazo por item: cada produto tem o prazo negociado com esta empresa.
+        // Congelamos aqui — mudar o cadastro depois não altera pedido já aberto.
+        // Uma consulta só monta o mapa produto => dias, em vez de uma por item.
+        $default  = (int) config('app.order_deadline_days', 7);
+        $company  = Company::with('products')->find($user->tenant_slug);
+        $diasPorProduto = $company
+            ? $company->products->pluck('pivot.deadline_days', 'id')->all()
+            : [];
+
         foreach ($request->items as $item) {
-            $order->items()->create($item);
+            $dias = (int) ($diasPorProduto[$item['product_id']] ?? $default);
+
+            $order->items()->create($item + [
+                'deadline_days' => $dias,
+                'deadline'      => $this->businessDayService
+                    ->addBusinessDays($order->created_at ?? now(), $dias)
+                    ->toDateString(),
+            ]);
         }
+
+        // O pedido vence junto com seu item mais demorado.
+        $order->syncDeadlineFromItems();
 
         $order->events()->create([
             'type'        => 'created',
@@ -311,7 +331,19 @@ class OrderController extends Controller
             'cancelReason' => $order->cancel_reason,
             'requestedBy'  => $order->requested_by,
             'assignedTo'   => $order->assigned_to,
-            'items'        => $order->items,
+            'items'        => $order->items->map(fn($i) => [
+                'id'                 => $i->id,
+                'product_id'         => $i->product_id,
+                'product_name'       => $i->product_name,
+                'quantity'           => $i->quantity,
+                'specifications'     => $i->specifications,
+                'selected_variations' => $i->selected_variations,
+                // Prazo do item — a tela exibe estes valores, nunca recalcula
+                'deadline'           => $i->deadline?->format('Y-m-d'),
+                'deadlineDays'       => $i->deadline_days,
+                'isOverdue'          => $i->isOverdue($order->status),
+                'overdueDays'        => $i->overdueDays($order->status),
+            ]),
             'notes'        => $order->notes,
             'events'       => $order->events,
             'files'        => $order->files ?? [],

@@ -66,7 +66,23 @@ class Order extends Model
     public function getOverdueDaysAttribute(): int
     {
         if (!$this->isOverdue()) return 0;
-        return now()->startOfDay()->diffInDays($this->deadline->startOfDay());
+
+        // abs() porque o Carbon 3 mudou diffInDays para devolver valor COM SINAL
+        // (no Carbon 2 era sempre absoluto). Sem isso o atraso saía negativo.
+        return (int) abs(now()->startOfDay()->diffInDays($this->deadline->startOfDay()));
+    }
+
+    /**
+     * Recalcula o prazo do pedido como o maior prazo entre os itens — o pedido
+     * só está concluído quando o item mais demorado fica pronto.
+     */
+    public function syncDeadlineFromItems(): void
+    {
+        $max = $this->items()->max('deadline');
+
+        if ($max && (string) $max !== $this->deadline?->toDateString()) {
+            $this->update(['deadline' => $max]);
+        }
     }
 
     protected static function booted(): void

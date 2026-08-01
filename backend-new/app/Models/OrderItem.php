@@ -11,13 +11,36 @@ class OrderItem extends Model
 
     protected $fillable = [
         'order_id', 'product_id', 'product_name',
-        'quantity', 'specifications', 'selected_variations',
+        'quantity', 'deadline', 'deadline_days',
+        'specifications', 'selected_variations',
     ];
 
     protected $casts = [
         'quantity'            => 'integer',
+        'deadline'            => 'date',
+        'deadline_days'       => 'integer',
         'selected_variations' => 'array',
     ];
+
+    /** Item vencido — pedido concluído ou cancelado nunca conta como atraso. */
+    public function isOverdue(string $orderStatus): bool
+    {
+        if (in_array($orderStatus, ['done', 'cancelled'])) return false;
+        if (!$this->deadline) return false;
+
+        return $this->deadline->isPast();
+    }
+
+    /**
+     * Dias de atraso, sempre positivo.
+     * Carbon 3 devolve diferença COM SINAL — daí o abs().
+     */
+    public function overdueDays(string $orderStatus): int
+    {
+        if (!$this->isOverdue($orderStatus)) return 0;
+
+        return (int) abs(now()->startOfDay()->diffInDays($this->deadline->startOfDay()));
+    }
 
     public function order(): BelongsTo
     {

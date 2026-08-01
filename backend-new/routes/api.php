@@ -67,6 +67,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::patch('/{slug}/toggle', [CompanyController::class, 'toggleActive']);
         Route::get('/{slug}/products', [CompanyController::class, 'products']);
         Route::put('/{slug}/products', [CompanyController::class, 'syncProducts']);
+
+        // Prazo de entrega por produto, negociado com cada empresa
+        Route::get('/{slug}/deadlines', [CompanyController::class, 'deadlines']);
+        Route::put('/{slug}/deadlines', [CompanyController::class, 'syncDeadlines']);
     });
 
     // ── Usuários ───────────────────────────────────────────────────────────
