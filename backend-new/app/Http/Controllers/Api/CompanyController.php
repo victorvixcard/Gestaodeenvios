@@ -140,65 +140,6 @@ class CompanyController extends Controller
         return response()->json($company->products()->get());
     }
 
-    /**
-     * Matriz de prazos da empresa: os produtos vinculados a ela e o prazo de
-     * entrega de cada um, em dias úteis. deadlineDays null significa "usa o
-     * padrão" — o admin só precisa preencher as exceções.
-     */
-    public function deadlines(string $slug): JsonResponse
-    {
-        $company = Company::with('products')->findOrFail($slug);
-
-        return response()->json([
-            'companySlug'  => $company->slug,
-            'companyName'  => $company->name,
-            'defaultDays'  => (int) config('app.order_deadline_days', 7),
-            'products'     => $company->products->map(fn($p) => [
-                'id'           => $p->id,
-                'code'         => $p->code,
-                'name'         => $p->name,
-                'category'     => $p->category,
-                'active'       => (bool) $p->active,
-                'deadlineDays' => $p->pivot->deadline_days,
-            ])->values(),
-        ]);
-    }
-
-    /**
-     * Grava os prazos. Só mexe no pivot — não vincula nem desvincula produto,
-     * para não esbarrar na tela de "produtos liberados", que é outra coisa.
-     * Prazo ausente ou null volta a usar o padrão.
-     */
-    public function syncDeadlines(Request $request, string $slug): JsonResponse
-    {
-        $request->validate([
-            'deadlines'                 => 'required|array',
-            'deadlines.*.product_id'    => 'required|exists:products,id',
-            'deadlines.*.deadline_days' => 'nullable|integer|min:1|max:365',
-        ]);
-
-        $company  = Company::findOrFail($slug);
-        $vinculados = $company->products()->pluck('products.id')->all();
-        $alterados  = 0;
-
-        foreach ($request->deadlines as $linha) {
-            // Ignora produto que não pertence a esta empresa
-            if (!in_array($linha['product_id'], $vinculados)) continue;
-
-            $company->products()->updateExistingPivot($linha['product_id'], [
-                'deadline_days' => $linha['deadline_days'] ?? null,
-            ]);
-            $alterados++;
-        }
-
-        AuditLog::record(
-            'empresa_prazos_atualizados', 'Empresa', $company->slug, $company->name,
-            $request->user(), "{$alterados} produto(s)"
-        );
-
-        return response()->json($this->deadlines($slug)->getData(true));
-    }
-
     private function formatCompany(Company $company): array
     {
         return [

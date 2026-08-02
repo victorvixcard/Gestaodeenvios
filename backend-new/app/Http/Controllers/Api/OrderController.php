@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Company;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Services\BusinessDayService;
 use App\Services\WhatsAppService;
 use Illuminate\Http\JsonResponse;
@@ -88,17 +89,19 @@ class OrderController extends Controller
             'files'        => [],
         ]);
 
-        // Prazo por item: cada produto tem o prazo negociado com esta empresa.
-        // Congelamos aqui — mudar o cadastro depois não altera pedido já aberto.
-        // Uma consulta só monta o mapa produto => dias, em vez de uma por item.
-        $default  = (int) config('app.order_deadline_days', 7);
-        $company  = Company::with('products')->find($user->tenant_slug);
-        $diasPorProduto = $company
-            ? $company->products->pluck('pivot.deadline_days', 'id')->all()
-            : [];
+        // Prazo por item, congelado aqui — mudar o cadastro depois não altera
+        // pedido já aberto. Precedência: exceção da empresa > padrão do produto
+        // > padrão global. Uma consulta só, em vez de uma por item.
+        $default = (int) config('app.order_deadline_days', 7);
+        $company = Company::with('products')->find($user->tenant_slug);
+
+        $prazos = [];
+        foreach (($company?->products ?? []) as $p) {
+            $prazos[$p->id] = $p->pivot->deadline_days ?? $p->deadline_days;
+        }
 
         foreach ($request->items as $item) {
-            $dias = (int) ($diasPorProduto[$item['product_id']] ?? $default);
+            $dias = (int) ($prazos[$item['product_id']] ?? $default);
 
             // Conta a partir de HOJE no fuso do negócio. Em UTC, um pedido feito
             // às 22h de Brasília já contaria a partir do dia seguinte.

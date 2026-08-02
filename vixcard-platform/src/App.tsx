@@ -17,7 +17,6 @@ import { Products } from "./pages/Products";
 import { Users } from "./pages/Users";
 import { Empresas } from "./pages/Empresas";
 import { EmpresaDetalhe } from "./pages/EmpresaDetalhe";
-import { PrazosAlerta } from "./pages/PrazosAlerta";
 import { Logs } from "./pages/Logs";
 import { Reports } from "./pages/Reports";
 
@@ -35,7 +34,6 @@ function TenantRoutes() {
           <Route path="empresas" element={<Empresas />} />
           <Route path="empresas/:slug" element={<EmpresaDetalhe />} />
           <Route path="produtos" element={<Products />} />
-          <Route path="prazos" element={<PrazosAlerta />} />
           <Route path="usuarios" element={<Users />} />
           <Route path="relatorios" element={<Reports />} />
           <Route path="logs" element={<Logs />} />

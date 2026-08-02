@@ -121,6 +121,67 @@ class ProductController extends Controller
         return response()->json($product->fresh());
     }
 
+    /**
+     * Prazos de alerta do produto: o padrão dele e as exceções por empresa.
+     * Alimenta a aba "Prazo de alerta" dentro do cadastro do produto.
+     */
+    public function deadlines(Request $request, string $id): JsonResponse
+    {
+        if ($deny = $this->denyIfNotSuperAdmin($request)) return $deny;
+
+        $product = Product::with('companies')->findOrFail($id);
+
+        return response()->json([
+            'productId'    => $product->id,
+            'productName'  => $product->name,
+            'defaultDays'  => (int) config('app.order_deadline_days', 7),
+            'deadlineDays' => $product->deadline_days,
+            'companies'    => $product->companies->map(fn($c) => [
+                'slug'         => $c->slug,
+                'name'         => $c->name,
+                'active'       => (bool) $c->active,
+                'deadlineDays' => $c->pivot->deadline_days,
+            ])->values(),
+        ]);
+    }
+
+    /**
+     * Grava o prazo padrão do produto e as exceções por empresa.
+     * Empresa que não estiver vinculada ao produto é ignorada.
+     */
+    public function syncDeadlines(Request $request, string $id): JsonResponse
+    {
+        if ($deny = $this->denyIfNotSuperAdmin($request)) return $deny;
+
+        $request->validate([
+            'deadline_days'               => 'nullable|integer|min:1|max:365',
+            'companies'                   => 'nullable|array',
+            'companies.*.slug'            => 'required|string',
+            'companies.*.deadline_days'   => 'nullable|integer|min:1|max:365',
+        ]);
+
+        $product = Product::findOrFail($id);
+        $product->update(['deadline_days' => $request->deadline_days]);
+
+        $vinculadas = $product->companies()->pluck('companies.slug')->all();
+
+        foreach ($request->companies ?? [] as $linha) {
+            if (!in_array($linha['slug'], $vinculadas)) continue;
+
+            $product->companies()->updateExistingPivot($linha['slug'], [
+                'deadline_days' => $linha['deadline_days'] ?? null,
+            ]);
+        }
+
+        AuditLog::record(
+            'produto_prazos_atualizados', 'Produto', $product->id, $product->name,
+            $request->user(),
+            'Padrão: ' . ($product->deadline_days ?? 'global')
+        );
+
+        return $this->deadlines($request, $id);
+    }
+
     public function toggleActive(Request $request, string $id): JsonResponse
     {
         if ($deny = $this->denyIfNotSuperAdmin($request)) return $deny;

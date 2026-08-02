@@ -56,6 +56,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::put('/{id}',     [ProductController::class, 'update']);
         Route::delete('/{id}',  [ProductController::class, 'destroy']);
         Route::patch('/{id}/toggle', [ProductController::class, 'toggleActive']);
+
+        // Aba "Prazo de alerta" dentro do cadastro do produto
+        Route::get('/{id}/deadlines', [ProductController::class, 'deadlines']);
+        Route::put('/{id}/deadlines', [ProductController::class, 'syncDeadlines']);
     });
 
     // ── Empresas (super admin only) ────────────────────────────────────────
@@ -67,10 +71,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::patch('/{slug}/toggle', [CompanyController::class, 'toggleActive']);
         Route::get('/{slug}/products', [CompanyController::class, 'products']);
         Route::put('/{slug}/products', [CompanyController::class, 'syncProducts']);
-
-        // Prazo de entrega por produto, negociado com cada empresa
-        Route::get('/{slug}/deadlines', [CompanyController::class, 'deadlines']);
-        Route::put('/{slug}/deadlines', [CompanyController::class, 'syncDeadlines']);
     });
 
     // ── Usuários ───────────────────────────────────────────────────────────
