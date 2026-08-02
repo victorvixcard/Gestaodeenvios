@@ -24,3 +24,7 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Backups de .env — nunca versionar (contem APP_KEY e senha do banco)
+.env.backup-*
+*.env.backup
