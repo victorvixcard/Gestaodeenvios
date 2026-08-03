@@ -99,6 +99,9 @@ export interface OrderItem {
   deadlineDays?: number;
   isOverdue?: boolean;
   overdueDays?: number;
+  /** Preço unitário congelado na criação do pedido. */
+  unitPrice?: number;
+  lineTotal?: number;
 }
 
 /** Prazo de entrega de um produto dentro de uma empresa. */

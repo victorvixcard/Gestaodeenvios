@@ -96,17 +96,22 @@ class OrderController extends Controller
         $company = Company::with('products')->find($user->tenant_slug);
 
         $prazos = [];
+        $precos = [];
         foreach (($company?->products ?? []) as $p) {
             $prazos[$p->id] = $p->pivot->deadline_days ?? $p->deadline_days;
+            $precos[$p->id] = $p->priceFor($p->pivot->price);
         }
 
         foreach ($request->items as $item) {
             $dias = (int) ($prazos[$item['product_id']] ?? $default);
 
+            // Prazo e preço congelados aqui. Um reajuste de tabela depois nao
+            // pode reescrever o que foi acordado neste pedido.
             // Conta a partir de HOJE no fuso do negócio. Em UTC, um pedido feito
             // às 22h de Brasília já contaria a partir do dia seguinte.
             $order->items()->create($item + [
                 'deadline_days' => $dias,
+                'unit_price'    => $precos[$item['product_id']] ?? null,
                 'deadline'      => $this->businessDayService
                     ->addBusinessDays(OrderItem::hoje(), $dias)
                     ->toDateString(),
@@ -343,6 +348,9 @@ class OrderController extends Controller
                 'quantity'           => $i->quantity,
                 'specifications'     => $i->specifications,
                 'selected_variations' => $i->selected_variations,
+                // Preço praticado, congelado na criação
+                'unitPrice'          => $i->unit_price !== null ? (float) $i->unit_price : null,
+                'lineTotal'          => $i->lineTotal(),
                 // Prazo do item — a tela exibe estes valores, nunca recalcula
                 'deadline'           => $i->deadline?->format('Y-m-d'),
                 'deadlineDays'       => $i->deadline_days,

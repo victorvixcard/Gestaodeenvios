@@ -69,6 +69,8 @@ export function mapOrderItem(item: Record<string, unknown>): OrderItem {
     deadlineDays: item.deadlineDays != null ? Number(item.deadlineDays) : undefined,
     isOverdue: Boolean(item.isOverdue),
     overdueDays: Number(item.overdueDays ?? 0),
+    unitPrice: item.unitPrice != null ? Number(item.unitPrice) : undefined,
+    lineTotal: item.lineTotal != null ? Number(item.lineTotal) : undefined,
   }
 }
 

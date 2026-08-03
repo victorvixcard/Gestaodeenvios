@@ -71,6 +71,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::patch('/{slug}/toggle', [CompanyController::class, 'toggleActive']);
         Route::get('/{slug}/products', [CompanyController::class, 'products']);
         Route::put('/{slug}/products', [CompanyController::class, 'syncProducts']);
+
+        // Catálogo da empresa: prazo e preço de cada produto liberado
+        Route::get('/{slug}/catalog', [CompanyController::class, 'catalog']);
+        Route::put('/{slug}/catalog', [CompanyController::class, 'syncCatalog']);
     });
 
     // ── Usuários ───────────────────────────────────────────────────────────

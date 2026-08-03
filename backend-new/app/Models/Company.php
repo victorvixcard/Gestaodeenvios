@@ -33,7 +33,7 @@ class Company extends Model
     public function products(): BelongsToMany
     {
         return $this->belongsToMany(Product::class, 'company_products', 'company_slug', 'product_id')
-                    ->withPivot('deadline_days');
+                    ->withPivot('deadline_days', 'price');
     }
 
     /**

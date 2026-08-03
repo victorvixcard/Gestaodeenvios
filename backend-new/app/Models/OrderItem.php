@@ -11,16 +11,25 @@ class OrderItem extends Model
 
     protected $fillable = [
         'order_id', 'product_id', 'product_name',
-        'quantity', 'deadline', 'deadline_days',
+        'quantity', 'unit_price', 'deadline', 'deadline_days',
         'specifications', 'selected_variations',
     ];
 
     protected $casts = [
         'quantity'            => 'integer',
+        'unit_price'          => 'decimal:2',
         'deadline'            => 'date',
         'deadline_days'       => 'integer',
         'selected_variations' => 'array',
     ];
+
+    /** Total da linha — null quando o produto não tem preço definido. */
+    public function lineTotal(): ?float
+    {
+        return $this->unit_price !== null
+            ? round((float) $this->unit_price * $this->quantity, 2)
+            : null;
+    }
 
     /**
      * Hoje no fuso do negócio, como data pura (00:00 no fuso padrão do PHP).

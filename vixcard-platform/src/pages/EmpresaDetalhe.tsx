@@ -2,9 +2,10 @@ import { useRef, useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
-  ArrowLeft, Save, MessageCircle, KeyRound, Package,
+  ArrowLeft, Save, MessageCircle, KeyRound, Package, Timer,
   User as UserIcon, Eye, EyeOff, Check, Link2,
 } from "lucide-react";
+import { CompanyCatalogTab } from "../components/shared/CompanyCatalogTab";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 import { useData } from "../contexts/DataContext";
@@ -63,6 +64,10 @@ export function EmpresaDetalhe() {
     () => company?.allowedProductIds ?? []
   );
   const [savingProducts, setSavingProducts] = useState(false);
+  // Precisa ficar aqui em cima, junto dos outros: declarado depois do
+  // "if (!company) return" quebrava a ordem dos hooks quando a empresa
+  // chegava do DataContext e a tela morria em branco.
+  const [savingDados, setSavingDados] = useState(false);
 
   useEffect(() => {
     if (company) setSelectedProductIds(company.allowedProductIds);
@@ -94,8 +99,6 @@ export function EmpresaDetalhe() {
       </div>
     );
   }
-
-  const [savingDados, setSavingDados] = useState(false);
 
   const handleSaveDados = async () => {
     if (!form.name.trim()) { toast.error("Informe o nome."); return; }
@@ -200,6 +203,10 @@ export function EmpresaDetalhe() {
               <span className="ml-1.5 bg-primary/10 text-primary text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                 {selectedProductIds.length}
               </span>
+            </TabsTrigger>
+            <TabsTrigger value="catalogo" className="flex items-center gap-1.5">
+              <Timer className="h-3.5 w-3.5" />
+              Prazos e preços
             </TabsTrigger>
           </TabsList>
 
@@ -435,6 +442,11 @@ export function EmpresaDetalhe() {
                 </div>
               )}
             </div>
+          </TabsContent>
+
+          {/* ── Prazos e preços ── */}
+          <TabsContent value="catalogo">
+            <CompanyCatalogTab slug={company.slug} />
           </TabsContent>
         </Tabs>
       </div>

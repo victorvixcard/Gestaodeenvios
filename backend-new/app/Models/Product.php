@@ -23,7 +23,7 @@ class Product extends Model
     public function companies(): BelongsToMany
     {
         return $this->belongsToMany(Company::class, 'company_products', 'product_id', 'company_slug')
-                    ->withPivot('deadline_days');
+                    ->withPivot('deadline_days', 'price');
     }
 
     /**
@@ -38,6 +38,14 @@ class Product extends Model
         return $pivotDays
             ?? $this->deadline_days
             ?? (int) config('app.order_deadline_days', 7);
+    }
+
+    /** Preço para uma empresa: o negociado com ela, senão o do produto. */
+    public function priceFor(int|float|string|null $pivotPrice = null): ?float
+    {
+        $preco = $pivotPrice ?? $this->price;
+
+        return $preco !== null ? (float) $preco : null;
     }
 
     public static function generateCode(string $category): string

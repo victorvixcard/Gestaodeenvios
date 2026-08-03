@@ -129,19 +129,53 @@ class ProductController extends Controller
     {
         if ($deny = $this->denyIfNotSuperAdmin($request)) return $deny;
 
-        $product = Product::with('companies')->findOrFail($id);
+        $product = Product::findOrFail($id);
+
+        // Paginado e com busca: um produto pode estar vinculado a milhares de
+        // empresas. "only_overrides" mostra só quem tem valor proprio, que e
+        // a lista curta e util no dia a dia.
+        //
+        // Encadeia na relacao, NAO em getQuery(): getQuery() devolve o builder
+        // cru e o pivot chega nulo nos resultados.
+        $query = $product->companies();
+
+        if ($busca = trim((string) $request->search)) {
+            $query->where(function ($q) use ($busca) {
+                $q->where('companies.name', 'like', "%{$busca}%")
+                  ->orWhere('companies.slug', 'like', "%{$busca}%");
+            });
+        }
+
+        if ($request->boolean('only_overrides')) {
+            $query->where(function ($q) {
+                $q->whereNotNull('company_products.deadline_days')
+                  ->orWhereNotNull('company_products.price');
+            });
+        }
+
+        $page = $query->orderBy('companies.name')->paginate(20);
 
         return response()->json([
             'productId'    => $product->id,
             'productName'  => $product->name,
             'defaultDays'  => (int) config('app.order_deadline_days', 7),
             'deadlineDays' => $product->deadline_days,
-            'companies'    => $product->companies->map(fn($c) => [
+            'price'        => $product->price !== null ? (float) $product->price : null,
+            'totalVinculos' => $product->companies()->count(),
+            'totalExcecoes' => $product->companies()
+                ->where(function ($q) {
+                    $q->whereNotNull('company_products.deadline_days')
+                      ->orWhereNotNull('company_products.price');
+                })->count(),
+            'companies'    => collect($page->items())->map(fn($c) => [
                 'slug'         => $c->slug,
                 'name'         => $c->name,
                 'active'       => (bool) $c->active,
                 'deadlineDays' => $c->pivot->deadline_days,
+                'price'        => $c->pivot->price !== null ? (float) $c->pivot->price : null,
             ])->values(),
+            'pagina'       => $page->currentPage(),
+            'totalPaginas' => $page->lastPage(),
         ]);
     }
 
@@ -155,28 +189,39 @@ class ProductController extends Controller
 
         $request->validate([
             'deadline_days'               => 'nullable|integer|min:1|max:365',
+            'price'                       => 'nullable|numeric|min:0|max:9999999',
             'companies'                   => 'nullable|array',
             'companies.*.slug'            => 'required|string',
             'companies.*.deadline_days'   => 'nullable|integer|min:1|max:365',
+            'companies.*.price'           => 'nullable|numeric|min:0|max:9999999',
         ]);
 
         $product = Product::findOrFail($id);
-        $product->update(['deadline_days' => $request->deadline_days]);
+        $product->update([
+            'deadline_days' => $request->deadline_days,
+            'price'         => $request->price,
+        ]);
 
-        $vinculadas = $product->companies()->pluck('companies.slug')->all();
+        // Confere so os slugs enviados, em vez de carregar todos os vinculos —
+        // com milhares de empresas, puxar a lista inteira nao escala.
+        $enviados = collect($request->companies ?? [])->pluck('slug')->all();
+        $validos  = $enviados
+            ? $product->companies()->whereIn('companies.slug', $enviados)->pluck('companies.slug')->all()
+            : [];
 
         foreach ($request->companies ?? [] as $linha) {
-            if (!in_array($linha['slug'], $vinculadas)) continue;
+            if (!in_array($linha['slug'], $validos)) continue;
 
             $product->companies()->updateExistingPivot($linha['slug'], [
                 'deadline_days' => $linha['deadline_days'] ?? null,
+                'price'         => $linha['price'] ?? null,
             ]);
         }
 
         AuditLog::record(
             'produto_prazos_atualizados', 'Produto', $product->id, $product->name,
             $request->user(),
-            'Padrão: ' . ($product->deadline_days ?? 'global')
+            'Padrão: ' . ($product->deadline_days ?? 'global') . ' dias | ' . count($validos) . ' empresa(s)'
         );
 
         return $this->deadlines($request, $id);

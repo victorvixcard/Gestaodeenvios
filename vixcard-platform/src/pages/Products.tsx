@@ -25,7 +25,7 @@ import { Textarea } from "../components/ui/textarea";
 import { cn } from "../lib/utils";
 import { api, ApiError } from "../lib/api";
 import { AvatarUpload } from "../components/shared/AvatarUpload";
-import { ProductDeadlineTab, type DeadlineDraft } from "../components/shared/ProductDeadlineTab";
+import { ProductDeadlineTab, DRAFT_VAZIO, type DeadlineDraft } from "../components/shared/ProductDeadlineTab";
 import type { Product, ProductVariation, VariationOption } from "../types";
 
 const CATEGORIES = ["Cartões", "Carnês", "Etiquetas", "Impressão", "Serviços", "Outros"];
@@ -61,7 +61,7 @@ export function Products() {
   const [editId, setEditId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ ...EMPTY_FORM });
-  const [deadlines, setDeadlines] = useState<DeadlineDraft>({ deadlineDays: "", companies: {} });
+  const [deadlines, setDeadlines] = useState<DeadlineDraft>(DRAFT_VAZIO);
 
   const filtered = products.filter((p) => {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -72,7 +72,7 @@ export function Products() {
 
   const openCreate = () => {
     setForm({ ...EMPTY_FORM });
-    setDeadlines({ deadlineDays: "", companies: {} });
+    setDeadlines(DRAFT_VAZIO);
     setEditId(null);
     setDialog("create");
   };
@@ -127,9 +127,11 @@ export function Products() {
         // que não faz parte do PUT /products/{id}.
         await api.put(`/products/${editId}/deadlines`, {
           deadline_days: deadlines.deadlineDays ? Number(deadlines.deadlineDays) : null,
-          companies: Object.entries(deadlines.companies).map(([slug, dias]) => ({
+          price: deadlines.price ? Number(deadlines.price) : null,
+          companies: Object.entries(deadlines.companies).map(([slug, v]) => ({
             slug,
-            deadline_days: dias ? Number(dias) : null,
+            deadline_days: v.deadlineDays ? Number(v.deadlineDays) : null,
+            price: v.price ? Number(v.price) : null,
           })),
         });
 
