@@ -7,7 +7,7 @@ import {
 } from "@dnd-kit/core";
 import {
   ClipboardCheck, Play, Wrench, PackageCheck, CheckCircle2, XCircle,
-  Search, User, GripVertical, Building2,
+  Search, User, GripVertical, Building2, Filter,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
@@ -21,10 +21,25 @@ import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
 import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "../components/ui/select";
+import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "../components/ui/dialog";
 import { cn } from "../lib/utils";
 import type { Order, OrderStatus } from "../types";
+
+// Mesmos rótulos da tela de Pedidos, para o filtro ler igual nas duas.
+const STATUS_LABELS: Record<OrderStatus | "all" | "overdue", string> = {
+  all: "Todos",
+  overdue: "⚠ Em Atraso",
+  pending: "Pendente",
+  started: "Iniciado",
+  production: "Em Produção",
+  finishing: "Acabamento",
+  done: "Finalizado",
+  cancelled: "Cancelado",
+};
 
 const COLUNAS: { key: OrderStatus; label: string; Icon: React.ElementType; cor: string }[] = [
   { key: "pending",    label: "Recebido",   Icon: ClipboardCheck, cor: "border-t-slate-400" },
@@ -166,6 +181,10 @@ export function Kanban() {
   const isSuperAdmin = user?.role === "super_admin";
 
   const [busca, setBusca] = useState("");
+  // "all" mostra as 6 colunas. Um status especifico mostra so aquela coluna —
+  // e o equivalente a filtrar num quadro. "overdue" mantem as colunas mas so
+  // com os cards em atraso.
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [arrastando, setArrastando] = useState<Order | null>(null);
   // Cancelar exige motivo, então o drop para "Cancelado" abre diálogo
   const [cancelando, setCancelando] = useState<Order | null>(null);
@@ -181,14 +200,22 @@ export function Kanban() {
   const visiveis = useMemo(() => {
     const doTenant = isSuperAdmin ? orders : orders.filter((o) => o.tenantSlug === tenant.slug);
     const t = busca.toLowerCase().trim();
-    if (!t) return doTenant;
-    return doTenant.filter((o) =>
-      o.id.toLowerCase().includes(t) ||
-      o.title.toLowerCase().includes(t) ||
-      o.tenantName.toLowerCase().includes(t) ||
-      o.requestedBy.toLowerCase().includes(t)
-    );
-  }, [orders, isSuperAdmin, tenant.slug, busca]);
+
+    return doTenant.filter((o) => {
+      if (statusFilter === "overdue" && !orderIsOverdue(o.items, o.status)) return false;
+      if (!t) return true;
+      return o.id.toLowerCase().includes(t) ||
+             o.title.toLowerCase().includes(t) ||
+             o.tenantName.toLowerCase().includes(t) ||
+             o.requestedBy.toLowerCase().includes(t);
+    });
+  }, [orders, isSuperAdmin, tenant.slug, busca, statusFilter]);
+
+  // Filtrar por um status especifico esconde as outras colunas
+  const colunasVisiveis = useMemo(() => {
+    if (statusFilter === "all" || statusFilter === "overdue") return COLUNAS;
+    return COLUNAS.filter((c) => c.key === statusFilter);
+  }, [statusFilter]);
 
   const porStatus = useMemo(() => {
     const m = {} as Record<OrderStatus, Order[]>;
@@ -196,6 +223,11 @@ export function Kanban() {
     visiveis.forEach((o) => { m[o.status]?.push(o); });
     return m;
   }, [visiveis]);
+
+  const overdueCount = useMemo(() => {
+    const doTenant = isSuperAdmin ? orders : orders.filter((o) => o.tenantSlug === tenant.slug);
+    return doTenant.filter((o) => orderIsOverdue(o.items, o.status)).length;
+  }, [orders, isSuperAdmin, tenant.slug]);
 
   const handleStart = (e: DragStartEvent) => {
     setArrastando(orders.find((o) => o.id === e.active.id) ?? null);
@@ -258,10 +290,32 @@ export function Kanban() {
         <div className="flex items-center gap-3 flex-wrap">
           {totalAtraso > 0 && (
             <span className="inline-flex items-center gap-1.5 rounded-lg border-2 border-red-400 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700">
-              {totalAtraso} {totalAtraso === 1 ? "OS em atraso" : "OS em atraso"}
+              {totalAtraso} OS em atraso
             </span>
           )}
-          <div className="relative w-[240px]">
+
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full sm:w-[190px]">
+              <Filter className="h-4 w-4 mr-2 text-muted-foreground" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(STATUS_LABELS) as (OrderStatus | "all" | "overdue")[]).map((s) => (
+                <SelectItem key={s} value={s}>
+                  <span className="flex items-center gap-2">
+                    {STATUS_LABELS[s]}
+                    {s === "overdue" && overdueCount > 0 && (
+                      <span className="ml-1 bg-destructive text-destructive-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                        {overdueCount}
+                      </span>
+                    )}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <div className="relative w-[220px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Buscar OS, cliente..." value={busca}
                    onChange={(e) => setBusca(e.target.value)} className="pl-9" />
@@ -271,10 +325,18 @@ export function Kanban() {
 
       <DndContext sensors={sensors} onDragStart={handleStart} onDragEnd={handleEnd}>
         <div className="flex gap-2 overflow-x-auto pb-4">
-          {COLUNAS.map((c) => (
+          {colunasVisiveis.map((c) => (
             <Coluna key={c.key} col={c} orders={porStatus[c.key] ?? []} isSuperAdmin={isSuperAdmin} />
           ))}
         </div>
+
+        {statusFilter !== "all" && (
+          <p className="text-xs text-muted-foreground -mt-2">
+            {statusFilter === "overdue"
+              ? "Mostrando apenas as OS em atraso. Arrastar continua funcionando."
+              : `Mostrando apenas "${STATUS_LABELS[statusFilter as OrderStatus]}". Para mover entre etapas, volte para "Todos".`}
+          </p>
+        )}
 
         {/* O card segue o cursor durante o arrasto */}
         <DragOverlay dropAnimation={null}>
