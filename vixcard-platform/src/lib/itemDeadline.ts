@@ -32,6 +32,16 @@ export function formatDeadline(iso?: string): string {
   });
 }
 
+/**
+ * Data curta (26/08) para espaços estreitos como as colunas do Kanban.
+ * A data completa vai no title do elemento, ao alcance do mouse.
+ */
+export function formatDeadlineCurto(iso?: string): string {
+  if (!iso) return "—";
+  const [, m, d] = iso.split("-").map(Number);
+  return `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}`;
+}
+
 /** Pedido está em atraso quando pelo menos um item passou do prazo. */
 export function orderIsOverdue(
   items: OrderItem[], orderStatus: string

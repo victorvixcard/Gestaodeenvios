@@ -52,7 +52,9 @@ function OrderCard({ order, isSuperAdmin, overlay }: {
     <div
       ref={overlay ? undefined : setNodeRef}
       className={cn(
-        "rounded-xl border bg-card p-3 space-y-2 transition-shadow",
+        // overflow-hidden é a última barreira: nada dentro do card pode
+        // transbordar para a coluna vizinha, por mais longo que seja o texto.
+        "rounded-xl border bg-card p-3 space-y-2 transition-shadow overflow-hidden",
         atrasado ? "border-red-300 border-2" : "border-border",
         isDragging && "opacity-30",
         overlay && "shadow-2xl rotate-2 cursor-grabbing"
@@ -87,7 +89,7 @@ function OrderCard({ order, isSuperAdmin, overlay }: {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-1">
+      <div className="flex flex-wrap gap-1 min-w-0">
         {order.items.slice(0, 2).map((item, i) => (
           <ItemDeadlineBadge key={i} item={item} orderStatus={order.status} />
         ))}
@@ -98,7 +100,7 @@ function OrderCard({ order, isSuperAdmin, overlay }: {
         )}
       </div>
 
-      <OrderDeadlineSummary items={order.items} orderStatus={order.status} className="!text-[10px]" />
+      <OrderDeadlineSummary items={order.items} orderStatus={order.status} />
 
       <div className="flex items-center gap-1 text-[10px] text-muted-foreground pt-1 border-t border-border/50">
         <User className="h-2.5 w-2.5" />

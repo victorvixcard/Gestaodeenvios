@@ -1,6 +1,6 @@
 import { Siren, Clock, AlertTriangle } from "lucide-react";
 import type { OrderItem } from "../../types";
-import { itemStatus, formatDeadline, summarize, type ItemStatus } from "../../lib/itemDeadline";
+import { itemStatus, formatDeadline, formatDeadlineCurto, summarize, type ItemStatus } from "../../lib/itemDeadline";
 import { cn } from "../../lib/utils";
 
 const STYLE: Record<ItemStatus, string> = {
@@ -31,18 +31,23 @@ export function ItemDeadlineBadge({
 
   return (
     <span
-      title={item.deadline ? `Prazo: ${formatDeadline(item.deadline)}` : undefined}
+      title={`${item.productName} ×${item.quantity.toLocaleString("pt-BR")}${
+        item.deadline ? ` — prazo: ${formatDeadline(item.deadline)}` : ""
+      }`}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] font-medium",
+        // max-w-full + min-w-0: sem isso o badge cresce com o conteudo e
+        // vaza para a coluna vizinha no Kanban, que e estreita.
+        "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium max-w-full min-w-0",
         STYLE[status],
         className
       )}
     >
       {status === "overdue" && <Siren className="h-3 w-3 flex-shrink-0" />}
       {status === "today"   && <AlertTriangle className="h-3 w-3 flex-shrink-0" />}
-      <span className="truncate max-w-[190px]">{item.productName}</span>
-      <span className="opacity-60">×{item.quantity.toLocaleString("pt-BR")}</span>
-      {extra && <span className="opacity-80">· {extra}</span>}
+      {/* Só o nome encolhe; quantidade e prazo sao curtos e ficam inteiros */}
+      <span className="truncate min-w-0">{item.productName}</span>
+      <span className="opacity-60 flex-shrink-0">×{item.quantity.toLocaleString("pt-BR")}</span>
+      {extra && <span className="opacity-80 flex-shrink-0 whitespace-nowrap">· {extra}</span>}
     </span>
   );
 }
@@ -81,23 +86,32 @@ export function OrderDeadlineSummary({
 
   if (s.total === 0) return null;
 
+  // max-w-full + min-w-0 em todos: o chip precisa caber na coluna estreita do
+  // Kanban. O trecho variável (nome do produto) trunca; o resto fica inteiro.
+  const base = "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-semibold max-w-full min-w-0";
+
   if (s.status === "done") {
     return (
-      <span className={cn("inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground", className)}>
-        <Clock className="h-3 w-3" />Encerrado
+      <span className={cn(base, "border-border bg-muted/40 text-muted-foreground", className)}>
+        <Clock className="h-3 w-3 flex-shrink-0" />Encerrado
       </span>
     );
   }
 
   if (s.status === "overdue" && s.worst) {
     return (
-      <span className={cn("inline-flex items-center gap-2 rounded-lg border-2 border-red-400 bg-red-50 px-3 py-1.5 text-[12px] font-bold text-red-700", className)}>
-        <Siren className="h-4 w-4 flex-shrink-0 text-red-600" />
-        {s.overdue === s.total
-          ? <>TODOS os {s.total} itens em atraso</>
-          : <>{s.overdue} de {s.total} {s.total === 1 ? "item" : "itens"} em atraso</>}
-        <span className="font-normal opacity-75">
-          · pior: {s.worst.productName} ({s.worst.overdueDays}d)
+      <span
+        title={`Pior atraso: ${s.worst.productName} (${s.worst.overdueDays} dias)`}
+        className={cn(base, "border-2 border-red-400 bg-red-50 text-red-700 font-bold", className)}
+      >
+        <Siren className="h-3.5 w-3.5 flex-shrink-0 text-red-600" />
+        <span className="flex-shrink-0 whitespace-nowrap">
+          {s.overdue === s.total
+            ? `Todos os ${s.total} em atraso`
+            : `${s.overdue} de ${s.total} em atraso`}
+        </span>
+        <span className="font-normal opacity-75 truncate min-w-0">
+          · {s.worst.productName} ({s.worst.overdueDays}d)
         </span>
       </span>
     );
@@ -107,14 +121,23 @@ export function OrderDeadlineSummary({
 
   const proximo = s.status === "today" || s.status === "soon";
   return (
-    <span className={cn(
-      "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-semibold",
-      proximo ? "border-amber-300 bg-amber-50 text-amber-700" : "border-emerald-200 bg-emerald-50 text-emerald-700",
-      className
-    )}>
-      {proximo ? <AlertTriangle className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
-      Próximo: {formatDeadline(s.nextDue.deadline)}
-      <span className="font-normal opacity-70">· {s.nextDue.productName}</span>
+    <span
+      title={`Próximo vencimento: ${formatDeadline(s.nextDue.deadline)} — ${s.nextDue.productName}`}
+      className={cn(
+        base,
+        proximo ? "border-amber-300 bg-amber-50 text-amber-700" : "border-emerald-200 bg-emerald-50 text-emerald-700",
+        className
+      )}
+    >
+      {proximo
+        ? <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+        : <Clock className="h-3 w-3 flex-shrink-0" />}
+      {/* Data curta: por extenso nao cabe na coluna do Kanban. A completa
+          esta no title, junto do nome do produto. */}
+      <span className="flex-shrink-0 whitespace-nowrap">
+        {formatDeadlineCurto(s.nextDue.deadline)}
+      </span>
+      <span className="font-normal opacity-70 truncate min-w-0">· {s.nextDue.productName}</span>
     </span>
   );
 }
