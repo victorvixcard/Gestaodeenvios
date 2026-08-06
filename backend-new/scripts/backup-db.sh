@@ -72,9 +72,44 @@ if [ "$DELETED" -gt 0 ]; then
   echo "[$(date)] Removidos $DELETED backup(s) local(is) com mais de $KEEP_DAYS dias"
 fi
 
+# ── Anexos dos pedidos ────────────────────────────────────────────────────
+# O banco guarda so o CAMINHO do arquivo, nunca o conteudo. Sem esta parte,
+# restaurar o dump num servidor novo listaria os anexos com nome e tamanho,
+# mas todo download daria erro.
+#
+# O .env NAO entra de proposito: levaria APP_KEY e a senha do banco para o
+# Google Drive, e o ganho e pequeno — perder o APP_KEY so obriga os usuarios
+# a entrar de novo. Guarde uma copia dele no seu gerenciador de senhas.
+ANEXOS_DIR="$APP_DIR/storage/app/public"
+ANEXOS_FILE="$BACKUP_DIR/anexos_${DATE}.tar.gz"
+
+if [ -d "$ANEXOS_DIR" ] && [ -n "$(ls -A "$ANEXOS_DIR" 2>/dev/null)" ]; then
+  tar -czf "$ANEXOS_FILE" -C "$APP_DIR/storage/app" public
+  chmod 600 "$ANEXOS_FILE"
+  echo "[$(date)] Anexos: $ANEXOS_FILE ($(du -h "$ANEXOS_FILE" | cut -f1))"
+
+  REMOVIDOS=$(find "$BACKUP_DIR" -name "anexos_*.tar.gz" -mtime +$KEEP_DAYS -print -delete | wc -l)
+  if [ "$REMOVIDOS" -gt 0 ]; then
+    echo "[$(date)] Removidos $REMOVIDOS pacote(s) de anexos com mais de $KEEP_DAYS dias"
+  fi
+else
+  ANEXOS_FILE=""
+  echo "[$(date)] Sem anexos para incluir."
+fi
+
 # Copia off-site — o backup local sozinho nao protege contra perda do droplet
 if rclone --config "$RCLONE_CONFIG" copy "$FILENAME" "$RCLONE_REMOTE/" --no-traverse; then
   echo "[$(date)] Enviado para $RCLONE_REMOTE"
+
+  if [ -n "$ANEXOS_FILE" ]; then
+    if rclone --config "$RCLONE_CONFIG" copy "$ANEXOS_FILE" "$RCLONE_REMOTE/" --no-traverse; then
+      echo "[$(date)] Anexos enviados para $RCLONE_REMOTE"
+    else
+      echo "[$(date)] ALERTA: o dump subiu, mas os ANEXOS falharam ao enviar" >&2
+      exit 1
+    fi
+  fi
+
   # Rotação remota (falha aqui nao invalida o backup, so avisa)
   if ! rclone --config "$RCLONE_CONFIG" delete "$RCLONE_REMOTE" --min-age "${KEEP_DAYS}d"; then
     echo "[$(date)] AVISO: rotacao remota falhou — arquivos antigos podem estar acumulando" >&2
