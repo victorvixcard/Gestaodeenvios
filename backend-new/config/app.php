@@ -95,10 +95,13 @@ return [
     |
     */
 
-    // Português por padrão: as mensagens de validação chegam ao usuário final,
-    // e o sistema todo é em português. O fallback em inglês cobre qualquer
-    // chave que não esteja traduzida em lang/pt_BR/.
-    'locale' => env('APP_LOCALE', 'pt_BR'),
+    // A tradução para português já existe em lang/pt_BR/validation.php, mas
+    // está DESLIGADA por decisão do Victor — fica para outro momento.
+    //
+    // Para ligar, troque o padrão abaixo para 'pt_BR' (ou defina
+    // APP_LOCALE=pt_BR no .env do servidor) e rode:
+    //   php artisan config:clear && php artisan config:cache
+    'locale' => env('APP_LOCALE', 'en'),
 
     'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
 
