@@ -46,8 +46,10 @@ function TenantRoutes() {
 }
 
 export default function App() {
+  // Escuro é o padrão. O botão na barra superior continua alternando para
+  // claro, e a escolha de cada usuário fica salva no navegador dele.
   return (
-    <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
       <BrowserRouter>
         <AuthProvider>
           <DataProvider>
