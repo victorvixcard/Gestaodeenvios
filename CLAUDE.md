@@ -420,11 +420,30 @@ Victor (`victoruli@gmail.com`) é o dono e prefere:
 Script: `backend-new/scripts/backup-db.sh` (versionado no repo, instalado no servidor no mesmo caminho).
 
 - **Agendamento:** cron diário às `06:00 UTC` = **03:00 horário de Brasília**
-- **Destino local:** `/var/backups/gestaodeenvios/gestaodeenvios_AAAA-MM-DD_HH-MM-SS.sql.gz`
+- **Destino local:** `/var/backups/gestaodeenvios/`
 - **Destino off-site:** Google Drive, pasta `backups-gestaodeenvios` (via rclone, remote `gdrive`)
 - **Retenção:** 14 dias nos dois lados (rotação automática)
 - **Log:** `/var/log/gestaodeenvios-backup.log`
-- **Tamanho atual:** ~292 KB por dump comprimido
+
+Gera **dois arquivos por dia**:
+
+| Arquivo | Conteúdo | Tamanho (ago/2026) |
+|---|---|---|
+| `gestaodeenvios_AAAA-MM-DD_HH-MM-SS.sql.gz` | dump do banco | ~300 KB |
+| `anexos_AAAA-MM-DD_HH-MM-SS.tar.gz` | `storage/app/public` | ~55 MB (de 544 MB) |
+
+Os anexos precisam entrar porque o banco guarda apenas o **caminho** do arquivo, nunca o
+conteúdo — restaurar só o dump listaria os anexos com nome e tamanho, mas todo download
+daria erro.
+
+O **`.env` fica de fora de propósito**: levaria `APP_KEY` e senha do banco para o Google
+Drive. Perder o `APP_KEY` só obriga os usuários a entrar de novo (não há coluna
+criptografada no banco), então o risco não compensa. Guarde uma cópia dele num
+gerenciador de senhas.
+
+**Quando revisar a estratégia:** o pacote de anexos é refeito inteiro todo dia. Isso é
+irrelevante em 55 MB, mas se a pasta `storage/app/public` passar de **2 GB**, troque para
+sincronização incremental (`rclone sync` da pasta, em vez de `tar` diário).
 
 O rclone usa OAuth com escopo `drive.file` — alcança **apenas os arquivos que ele mesmo cria**,
 não o resto do Drive. Config em `/root/.config/rclone/rclone.conf` (contém refresh token, `chmod 600`).
@@ -438,6 +457,12 @@ Falha com exit 1 se o dump sair menor que 1 KB (proteção contra falha silencio
 ### Rodar backup manual
 ```bash
 /var/www/gestaodeenvios/backend-new/scripts/backup-db.sh
+```
+
+### Restaurar os anexos
+```bash
+tar -xzf /var/backups/gestaodeenvios/anexos_ARQUIVO.tar.gz -C /var/www/gestaodeenvios/backend-new/storage/app/
+chown -R www-data:www-data /var/www/gestaodeenvios/backend-new/storage/app/public
 ```
 
 ### Verificar se um backup está íntegro
@@ -456,4 +481,4 @@ Nunca rode isso em produção sem confirmar com o Victor antes.
 
 ---
 
-**Última atualização:** 2026-07-31 — correção de isolamento de produtos entre tenants + backup off-site.
+**Última atualização:** 2026-08-06 — backup passa a incluir os anexos dos pedidos.
