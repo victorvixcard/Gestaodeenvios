@@ -95,7 +95,10 @@ return [
     |
     */
 
-    'locale' => env('APP_LOCALE', 'en'),
+    // Português por padrão: as mensagens de validação chegam ao usuário final,
+    // e o sistema todo é em português. O fallback em inglês cobre qualquer
+    // chave que não esteja traduzida em lang/pt_BR/.
+    'locale' => env('APP_LOCALE', 'pt_BR'),
 
     'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
 
