@@ -2,10 +2,22 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "gestaodeenvios-backend",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "cd backend-new && C:\\laragon\\bin\\php\\php-8.3.30-Win32-vs16-x64\\php.exe artisan serve --host=127.0.0.1 --port=8001"],
+      "port": 8001
+    },
+    {
       "name": "vixcard-platform",
       "runtimeExecutable": "cmd",
       "runtimeArgs": ["/c", "cd vixcard-platform && npm run dev -- --port 5175"],
       "port": 5175
+    },
+    {
+      "name": "mypetid-frontend",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "cd C:\\Users\\Administrador\\Documents\\GitHub\\MypetID\\frontend && npm run dev -- --port 5176"],
+      "port": 5176
     }
   ]
 }

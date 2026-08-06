@@ -27,6 +27,31 @@ class CompanyController extends Controller
         return response()->json($this->formatCompany($company));
     }
 
+    /**
+     * Branding público — rota SEM autenticação, consumida pela tela de login
+     * do tenant. Retorna somente a identidade visual que já apareceria nessa
+     * tela. Nunca use formatCompany() aqui: ele carrega usuários, produtos e
+     * contadores, que não podem vazar para quem não está autenticado.
+     *
+     * Empresa inativa responde 404 para não indicar que o slug existe.
+     */
+    public function publicShow(string $slug): JsonResponse
+    {
+        $company = Company::where('slug', $slug)->where('active', true)->first();
+
+        if (!$company) {
+            return response()->json(['message' => 'Tenant não encontrado.'], 404);
+        }
+
+        return response()->json([
+            'slug'         => $company->slug,
+            'name'         => $company->name,
+            'logoColor'    => $company->logo_color,
+            'logoInitials' => $company->logo_initials,
+            'logoUrl'      => $company->logo_url,
+        ]);
+    }
+
     public function store(Request $request): JsonResponse
     {
         $request->validate([
@@ -113,6 +138,83 @@ class CompanyController extends Controller
         );
 
         return response()->json($company->products()->get());
+    }
+
+    /**
+     * Catálogo da empresa: os produtos liberados para ela com o prazo e o preço
+     * praticados. É o fluxo inverso da aba do produto — aqui você configura o
+     * contrato de um cliente inteiro numa tela só.
+     */
+    public function catalog(Request $request, string $slug): JsonResponse
+    {
+        $company = Company::findOrFail($slug);
+
+        // Encadeia na relacao, NAO em getQuery(): getQuery() devolve o builder
+        // cru e o pivot (prazo e preco) chega nulo nos resultados.
+        $query = $company->products();
+
+        if ($busca = trim((string) $request->search)) {
+            $query->where(function ($q) use ($busca) {
+                $q->where('products.name', 'like', "%{$busca}%")
+                  ->orWhere('products.code', 'like', "%{$busca}%");
+            });
+        }
+
+        $page = $query->orderBy('products.name')->paginate(30);
+
+        return response()->json([
+            'companySlug' => $company->slug,
+            'companyName' => $company->name,
+            'defaultDays' => (int) config('app.order_deadline_days', 7),
+            'total'       => $company->products()->count(),
+            'products'    => collect($page->items())->map(fn($p) => [
+                'id'             => (string) $p->id,
+                'code'           => $p->code,
+                'name'           => $p->name,
+                'category'       => $p->category,
+                'active'         => (bool) $p->active,
+                // Padrões do produto, mostrados como referência (placeholder)
+                'defaultDeadline' => $p->deadline_days,
+                'defaultPrice'    => $p->price !== null ? (float) $p->price : null,
+                // O que foi negociado com esta empresa
+                'deadlineDays'   => $p->pivot->deadline_days,
+                'price'          => $p->pivot->price !== null ? (float) $p->pivot->price : null,
+            ])->values(),
+            'pagina'       => $page->currentPage(),
+            'totalPaginas' => $page->lastPage(),
+        ]);
+    }
+
+    /** Grava prazo e preço dos produtos desta empresa. */
+    public function syncCatalog(Request $request, string $slug): JsonResponse
+    {
+        $request->validate([
+            'products'                 => 'required|array',
+            'products.*.product_id'    => 'required',
+            'products.*.deadline_days' => 'nullable|integer|min:1|max:365',
+            'products.*.price'         => 'nullable|numeric|min:0|max:9999999',
+        ]);
+
+        $company  = Company::findOrFail($slug);
+        $enviados = collect($request->products)->pluck('product_id')->all();
+        $validos  = $company->products()->whereIn('products.id', $enviados)->pluck('products.id')->all();
+
+        foreach ($request->products as $linha) {
+            // Produto não liberado para esta empresa é ignorado
+            if (!in_array((int) $linha['product_id'], $validos)) continue;
+
+            $company->products()->updateExistingPivot($linha['product_id'], [
+                'deadline_days' => $linha['deadline_days'] ?? null,
+                'price'         => $linha['price'] ?? null,
+            ]);
+        }
+
+        AuditLog::record(
+            'empresa_catalogo_atualizado', 'Empresa', $company->slug, $company->name,
+            $request->user(), count($validos) . ' produto(s)'
+        );
+
+        return $this->catalog($request, $slug);
     }
 
     private function formatCompany(Company $company): array

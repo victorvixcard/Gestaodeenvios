@@ -14,6 +14,8 @@ import { useLog } from "../contexts/LogsContext";
 import { ApiError } from "../lib/api";
 import { StatusBadge } from "../components/shared/StatusBadge";
 import { OrderTimeline } from "../components/shared/OrderTimeline";
+import { ItemDeadlineStatus } from "../components/shared/ItemDeadlineBadge";
+import { formatDeadline } from "../lib/itemDeadline";
 import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
 import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/card";
@@ -341,6 +343,16 @@ export function OrderDetail() {
                       )}
                       {item.specifications && (
                         <p className="text-xs text-muted-foreground mt-0.5">{item.specifications}</p>
+                      )}
+                      {/* Prazo deste item — vem do backend, congelado na criação */}
+                      {item.deadline && (
+                        <div className="mt-2 flex items-center gap-2 flex-wrap">
+                          <ItemDeadlineStatus item={item} orderStatus={order.status} />
+                          <span className="text-[11px] text-muted-foreground">
+                            Prazo: {formatDeadline(item.deadline)}
+                            {item.deadlineDays ? ` · ${item.deadlineDays} dias úteis` : ""}
+                          </span>
+                        </div>
                       )}
                     </div>
                     <Badge variant="secondary" className="flex-shrink-0 font-mono text-xs">

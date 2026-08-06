@@ -57,16 +57,45 @@ class Order extends Model
         });
     }
 
+    /** Prazo como data pura, comparável com OrderItem::hoje(). */
+    private function prazoData(): ?\Carbon\Carbon
+    {
+        return $this->deadline
+            ? \Carbon\Carbon::parse($this->deadline->toDateString())
+            : null;
+    }
+
     public function isOverdue(): bool
     {
         if (in_array($this->status, ['done', 'cancelled'])) return false;
-        return $this->deadline->isPast();
+
+        // Data com data, no fuso do negócio: isPast() marcaria como atrasado
+        // quem vence hoje, e now() em UTC já viraria o dia às 21h de Brasília.
+        $prazo = $this->prazoData();
+
+        return $prazo ? $prazo->lt(OrderItem::hoje()) : false;
     }
 
     public function getOverdueDaysAttribute(): int
     {
         if (!$this->isOverdue()) return 0;
-        return now()->startOfDay()->diffInDays($this->deadline->startOfDay());
+
+        // abs() porque o Carbon 3 mudou diffInDays para devolver valor COM SINAL
+        // (no Carbon 2 era sempre absoluto). Sem isso o atraso saía negativo.
+        return (int) abs(OrderItem::hoje()->diffInDays($this->prazoData()));
+    }
+
+    /**
+     * Recalcula o prazo do pedido como o maior prazo entre os itens — o pedido
+     * só está concluído quando o item mais demorado fica pronto.
+     */
+    public function syncDeadlineFromItems(): void
+    {
+        $max = $this->items()->max('deadline');
+
+        if ($max && (string) $max !== $this->deadline?->toDateString()) {
+            $this->update(['deadline' => $max]);
+        }
     }
 
     protected static function booted(): void

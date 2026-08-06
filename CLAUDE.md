@@ -189,10 +189,23 @@ O frontend usa o `tenant_slug` da resposta para redirecionar a `/{tenant_slug}/d
 
 ### 7.2 Tenants
 
-Tenants são hardcoded em `vixcard-platform/src/contexts/TenantContext.tsx` no objeto `TENANTS`. Cada um tem `slug`, `name`, `logoColor`, `logoInitials`. Para criar um tenant novo de verdade você precisa:
-1. Adicionar entrada em `TENANTS`
-2. Criar a empresa correspondente via API `/companies` (super_admin only)
-3. Subir build do frontend
+Tenants vêm do banco. Criar a empresa pela tela **Cadastros → Empresas → Nova Empresa**
+(ou via `POST /companies`) já basta — **não precisa mexer em código nem publicar build**.
+
+`TenantContext.tsx` resolve o tenant da URL consultando `GET /api/tenants/{slug}`, uma rota
+pública que devolve só a identidade visual (slug, nome, cor e iniciais do logo). Ela é pública
+porque a tela `/{tenant}/login` precisa da marca antes de existir usuário autenticado; por isso
+mesmo, **nunca** devolva usuários, produtos ou contadores nesse endpoint — use `publicShow()`,
+não `formatCompany()`. Empresa inativa responde 404.
+
+Até 2026-07-31 os tenants eram hardcoded num objeto `TENANTS` dentro do
+`TenantContext.tsx`. O efeito era que o botão "Nova Empresa" criava a empresa no banco mas ela
+caía em `/404`, porque o frontend não sabia que ela existia. Se algo parecido reaparecer,
+confira primeiro se a informação está sendo lida do banco e não de uma constante no bundle.
+
+`TenantProvider` também redireciona quem não é `super_admin` para a própria empresa ao tentar
+abrir a URL de outra. Isso é consistência de tela, **não** é a barreira de segurança — quem
+isola os dados é a API, que filtra pelo tenant do token e ignora o slug da URL.
 
 ### 7.3 Papéis (roles)
 
@@ -207,8 +220,29 @@ Há um campo extra `permissions` (JSON array) na tabela `users` para permissões
 ### 7.4 Rotas com restrição
 
 - `/companies/*` → super_admin only
-- `/users/*`, `/products/{store,update,destroy}` → super_admin OU tenant_admin
+- `/audit-logs` → super_admin only
+- `/orders/{id}` (DELETE) → super_admin only
+- `/products` (POST/PUT/DELETE/toggle) → **super_admin only** — o catálogo é da VIXCard
+- `GET /products` → qualquer autenticado (filtrado pelos produtos vinculados à empresa)
+- `/users/*` → super_admin OU tenant_admin (tenant_admin restrito ao próprio tenant)
 - Demais → qualquer autenticado
+
+### 7.5 Isolamento entre tenants — o que foi verificado
+
+Auditado em 2026-07-31 com login real de um `tenant_admin` atacando outro tenant:
+
+| Recurso | Isolamento | Onde é garantido |
+|---|---|---|
+| Pedidos | OK | `OrderController::authorizeOrder` em todos os métodos |
+| Usuários | OK | `UserController::authorizeUserAccess` + filtro no `index` |
+| Empresas | OK | rota `role:super_admin` |
+| Logs de auditoria | OK | rota `role:super_admin` |
+| Dashboard | OK | filtro `where('tenant_slug')` quando não é super admin |
+| Produtos | Corrigido | era o furo — ver tabela da seção 10 |
+
+**Regra ao criar endpoint novo:** listar filtrado por tenant não basta. IDs são sequenciais,
+então qualquer rota que receba `{id}` precisa checar o tenant do registro, não só esconder
+da listagem.
 
 ---
 
@@ -283,6 +317,7 @@ Estes foram resolvidos em sessões anteriores. Documentando para evitar regress�
 | Race condition no ID de pedido | `max(id)+1` sem lock | `Order.php` (DB::transaction + lockForUpdate) |
 | Sem rate limiting | API exposta a brute force | `AppServiceProvider.php` + `bootstrap/app.php` (`throttleApi`) |
 | Login redirecionava para `/{tenant}/login` | Antes do login universal, URL exigia tenant | Endpoint `/api/login` agora aceita sem tenant_slug; rota `/login` no React |
+| **Tenant_admin podia editar e EXCLUIR produto de outra empresa** | Rota liberava `tenant_admin` e `update/toggle/destroy` faziam `findOrFail($id)` sem checar tenant. A listagem escondia os produtos dos outros, mas os IDs são sequenciais — bastava chamar `/products/1`, `/products/2`. O frontend já escondia os botões, então só era explorável via API direta. | `routes/api.php` (rota → `role:super_admin`) + `ProductController` (`denyIfNotSuperAdmin` como defesa em profundidade) |
 
 ### Erros silenciosos — padrão a seguir
 
@@ -375,8 +410,75 @@ Victor (`victoruli@gmail.com`) é o dono e prefere:
 - O bundle do frontend está com 2.5 MB minificado — considerar `build.rolldownOptions.output.codeSplitting` ou `manualChunks` para split de vendor
 - Não há testes automatizados — adicionar PHPUnit no backend e Vitest no frontend
 - Workers/queue ainda em `database` driver — migrar para Redis quando o volume aumentar
-- Backup do banco MySQL produção não está automatizado — configurar dump diário (ex: cron + S3)
+- Servidor tem upgrade de kernel pendente aguardando reboot — agendar janela de manutenção
+- Nunca foi feito um teste de restauração real do backup — vale testar num banco descartável antes de precisar de verdade
 
 ---
 
-**Última atualização:** 2026-05-15 — após deploy do fix de criação de usuário por tenant_admin (commit `21c9edd`).
+## 17. Backup do banco de produção
+
+Script: `backend-new/scripts/backup-db.sh` (versionado no repo, instalado no servidor no mesmo caminho).
+
+- **Agendamento:** cron diário às `06:00 UTC` = **03:00 horário de Brasília**
+- **Destino local:** `/var/backups/gestaodeenvios/`
+- **Destino off-site:** Google Drive, pasta `backups-gestaodeenvios` (via rclone, remote `gdrive`)
+- **Retenção:** 14 dias nos dois lados (rotação automática)
+- **Log:** `/var/log/gestaodeenvios-backup.log`
+
+Gera **dois arquivos por dia**:
+
+| Arquivo | Conteúdo | Tamanho (ago/2026) |
+|---|---|---|
+| `gestaodeenvios_AAAA-MM-DD_HH-MM-SS.sql.gz` | dump do banco | ~300 KB |
+| `anexos_AAAA-MM-DD_HH-MM-SS.tar.gz` | `storage/app/public` | ~55 MB (de 544 MB) |
+
+Os anexos precisam entrar porque o banco guarda apenas o **caminho** do arquivo, nunca o
+conteúdo — restaurar só o dump listaria os anexos com nome e tamanho, mas todo download
+daria erro.
+
+O **`.env` fica de fora de propósito**: levaria `APP_KEY` e senha do banco para o Google
+Drive. Perder o `APP_KEY` só obriga os usuários a entrar de novo (não há coluna
+criptografada no banco), então o risco não compensa. Guarde uma cópia dele num
+gerenciador de senhas.
+
+**Quando revisar a estratégia:** o pacote de anexos é refeito inteiro todo dia. Isso é
+irrelevante em 55 MB, mas se a pasta `storage/app/public` passar de **2 GB**, troque para
+sincronização incremental (`rclone sync` da pasta, em vez de `tar` diário).
+
+O rclone usa OAuth com escopo `drive.file` — alcança **apenas os arquivos que ele mesmo cria**,
+não o resto do Drive. Config em `/root/.config/rclone/rclone.conf` (contém refresh token, `chmod 600`).
+Se o token for comprometido, revogue em https://myaccount.google.com/permissions e refaça
+o `rclone config`.
+
+O script lê credenciais do `.env` (sem senha hardcoded), usa `--single-transaction` para não travar
+tabelas em uso, e `--no-tablespaces` porque o usuário da aplicação não tem `PROCESS` privilege.
+Falha com exit 1 se o dump sair menor que 1 KB (proteção contra falha silenciosa).
+
+### Rodar backup manual
+```bash
+/var/www/gestaodeenvios/backend-new/scripts/backup-db.sh
+```
+
+### Restaurar os anexos
+```bash
+tar -xzf /var/backups/gestaodeenvios/anexos_ARQUIVO.tar.gz -C /var/www/gestaodeenvios/backend-new/storage/app/
+chown -R www-data:www-data /var/www/gestaodeenvios/backend-new/storage/app/public
+```
+
+### Verificar se um backup está íntegro
+```bash
+zcat /var/backups/gestaodeenvios/ARQUIVO.sql.gz | grep "CREATE TABLE"
+```
+Deve listar 14 tabelas: `audit_logs`, `cache`, `cache_locks`, `companies`, `company_products`,
+`migrations`, `order_events`, `order_items`, `order_notes`, `orders`, `personal_access_tokens`,
+`products`, `sessions`, `users`.
+
+### Restaurar (CUIDADO — sobrescreve o banco)
+```bash
+zcat /var/backups/gestaodeenvios/ARQUIVO.sql.gz | mysql -u vixcard -p gestaodeenvios
+```
+Nunca rode isso em produção sem confirmar com o Victor antes.
+
+---
+
+**Última atualização:** 2026-08-06 — backup passa a incluir os anexos dos pedidos.

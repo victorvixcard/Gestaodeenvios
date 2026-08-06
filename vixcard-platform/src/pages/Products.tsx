@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   Plus, Package, Search, Video, Pencil,
-  Power, PowerOff, Boxes, TrendingDown, TrendingUp, Trash2, Settings2,
+  Power, PowerOff, Boxes, TrendingDown, TrendingUp, Trash2, Settings2, Timer,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
@@ -23,8 +23,9 @@ import {
 } from "../components/ui/select";
 import { Textarea } from "../components/ui/textarea";
 import { cn } from "../lib/utils";
+import { api, ApiError } from "../lib/api";
 import { AvatarUpload } from "../components/shared/AvatarUpload";
-import { ApiError } from "../lib/api";
+import { ProductDeadlineTab, DRAFT_VAZIO, type DeadlineDraft } from "../components/shared/ProductDeadlineTab";
 import type { Product, ProductVariation, VariationOption } from "../types";
 
 const CATEGORIES = ["Cartões", "Carnês", "Etiquetas", "Impressão", "Serviços", "Outros"];
@@ -60,6 +61,8 @@ export function Products() {
   const [editId, setEditId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ ...EMPTY_FORM });
+  const [deadlines, setDeadlines] = useState<DeadlineDraft>(DRAFT_VAZIO);
+
   // Confirmacao de exclusao
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -93,6 +96,7 @@ export function Products() {
 
   const openCreate = () => {
     setForm({ ...EMPTY_FORM });
+    setDeadlines(DRAFT_VAZIO);
     setEditId(null);
     setDialog("create");
   };
@@ -143,11 +147,23 @@ export function Products() {
           userName: user?.name ?? "", userEmail: user?.email ?? "", userRole: user?.role ?? "super_admin",
           tenantSlug: "sistemalegado", details: product ? `Editado: ${product.name}` : undefined,
         });
+        // Prazos vão num endpoint próprio: mexem no pivot empresa-produto,
+        // que não faz parte do PUT /products/{id}.
+        await api.put(`/products/${editId}/deadlines`, {
+          deadline_days: deadlines.deadlineDays ? Number(deadlines.deadlineDays) : null,
+          price: deadlines.price ? Number(deadlines.price) : null,
+          companies: Object.entries(deadlines.companies).map(([slug, v]) => ({
+            slug,
+            deadline_days: v.deadlineDays ? Number(v.deadlineDays) : null,
+            price: v.price ? Number(v.price) : null,
+          })),
+        });
+
         toast.success("Produto atualizado!");
       }
       setDialog(null);
-    } catch {
-      toast.error("Erro ao salvar produto. Verifique os dados e tente novamente.");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Erro ao salvar produto. Verifique os dados e tente novamente.");
     } finally {
       setSaving(false);
     }
@@ -409,6 +425,13 @@ export function Products() {
                     </span>
                   )}
                 </TabsTrigger>
+                <TabsTrigger
+                  value="prazo"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 text-sm font-medium flex items-center gap-1.5"
+                >
+                  <Timer className="h-3.5 w-3.5" />
+                  Prazo de alerta
+                </TabsTrigger>
               </TabsList>
             </div>
 
@@ -636,6 +659,15 @@ export function Products() {
                   </div>
                 ))}
               </div>
+            </TabsContent>
+
+            {/* ── ABA PRAZO DE ALERTA ───────────────────────────────── */}
+            <TabsContent value="prazo" className="flex-1 overflow-y-auto px-6 py-4 mt-0">
+              <ProductDeadlineTab
+                productId={editId}
+                draft={deadlines}
+                onChange={setDeadlines}
+              />
             </TabsContent>
           </Tabs>
 

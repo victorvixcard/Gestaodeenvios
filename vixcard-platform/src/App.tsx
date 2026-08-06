@@ -13,6 +13,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { Orders } from "./pages/Orders";
 import { OrderDetail } from "./pages/OrderDetail";
 import { NewOrder } from "./pages/NewOrder";
+import { Kanban } from "./pages/Kanban";
 import { Products } from "./pages/Products";
 import { Users } from "./pages/Users";
 import { Empresas } from "./pages/Empresas";
@@ -29,6 +30,7 @@ function TenantRoutes() {
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="pedidos" element={<Orders />} />
+          <Route path="kanban" element={<Kanban />} />
           <Route path="pedidos/novo" element={<NewOrder />} />
           <Route path="pedidos/:id" element={<OrderDetail />} />
           <Route path="empresas" element={<Empresas />} />

@@ -65,7 +65,7 @@ export function Dashboard() {
             Visão Geral
           </p>
           <h1 className="font-display text-2xl lg:text-3xl font-extrabold">
-            Olá, {user?.name?.split(" ")[0]} 👋
+            Olá, {user?.name?.split(" ")[0]}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             {tenant.name} · {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}

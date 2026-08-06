@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
+use App\Models\Company;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Services\BusinessDayService;
 use App\Services\WhatsAppService;
 use Illuminate\Http\JsonResponse;
@@ -87,9 +89,37 @@ class OrderController extends Controller
             'files'        => [],
         ]);
 
-        foreach ($request->items as $item) {
-            $order->items()->create($item);
+        // Prazo por item, congelado aqui — mudar o cadastro depois não altera
+        // pedido já aberto. Precedência: exceção da empresa > padrão do produto
+        // > padrão global. Uma consulta só, em vez de uma por item.
+        $default = (int) config('app.order_deadline_days', 7);
+        $company = Company::with('products')->find($user->tenant_slug);
+
+        $prazos = [];
+        $precos = [];
+        foreach (($company?->products ?? []) as $p) {
+            $prazos[$p->id] = $p->pivot->deadline_days ?? $p->deadline_days;
+            $precos[$p->id] = $p->priceFor($p->pivot->price);
         }
+
+        foreach ($request->items as $item) {
+            $dias = (int) ($prazos[$item['product_id']] ?? $default);
+
+            // Prazo e preço congelados aqui. Um reajuste de tabela depois nao
+            // pode reescrever o que foi acordado neste pedido.
+            // Conta a partir de HOJE no fuso do negócio. Em UTC, um pedido feito
+            // às 22h de Brasília já contaria a partir do dia seguinte.
+            $order->items()->create($item + [
+                'deadline_days' => $dias,
+                'unit_price'    => $precos[$item['product_id']] ?? null,
+                'deadline'      => $this->businessDayService
+                    ->addBusinessDays(OrderItem::hoje(), $dias)
+                    ->toDateString(),
+            ]);
+        }
+
+        // O pedido vence junto com seu item mais demorado.
+        $order->syncDeadlineFromItems();
 
         $order->events()->create([
             'type'        => 'created',
@@ -383,7 +413,22 @@ class OrderController extends Controller
             'cancelReason' => $order->cancel_reason,
             'requestedBy'  => $order->requested_by,
             'assignedTo'   => $order->assigned_to,
-            'items'        => $order->items,
+            'items'        => $order->items->map(fn($i) => [
+                'id'                 => $i->id,
+                'product_id'         => $i->product_id,
+                'product_name'       => $i->product_name,
+                'quantity'           => $i->quantity,
+                'specifications'     => $i->specifications,
+                'selected_variations' => $i->selected_variations,
+                // Preço praticado, congelado na criação
+                'unitPrice'          => $i->unit_price !== null ? (float) $i->unit_price : null,
+                'lineTotal'          => $i->lineTotal(),
+                // Prazo do item — a tela exibe estes valores, nunca recalcula
+                'deadline'           => $i->deadline?->format('Y-m-d'),
+                'deadlineDays'       => $i->deadline_days,
+                'isOverdue'          => $i->isOverdue($order->status),
+                'overdueDays'        => $i->overdueDays($order->status),
+            ]),
             'notes'        => $order->notes,
             'events'       => $order->events,
             'files'        => $order->files ?? [],
