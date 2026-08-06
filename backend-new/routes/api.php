@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\CompanyController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\ProductController;
@@ -52,6 +53,17 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // O catálogo é da VIXCard. Empresas apenas LISTAM para montar pedidos —
     // criar/editar/excluir é exclusivo do super admin. Antes isso liberava
     // tenant_admin, o que permitia a uma empresa apagar produto de outra.
+    // ── Categorias ─────────────────────────────────────────────────────────
+    // Listar é liberado porque o formulário de produto precisa das opções.
+    // Criar/editar/excluir é do super admin, mesma regra do catálogo.
+    Route::get('/categories', [CategoryController::class, 'index']);
+    Route::prefix('categories')->middleware('role:super_admin')->group(function () {
+        Route::post('/',             [CategoryController::class, 'store']);
+        Route::put('/{id}',          [CategoryController::class, 'update']);
+        Route::delete('/{id}',       [CategoryController::class, 'destroy']);
+        Route::patch('/{id}/toggle', [CategoryController::class, 'toggleActive']);
+    });
+
     Route::get('/products', [ProductController::class, 'index']); // todos podem listar
     Route::prefix('products')->middleware('role:super_admin')->group(function () {
         Route::post('/',        [ProductController::class, 'store']);

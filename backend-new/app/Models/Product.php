@@ -3,12 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Product extends Model
 {
     protected $fillable = [
-        'code', 'name', 'description', 'category',
+        'code', 'name', 'description', 'category', 'category_id',
         'image_url', 'video_url', 'price', 'stock', 'deadline_days', 'variations', 'active',
     ];
 
@@ -48,15 +49,24 @@ class Product extends Model
         return $preco !== null ? (float) $preco : null;
     }
 
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(Category::class);
+    }
+
+    /**
+     * Código do produto no formato VIX-SIGLA-000.
+     *
+     * A sigla vem da tabela de categorias — antes era um mapa fixo aqui, que
+     * precisava ser editado junto com a lista do frontend. Categoria sem
+     * cadastro cai em OUT, como antes.
+     */
     public static function generateCode(string $category): string
     {
-        $map = [
-            'Cartões'   => 'CAR', 'Carnês'    => 'CRN',
-            'Etiquetas' => 'ETI', 'Impressão' => 'IMP',
-            'Serviços'  => 'SRV', 'Outros'    => 'OUT',
-        ];
-        $cat   = $map[$category] ?? 'OUT';
+        $cat = Category::where('name', $category)->value('code') ?? 'OUT';
+
         $count = static::where('code', 'like', "VIX-{$cat}-%")->count();
+
         return sprintf('VIX-%s-%03d', $cat, $count + 1);
     }
 }

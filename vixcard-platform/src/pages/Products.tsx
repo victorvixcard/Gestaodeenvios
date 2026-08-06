@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   Plus, Package, Search, Video, Pencil,
@@ -28,7 +28,9 @@ import { AvatarUpload } from "../components/shared/AvatarUpload";
 import { ProductDeadlineTab, DRAFT_VAZIO, type DeadlineDraft } from "../components/shared/ProductDeadlineTab";
 import type { Product, ProductVariation, VariationOption } from "../types";
 
-const CATEGORIES = ["Cartões", "Carnês", "Etiquetas", "Impressão", "Serviços", "Outros"];
+// Fallback usado só enquanto a lista do banco não chega, para o Select não
+// abrir vazio. A fonte de verdade é o cadastro em Cadastros > Categorias.
+const CATEGORIAS_FALLBACK = ["Cartões", "Carnês", "Etiquetas", "Impressão", "Serviços", "Outros"];
 
 const EMPTY_FORM = {
   name: "", description: "", category: "Cartões", price: 0, stock: 0, imageUrl: "", videoUrl: "", active: true,
@@ -62,6 +64,15 @@ export function Products() {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [deadlines, setDeadlines] = useState<DeadlineDraft>(DRAFT_VAZIO);
+
+  // Categorias vêm do cadastro. Só as ativas entram no formulário; as inativas
+  // continuam valendo nos produtos que já as usam, mas não podem ser escolhidas.
+  const [categorias, setCategorias] = useState<string[]>(CATEGORIAS_FALLBACK);
+  useEffect(() => {
+    api.get<{ name: string }[]>("/categories")
+      .then((res) => { if (res.length > 0) setCategorias(res.map((c) => c.name)); })
+      .catch(() => { /* mantém o fallback; o cadastro segue utilizável */ });
+  }, []);
 
   // Confirmacao de exclusao
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
@@ -224,7 +235,13 @@ export function Products() {
       ),
     }));
 
-  const allCategories = ["Todos", ...CATEGORIES];
+  // O filtro soma as categorias cadastradas às que já aparecem nos produtos.
+  // Assim, categoria desativada some do formulário mas continua filtrável
+  // enquanto houver produto usando ela.
+  const allCategories = [
+    "Todos",
+    ...Array.from(new Set([...categorias, ...products.map((p) => p.category)])).sort(),
+  ];
 
   return (
     <div className="space-y-5">
@@ -451,7 +468,7 @@ export function Products() {
                   <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                      {categorias.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>

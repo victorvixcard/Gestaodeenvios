@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
+use App\Models\Category;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -73,6 +74,10 @@ class ProductController extends Controller
             'name'        => $request->name,
             'code'        => Product::generateCode($request->category),
             'category'    => $request->category,
+            // Liga o produto ao registro da categoria. Sem isso a contagem de
+            // produtos por categoria fica zerada e a trava de exclusao deixa
+            // apagar categoria que esta em uso.
+            'category_id' => Category::where('name', $request->category)->value('id'),
             'description' => $request->description,
             'image_url'   => $request->image_url,
             'video_url'   => $request->video_url,
@@ -112,6 +117,13 @@ class ProductController extends Controller
             'name', 'category', 'description',
             'image_url', 'video_url', 'price', 'stock', 'variations', 'active',
         ]));
+
+        // Mantem o vinculo em dia quando a categoria do produto muda
+        if ($request->filled('category')) {
+            $product->update([
+                'category_id' => Category::where('name', $request->category)->value('id'),
+            ]);
+        }
 
         AuditLog::record(
             'produto_atualizado', 'Produto', $product->id, $product->name,
