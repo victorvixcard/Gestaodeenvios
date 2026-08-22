@@ -32,6 +32,27 @@ export interface Sector {
   usersCount: number;
 }
 
+/** Chaves de menu que um papel pode liberar/esconder. */
+export type MenuKey =
+  | "dashboard" | "pedidos" | "kanban" | "relatorios"
+  | "cadastros.empresas" | "cadastros.produtos" | "cadastros.categorias"
+  | "cadastros.usuarios" | "cadastros.setores" | "cadastros.papeis"
+  | "logs";
+
+/**
+ * Papel dinâmico. O baseRole é o nível de acesso real (quem autoriza no
+ * backend); menus restringe o que aparece na navegação — null = tudo que o
+ * nível já permite.
+ */
+export interface Papel {
+  id: string;
+  name: string;
+  baseRole: UserRole;
+  menus: MenuKey[] | null;
+  active: boolean;
+  usersCount: number;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -46,6 +67,8 @@ export interface User {
   whatsapp?: string;
   /** Um usuário pode estar em mais de um setor. */
   sectors: { id: string; name: string }[];
+  /** Papel dinâmico (nome exibido + menus visíveis). */
+  papel?: { id: string; name: string; baseRole: UserRole; menus: MenuKey[] | null };
 }
 
 export interface VariationOption {

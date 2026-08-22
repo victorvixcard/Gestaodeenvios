@@ -1,4 +1,4 @@
-import type { User, Product, Company, Order, OrderItem, OrderNote, OrderEvent, Permission } from '../types'
+import type { User, Product, Company, Order, OrderItem, OrderNote, OrderEvent, Permission, MenuKey } from '../types'
 import type { LogEntry, LogAction, LogEntityType } from '../contexts/LogsContext'
 import type { UserRole } from '../types'
 
@@ -24,6 +24,17 @@ export function mapUser(u: Record<string, unknown>): User {
     whatsapp: (u.whatsapp as string | null) ?? undefined,
     sectors: ((u.sectors as Array<{ id: number | string; name: string }> | null) ?? [])
       .map((s) => ({ id: String(s.id), name: s.name })),
+    papel: u.papel
+      ? (() => {
+          const p = u.papel as Record<string, unknown>
+          return {
+            id: String(p.id),
+            name: String(p.name),
+            baseRole: (p.base_role ?? p.baseRole) as UserRole,
+            menus: (p.menus as MenuKey[] | null) ?? null,
+          }
+        })()
+      : undefined,
   }
 }
 

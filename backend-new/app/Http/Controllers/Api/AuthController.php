@@ -48,7 +48,7 @@ class AuthController extends Controller
 
         return response()->json([
             'token'       => $token,
-            'user'        => $user,
+            'user'        => $user->load('papel:id,name,base_role,menus'),
             'tenant_slug' => $user->tenant_slug,
         ]);
     }
@@ -62,6 +62,8 @@ class AuthController extends Controller
 
     public function me(Request $request): JsonResponse
     {
-        return response()->json($request->user()->load('company'));
+        return response()->json(
+            $request->user()->load(['company', 'papel:id,name,base_role,menus'])
+        );
     }
 }

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
+use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\SectorController;
 use App\Http\Controllers\Api\CompanyController;
 use App\Http\Controllers\Api\OrderController;
@@ -63,6 +64,18 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::put('/{id}',          [CategoryController::class, 'update']);
         Route::delete('/{id}',       [CategoryController::class, 'destroy']);
         Route::patch('/{id}/toggle', [CategoryController::class, 'toggleActive']);
+    });
+
+    // ── Papéis ─────────────────────────────────────────────────────────────
+    // Papéis dinâmicos por cima dos níveis de acesso. Listar é liberado
+    // porque o cadastro de usuário precisa das opções (tenant_admin recebe
+    // a lista já filtrada, sem papéis de nível super_admin).
+    Route::get('/roles', [RoleController::class, 'index']);
+    Route::prefix('roles')->middleware('role:super_admin')->group(function () {
+        Route::post('/',             [RoleController::class, 'store']);
+        Route::put('/{id}',          [RoleController::class, 'update']);
+        Route::delete('/{id}',       [RoleController::class, 'destroy']);
+        Route::patch('/{id}/toggle', [RoleController::class, 'toggleActive']);
     });
 
     // ── Setores ────────────────────────────────────────────────────────────

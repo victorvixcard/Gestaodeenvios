@@ -17,6 +17,7 @@ import { Kanban } from "./pages/Kanban";
 import { Products } from "./pages/Products";
 import { Categorias } from "./pages/Categorias";
 import { Setores } from "./pages/Setores";
+import { Papeis } from "./pages/Papeis";
 import { Users } from "./pages/Users";
 import { Empresas } from "./pages/Empresas";
 import { EmpresaDetalhe } from "./pages/EmpresaDetalhe";
@@ -40,6 +41,7 @@ function TenantRoutes() {
           <Route path="produtos" element={<Products />} />
           <Route path="categorias" element={<Categorias />} />
           <Route path="setores" element={<Setores />} />
+          <Route path="papeis" element={<Papeis />} />
           <Route path="usuarios" element={<Users />} />
           <Route path="relatorios" element={<Reports />} />
           <Route path="logs" element={<Logs />} />

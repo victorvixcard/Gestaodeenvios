@@ -34,13 +34,13 @@ const ROLE_LABELS: Record<UserRole, { label: string; variant: "default" | "accen
 
 const EMPTY_FORM = {
   name: "", email: "", role: "operator" as UserRole, tenantSlug: "", permissions: [] as Permission[], active: true, avatarUrl: "", password: "",
-  whatsapp: "", sectorIds: [] as string[],
+  whatsapp: "", sectorIds: [] as string[], roleId: "",
 };
 
 export function Users() {
   const { user: currentUser } = useAuth();
   const tenant = useTenant();
-  const { users, companies, sectors, addUser, updateUser } = useData();
+  const { users, companies, sectors, papeis, addUser, updateUser } = useData();
   const { addLog } = useLog();
   const isSuperAdmin = currentUser?.role === "super_admin";
   const isTenantAdmin = currentUser?.role === "tenant_admin";
@@ -160,12 +160,13 @@ export function Users() {
 
   const openCreate = () => {
     const defaultSlug = isSuperAdmin ? (companies[0]?.slug ?? "") : tenant.slug;
-    const defaultRole: UserRole = "operator";
+    const papelPadrao = papeis.find((p) => p.active && p.baseRole === "operator");
     setForm({
       ...EMPTY_FORM,
       tenantSlug: defaultSlug,
-      role: defaultRole,
-      permissions: [...DEFAULT_PERMISSIONS[defaultRole]],
+      role: "operator",
+      roleId: papelPadrao?.id ?? "",
+      permissions: [...DEFAULT_PERMISSIONS.operator],
     });
     setEditId(null);
     setDialog("create");
@@ -178,6 +179,7 @@ export function Users() {
       password: "",
       whatsapp: u.whatsapp ?? "",
       sectorIds: u.sectors.map((s) => s.id),
+      roleId: u.papel?.id ?? "",
     });
     setEditId(u.id);
     setDialog("edit");
@@ -192,8 +194,14 @@ export function Users() {
     }));
   };
 
-  const handleRoleChange = (role: UserRole) => {
-    setForm((f) => ({ ...f, role, permissions: [...DEFAULT_PERMISSIONS[role]] }));
+  // Escolher um papel define o nivel de acesso (baseRole) e as permissoes padrao
+  const handlePapelChange = (roleId: string) => {
+    const papel = papeis.find((p) => p.id === roleId);
+    if (!papel) return;
+    setForm((f) => ({
+      ...f, roleId, role: papel.baseRole,
+      permissions: [...DEFAULT_PERMISSIONS[papel.baseRole]],
+    }));
   };
 
   const togglePermission = (perm: Permission) => {
@@ -209,6 +217,7 @@ export function Users() {
     if (!form.name.trim()) { toast.error("Informe o nome."); return; }
     if (!form.email.trim()) { toast.error("Informe o e-mail."); return; }
     if (!form.tenantSlug) { toast.error("Selecione a empresa."); return; }
+    if (!form.roleId) { toast.error("Selecione o papel do usuário."); return; }
     if (dialog === "create" && form.password && form.password.length < 8) {
       toast.error("Senha deve ter no mínimo 8 caracteres.");
       return;
@@ -352,7 +361,7 @@ export function Users() {
                       <Separator className="my-3" />
 
                       <div className="flex items-center justify-between mb-3">
-                        <Badge variant={roleConfig.variant} className="text-[11px]">{roleConfig.label}</Badge>
+                        <Badge variant={roleConfig.variant} className="text-[11px]">{u.papel?.name ?? roleConfig.label}</Badge>
                         <span className="text-[10px] text-muted-foreground">{u.permissions.length} permissões</span>
                       </div>
 
@@ -438,15 +447,25 @@ export function Users() {
               </div>
 
               <div className="space-y-1.5">
-                <Label>Perfil</Label>
-                <Select value={form.role} onValueChange={(v) => handleRoleChange(v as UserRole)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Label>Papel</Label>
+                <Select value={form.roleId} onValueChange={handlePapelChange}>
+                  <SelectTrigger><SelectValue placeholder="Selecione o papel..." /></SelectTrigger>
                   <SelectContent>
-                    {isSuperAdmin && <SelectItem value="super_admin">Super Admin</SelectItem>}
-                    <SelectItem value="tenant_admin">Administrador</SelectItem>
-                    <SelectItem value="operator">Operador</SelectItem>
+                    {papeis
+                      .filter((p) => p.active)
+                      .filter((p) => isSuperAdmin || p.baseRole !== "super_admin")
+                      .map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
+                {form.roleId && (
+                  <p className="text-[10px] text-muted-foreground">
+                    Nível de acesso: {ROLE_LABELS[papeis.find((p) => p.id === form.roleId)?.baseRole ?? "operator"].label}
+                  </p>
+                )}
               </div>
 
               {isSuperAdmin && (

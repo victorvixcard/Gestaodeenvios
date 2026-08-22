@@ -12,7 +12,7 @@ class User extends Authenticatable
     use HasApiTokens;
 
     protected $fillable = [
-        'name', 'email', 'password', 'role',
+        'name', 'email', 'password', 'role', 'role_id',
         'tenant_slug', 'avatar_initials', 'avatar_url', 'active',
         'permissions', 'whatsapp',
     ];
@@ -33,6 +33,16 @@ class User extends Authenticatable
     public function sectors(): BelongsToMany
     {
         return $this->belongsToMany(Sector::class);
+    }
+
+    /**
+     * Papel dinâmico do usuário. A coluna `role` (nível de acesso) continua
+     * sendo quem autoriza — o papel personaliza nome e menus visíveis.
+     * Chamado de papel() para não colidir com a coluna `role`.
+     */
+    public function papel(): BelongsTo
+    {
+        return $this->belongsTo(Role::class, 'role_id');
     }
 
     public function isSuperAdmin(): bool

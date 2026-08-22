@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
-import type { Product, Company, User, Sector, Permission, UserRole } from "../types";
+import type { Product, Company, User, Sector, Papel, Permission, UserRole } from "../types";
 import { api } from "../lib/api";
 import { mapProduct, mapCompany, mapUser } from "../lib/mappers";
 import { useAuth } from "./AuthContext";
@@ -33,11 +33,14 @@ interface DataContextValue {
   updateCompany: (slug: string, updates: Partial<Company>) => Promise<void>;
 
   users: User[];
-  addUser: (data: Omit<User, "id" | "avatarInitials" | "sectors"> & { password?: string; sectorIds?: string[] }) => Promise<Record<string, unknown>>;
-  updateUser: (id: string, updates: Partial<Omit<User, "sectors">> & { sectorIds?: string[] }) => Promise<void>;
+  addUser: (data: Omit<User, "id" | "avatarInitials" | "sectors"> & { password?: string; sectorIds?: string[]; roleId?: string }) => Promise<Record<string, unknown>>;
+  updateUser: (id: string, updates: Partial<Omit<User, "sectors">> & { sectorIds?: string[]; roleId?: string }) => Promise<void>;
 
   sectors: Sector[];
   reloadSectors: () => Promise<void>;
+
+  papeis: Papel[];
+  reloadPapeis: () => Promise<void>;
 
   getProductsForTenant: (tenantSlug: string) => Product[];
   getUsersForTenant: (tenantSlug: string) => User[];
@@ -52,10 +55,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [users, setUsers]         = useState<User[]>([]);
   const [sectors, setSectors]     = useState<Sector[]>([]);
+  const [papeis, setPapeis]       = useState<Papel[]>([]);
 
   const reloadSectors = async () => {
     const data = await api.get<Sector[]>('/sectors?all=1');
     setSectors(data);
+  };
+
+  const reloadPapeis = async () => {
+    const data = await api.get<Papel[]>('/roles?all=1');
+    setPapeis(data);
   };
 
   useEffect(() => {
@@ -65,21 +74,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setCompanies([]);
         setUsers([]);
         setSectors([]);
+        setPapeis([]);
       }
       return;
     }
 
     const fetchAll = async () => {
-      const [prods, comps, usrs, secs] = await Promise.allSettled([
+      const [prods, comps, usrs, secs, rols] = await Promise.allSettled([
         api.get<Record<string, unknown>[]>('/products'),
         api.get<Record<string, unknown>[]>('/companies'),
         api.get<Record<string, unknown>[]>('/users'),
         api.get<Sector[]>('/sectors?all=1'),
+        api.get<Papel[]>('/roles?all=1'),
       ]);
       if (prods.status === 'fulfilled') setProducts(prods.value.map(mapProduct));
       if (comps.status === 'fulfilled') setCompanies(comps.value.map(mapCompany));
       if (usrs.status === 'fulfilled')  setUsers(usrs.value.map(mapUser));
       if (secs.status === 'fulfilled')  setSectors(secs.value);
+      if (rols.status === 'fulfilled')  setPapeis(rols.value);
     };
 
     fetchAll();
@@ -167,7 +179,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   // ── Users ─────────────────────────────────────────────────────────────────
-  const addUser = async (data: Omit<User, "id" | "avatarInitials" | "sectors"> & { password?: string; sectorIds?: string[] }): Promise<Record<string, unknown>> => {
+  const addUser = async (data: Omit<User, "id" | "avatarInitials" | "sectors"> & { password?: string; sectorIds?: string[]; roleId?: string }): Promise<Record<string, unknown>> => {
     const u = await api.post<Record<string, unknown>>('/users', {
       name: data.name,
       email: data.email,
@@ -178,12 +190,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
       avatar_url: data.avatarUrl,
       permissions: data.permissions,
       sector_ids: data.sectorIds?.map(Number),
+      role_id: data.roleId ? Number(data.roleId) : undefined,
     });
     setUsers((prev) => [...prev, mapUser(u)]);
     return u;
   };
 
-  const updateUser = async (id: string, updates: Partial<Omit<User, "sectors">> & { sectorIds?: string[] }): Promise<void> => {
+  const updateUser = async (id: string, updates: Partial<Omit<User, "sectors">> & { sectorIds?: string[]; roleId?: string }): Promise<void> => {
     if (updates.active !== undefined && Object.keys(updates).length === 1) {
       const u = await api.patch<Record<string, unknown>>(`/users/${id}/toggle`, {});
       setUsers((prev) => prev.map((x) => (x.id === id ? mapUser(u) : x)));
@@ -197,6 +210,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       avatar_url: updates.avatarUrl,
       permissions: updates.permissions,
       sector_ids: updates.sectorIds?.map(Number),
+      role_id: updates.roleId ? Number(updates.roleId) : undefined,
     });
     setUsers((prev) => prev.map((x) => (x.id === id ? mapUser(u) : x)));
   };
@@ -220,6 +234,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       companies, addCompany, updateCompany,
       users, addUser, updateUser,
       sectors, reloadSectors,
+      papeis, reloadPapeis,
       getProductsForTenant, getUsersForTenant, getCompanyBySlug,
     }}>
       {children}

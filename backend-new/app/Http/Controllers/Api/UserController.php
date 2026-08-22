@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
+use App\Models\Role;
 use App\Models\User;
 use App\Services\WhatsAppService;
 use Illuminate\Http\JsonResponse;
@@ -35,6 +36,32 @@ class UserController extends Controller
         return ['tenant_admin', 'operator'];
     }
 
+    /**
+     * Resolve papel (role_id) em nível de acesso (role). O papel manda no
+     * nível: quem escolhe "Analista" (base operator) grava operator na coluna
+     * role, e é ela que os middlewares leem. Devolve erro se o ator tentar
+     * atribuir um papel de nível acima do que ele pode.
+     */
+    private function resolveRole(Request $request, User $actor, array $allowedRoles): ?array
+    {
+        if ($request->filled('role_id')) {
+            $papel = Role::find($request->role_id);
+            if (!$papel || !$papel->active) {
+                return ['error' => response()->json(['message' => 'Papel inválido ou inativo.'], 422)];
+            }
+            if (!in_array($papel->base_role, $allowedRoles)) {
+                return ['error' => response()->json(['message' => 'Você não pode atribuir um papel deste nível.'], 403)];
+            }
+            return ['role' => $papel->base_role, 'role_id' => $papel->id];
+        }
+
+        if ($request->filled('role')) {
+            return ['role' => $request->role, 'role_id' => null];
+        }
+
+        return null;
+    }
+
     public function index(Request $request): JsonResponse
     {
         $actor = $request->user();
@@ -53,7 +80,8 @@ class UserController extends Controller
         }
 
         return response()->json(
-            $query->with('sectors:id,name')->orderBy('name')->get()->makeHidden('password')
+            $query->with(['sectors:id,name', 'papel:id,name,base_role,menus'])
+                  ->orderBy('name')->get()->makeHidden('password')
         );
     }
 
@@ -65,7 +93,8 @@ class UserController extends Controller
         $request->validate([
             'name'          => 'required|string|max:255',
             'email'         => 'required|email|unique:users,email',
-            'role'          => 'required|in:' . implode(',', $allowedRoles),
+            'role'          => 'required_without:role_id|in:' . implode(',', $allowedRoles),
+            'role_id'       => 'nullable|integer|exists:roles,id',
             'tenant_slug'   => 'required|exists:companies,slug',
             'password'      => 'nullable|string|min:8',
             'whatsapp'      => 'nullable|string|max:20',
@@ -81,6 +110,10 @@ class UserController extends Controller
             return response()->json(['message' => 'Você não pode criar usuários em outro tenant.'], 403);
         }
 
+        // Papel dinâmico define o nível de acesso; sem papel, usa o role direto
+        $resolvido = $this->resolveRole($request, $actor, $allowedRoles);
+        if (isset($resolvido['error'])) return $resolvido['error'];
+
         // Aceita senha definida pelo admin. Se não vier, gera uma aleatória.
         $password = $request->filled('password') ? $request->password : Str::random(10);
 
@@ -88,7 +121,8 @@ class UserController extends Controller
             'name'            => $request->name,
             'email'           => $request->email,
             'password'        => Hash::make($password),
-            'role'            => $request->role,
+            'role'            => $resolvido['role'],
+            'role_id'         => $resolvido['role_id'],
             'tenant_slug'     => $request->tenant_slug,
             'avatar_initials' => $this->initials($request->name),
             'avatar_url'      => $request->avatar_url,
@@ -108,7 +142,8 @@ class UserController extends Controller
         );
 
         return response()->json(array_merge(
-            $user->load('sectors:id,name')->makeHidden('password')->toArray(),
+            $user->load(['sectors:id,name', 'papel:id,name,base_role,menus'])
+                 ->makeHidden('password')->toArray(),
             ['plain_password' => $password]
         ), 201);
     }
@@ -128,6 +163,7 @@ class UserController extends Controller
             'name'          => 'sometimes|string|max:255',
             'email'         => "sometimes|email|unique:users,email,{$id}",
             'role'          => 'sometimes|in:' . implode(',', $allowedRoles),
+            'role_id'       => 'nullable|integer|exists:roles,id',
             'whatsapp'      => 'nullable|string|max:20',
             'avatar_url'    => 'nullable|string',
             'permissions'   => 'sometimes|array',
@@ -136,7 +172,13 @@ class UserController extends Controller
             'sector_ids.*'  => 'integer|exists:sectors,id',
         ]);
 
-        $target->update($request->only(['name', 'email', 'role', 'whatsapp', 'avatar_url', 'permissions']));
+        $target->update($request->only(['name', 'email', 'whatsapp', 'avatar_url', 'permissions']));
+
+        $resolvido = $this->resolveRole($request, $actor, $allowedRoles);
+        if (isset($resolvido['error'])) return $resolvido['error'];
+        if ($resolvido !== null) {
+            $target->update(['role' => $resolvido['role'], 'role_id' => $resolvido['role_id']]);
+        }
 
         if ($request->name) {
             $target->update(['avatar_initials' => $this->initials($request->name)]);
@@ -150,7 +192,9 @@ class UserController extends Controller
             'usuario_atualizado', 'Usuário', $target->id, $target->name, $actor
         );
 
-        return response()->json($target->fresh()->load('sectors:id,name')->makeHidden('password'));
+        return response()->json(
+            $target->fresh()->load(['sectors:id,name', 'papel:id,name,base_role,menus'])->makeHidden('password')
+        );
     }
 
     public function toggleActive(Request $request, string $id): JsonResponse

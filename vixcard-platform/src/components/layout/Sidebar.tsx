@@ -4,11 +4,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, ShoppingCart, Package, Users,
   LogOut, ChevronRight, X, Shield, Building2,
-  FolderOpen, ChevronDown, ClipboardList, BarChart3, KanbanSquare, Tags, Network,
+  FolderOpen, ChevronDown, ClipboardList, BarChart3, KanbanSquare, Tags, Network, ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTenant } from "../../contexts/TenantContext";
 import { cn } from "../../lib/utils";
+import type { MenuKey } from "../../types";
 
 interface SidebarProps {
   open: boolean;
@@ -23,7 +24,14 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const isSuperAdmin = user?.role === "super_admin";
   const isAdmin = isSuperAdmin || user?.role === "tenant_admin";
 
-  const cadastrosRoutes = [`/${tenant.slug}/empresas`, `/${tenant.slug}/produtos`, `/${tenant.slug}/categorias`, `/${tenant.slug}/usuarios`, `/${tenant.slug}/setores`];
+  // O papel so RESTRINGE a navegacao por cima do nivel de acesso: menus null
+  // significa "tudo que o nivel ja permite". A seguranca continua nas rotas
+  // da API — esconder menu aqui e conforto visual, nao barreira.
+  const menuVisivel = (key: MenuKey): boolean =>
+    user?.papel?.menus == null || user.papel.menus.includes(key);
+
+  const cadastrosRoutes = [`/${tenant.slug}/empresas`, `/${tenant.slug}/produtos`, `/${tenant.slug}/categorias`, `/${tenant.slug}/usuarios`, `/${tenant.slug}/setores`, `/${tenant.slug}/papeis`];
+  const algumCadastroVisivel = (["cadastros.empresas", "cadastros.produtos", "cadastros.categorias", "cadastros.usuarios", "cadastros.setores", "cadastros.papeis"] as MenuKey[]).some(menuVisivel);
   const cadastrosActive = cadastrosRoutes.some((r) => location.pathname.startsWith(r));
   const [cadastrosOpen, setCadastrosOpen] = useState(cadastrosActive);
 
@@ -85,6 +93,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           Menu
         </p>
 
+        {menuVisivel("dashboard") && (
         <NavLink to={`/${tenant.slug}/dashboard`} onClick={onClose} className={navLinkClass}>
           {({ isActive }) => (
             <>
@@ -94,7 +103,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             </>
           )}
         </NavLink>
+        )}
 
+        {menuVisivel("pedidos") && (
         <NavLink to={`/${tenant.slug}/pedidos`} onClick={onClose} className={navLinkClass}>
           {({ isActive }) => (
             <>
@@ -104,7 +115,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             </>
           )}
         </NavLink>
+        )}
 
+        {menuVisivel("kanban") && (
         <NavLink to={`/${tenant.slug}/kanban`} onClick={onClose} className={navLinkClass}>
           {({ isActive }) => (
             <>
@@ -114,8 +127,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             </>
           )}
         </NavLink>
+        )}
 
-        {(user?.permissions.includes("view_reports") || isSuperAdmin) && (
+        {(user?.permissions.includes("view_reports") || isSuperAdmin) && menuVisivel("relatorios") && (
           <NavLink to={`/${tenant.slug}/relatorios`} onClick={onClose} className={navLinkClass}>
             {({ isActive }) => (
               <>
@@ -128,7 +142,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         )}
 
         {/* Cadastros section */}
-        {isAdmin && (
+        {isAdmin && algumCadastroVisivel && (
           <div className="pt-3">
             <p className="px-3 pb-2 text-[10px] uppercase tracking-widest font-semibold text-sidebar-foreground/40">
               Cadastros
@@ -157,7 +171,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                   transition={{ duration: 0.2 }}
                   className="overflow-hidden pl-3 mt-0.5 space-y-0.5"
                 >
-                  {isSuperAdmin && (
+                  {isSuperAdmin && menuVisivel("cadastros.empresas") && (
                     <NavLink to={`/${tenant.slug}/empresas`} onClick={onClose} className={subNavLinkClass}>
                       {({ isActive }) => (
                         <>
@@ -167,6 +181,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                       )}
                     </NavLink>
                   )}
+                  {menuVisivel("cadastros.produtos") && (
                   <NavLink to={`/${tenant.slug}/produtos`} onClick={onClose} className={subNavLinkClass}>
                     {({ isActive }) => (
                       <>
@@ -175,7 +190,8 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                       </>
                     )}
                   </NavLink>
-                  {isSuperAdmin && (
+                  )}
+                  {isSuperAdmin && menuVisivel("cadastros.categorias") && (
                     <NavLink to={`/${tenant.slug}/categorias`} onClick={onClose} className={subNavLinkClass}>
                       {({ isActive }) => (
                         <>
@@ -185,6 +201,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                       )}
                     </NavLink>
                   )}
+                  {menuVisivel("cadastros.usuarios") && (
                   <NavLink to={`/${tenant.slug}/usuarios`} onClick={onClose} className={subNavLinkClass}>
                     {({ isActive }) => (
                       <>
@@ -193,12 +210,23 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                       </>
                     )}
                   </NavLink>
-                  {isSuperAdmin && (
+                  )}
+                  {isSuperAdmin && menuVisivel("cadastros.setores") && (
                     <NavLink to={`/${tenant.slug}/setores`} onClick={onClose} className={subNavLinkClass}>
                       {({ isActive }) => (
                         <>
                           <Network className={cn("h-3.5 w-3.5 flex-shrink-0", isActive && "text-sidebar-primary")} />
                           <span>Setores</span>
+                        </>
+                      )}
+                    </NavLink>
+                  )}
+                  {isSuperAdmin && menuVisivel("cadastros.papeis") && (
+                    <NavLink to={`/${tenant.slug}/papeis`} onClick={onClose} className={subNavLinkClass}>
+                      {({ isActive }) => (
+                        <>
+                          <ShieldCheck className={cn("h-3.5 w-3.5 flex-shrink-0", isActive && "text-sidebar-primary")} />
+                          <span>Papéis</span>
                         </>
                       )}
                     </NavLink>
@@ -209,7 +237,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           </div>
         )}
         {/* Logs — super admin only */}
-        {isSuperAdmin && (
+        {isSuperAdmin && menuVisivel("logs") && (
           <div className="pt-3">
             <p className="px-3 pb-2 text-[10px] uppercase tracking-widest font-semibold text-sidebar-foreground/40">
               Sistema
