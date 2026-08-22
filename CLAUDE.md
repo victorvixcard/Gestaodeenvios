@@ -23,7 +23,7 @@ Exemplos de tenants atuais: `vixcard` (super admin), `medsenior`, `unimed`, `seb
 |---|---|
 | Backend | **Laravel 11** (PHP 8.3) + Sanctum (Bearer tokens) |
 | Frontend | **React + TypeScript + Vite** + Tailwind + shadcn/ui |
-| Banco local | SQLite |
+| Banco local | **MySQL** dentro do WSL (era SQLite ate 2026-08) |
 | Banco produção | MySQL |
 | Webserver produção | nginx + php8.3-fpm |
 | Hospedagem | Digital Ocean Droplet (Ubuntu 24.04) |
@@ -61,43 +61,72 @@ Gestaodeenvios/                          ← raiz do repo (uma só)
 
 ### 4.1 Caminhos
 
-- **Raiz do repo:** `C:\Users\Maquina_Estágiario\Documents\Gestaodeenvios\`
+- **Raiz do repo:** `C:\Users\Administrador\Documents\GitHub\Gestaodeenvios\`
 - **PHP:** `C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe`
 - **Composer:** `C:\laragon\bin\composer\composer.phar` (rode com `php composer.phar ...`)
 - **Node:** v20.x
 
 ### 4.2 Como rodar local
 
-**Backend (porta 8001):**
+O jeito certo é o script na raiz do repo:
+
 ```powershell
-cd C:\Users\Maquina_Estágiario\Documents\Gestaodeenvios\backend-new
-C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe artisan serve --host=127.0.0.1 --port=8001
+.\dev.ps1          # sobe backend (8001) e frontend (5175)
+.\dev.ps1 -Stop    # derruba os dois
+.\dev.ps1 -Reset   # recria o banco de demonstracao e sobe
 ```
 
-**Frontend (porta 5173):**
-```powershell
-cd C:\Users\Maquina_Estágiario\Documents\Gestaodeenvios\vixcard-platform
-node node_modules\vite\bin\vite.js
+Ele usa `Start-Process` destacado de propósito. Servidor iniciado dentro de uma
+sessão de terminal ou de ferramenta morre junto com ela — foi o motivo de "o
+backend e o front ficam caindo". As janelas ficam minimizadas na barra de
+tarefas; fechar a janela derruba aquele servidor.
+
+Acesse **http://localhost:5175**.
+
+**Use `localhost`, nunca `127.0.0.1`.** O Vite escuta só em IPv6 (`::1`), então
+`http://127.0.0.1:5175` é recusado. Isso afeta `curl` e teste automatizado — no
+navegador `localhost` resolve certo. O backend é o oposto: escuta em
+`127.0.0.1:8001`. O proxy `/api` do Vite faz a ponte em dev.
+
+### 4.3 Banco local
+
+**MySQL dentro do WSL** (Ubuntu-24.04), não SQLite. Chega no Windows pela
+porta 3306 via `wslrelay`.
+
+```
+DB_CONNECTION=mysql
+DB_DATABASE=vixcard_gestaodeenvios
+DB_HOST=127.0.0.1   DB_PORT=3306
 ```
 
-Acesse http://localhost:5173. O frontend chama o backend em `/api` (proxy do Vite cuida disso em dev).
+Se a porta 3306 aparecer livre, o WSL provavelmente está desligado. Qualquer
+comando `wsl -d Ubuntu-24.04` o inicia, e o MySQL sobe junto (serviço enabled):
 
-### 4.3 Usuários locais (banco SQLite resetado)
+```powershell
+wsl -d Ubuntu-24.04 -- bash -lc "service mysql status"
+```
 
-| E-mail | Senha | Papel |
+### 4.4 Usuários locais
+
+Criados pelo `DemoSeeder`. **A senha de todos é `senha123`.**
+
+| E-mail | Papel | Tenant |
 |---|---|---|
-| admin@vixcard.com.br | password | super_admin (tenant `vixcard`) |
-| ana@medsenior.com | password | tenant_admin (tenant `medsenior`) |
+| admin@vixcard.com.br | super_admin | vixcard |
+| ana@medsenior.com | tenant_admin | medsenior |
+| bruno@medsenior.com | operator | medsenior |
+| diego@technip.com | tenant_admin | technip |
+| elena@technip.com | operator | technip |
+| carla@unimed.com | tenant_admin | unimed |
 
-Se precisar resetar senhas locais de novo, use um script PHP no estilo:
-```php
-foreach (App\Models\User::all() as $u) {
-    $u->password = Hash::make('password');
-    $u->save();
-}
+Para recriar a base de demonstração do zero:
+
+```powershell
+.\dev.ps1 -Reset
 ```
 
----
+O `DemoSeeder` se recusa a rodar com `APP_ENV=production`.
+
 
 ## 5. Ambiente de PRODUÇÃO (Digital Ocean)
 
@@ -481,4 +510,4 @@ Nunca rode isso em produção sem confirmar com o Victor antes.
 
 ---
 
-**Última atualização:** 2026-08-06 — backup passa a incluir os anexos dos pedidos.
+**Última atualização:** 2026-08-22 — secao 4 (ambiente local) corrigida: senha `senha123`, porta 5175, MySQL no WSL, `dev.ps1`.
