@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import {
   BarChart3, Package, DollarSign, ShoppingCart,
   FileDown, Filter, ChevronDown, ChevronRight as ChevronRightIcon, FileText,
+  Timer, Truck,
 } from "lucide-react";
 import {
   startOfDay, endOfDay, startOfWeek, endOfWeek,
@@ -22,6 +23,7 @@ import { useData } from "../contexts/DataContext";
 import { useOrders } from "../contexts/OrdersContext";
 import type { Order, OrderStatus } from "../types";
 import { cn } from "../lib/utils";
+import { horasAteEntrega, horasEnvioAteEntrega, media, formatDuracao } from "../lib/metrics";
 
 const STATUS_LABEL: Record<OrderStatus, string> = {
   pending:    "Pendente",
@@ -63,48 +65,55 @@ function getPeriodRange(period: Period, customFrom: string, customTo: string) {
   return { from, to };
 }
 
-// ── CSV export ────────────────────────────────────────────────────────────────
-function downloadCSV(
+// ── Excel export (.xlsx de verdade) ──────────────────────────────────────────
+// A biblioteca só é carregada quando o botão é clicado (import dinâmico),
+// para não engordar o bundle de quem nunca exporta.
+async function downloadExcel(
   filteredOrders: Order[],
   products: ReturnType<typeof useData>["products"],
+  companySummary: { name: string; orders: number; pieces: number; total: number }[],
   isSuperAdmin: boolean
 ) {
-  const header = [
-    "OS", "Título", ...(isSuperAdmin ? ["Empresa"] : []), "Data",
-    "Produto", "Código", "Qtd", "Preço Unit.", "Subtotal (R$)", "Status",
-  ];
+  const XLSX = await import("xlsx");
+  const wb = XLSX.utils.book_new();
 
-  const rows: string[][] = [];
+  // Aba 1 — uma linha por item de cada OS
+  const detalhe: Record<string, unknown>[] = [];
   filteredOrders.forEach((order) => {
-    const date = format(parseISO(order.createdAt), "dd/MM/yyyy", { locale: ptBR });
     order.items.forEach((item) => {
-      const product  = products.find((p) => p.id === item.productId);
-      const unitPrice = product?.price ?? 0;
-      const subtotal  = item.quantity * unitPrice;
-      rows.push([
-        order.id,
-        order.title,
-        ...(isSuperAdmin ? [order.tenantName] : []),
-        date,
-        item.productName,
-        product?.code ?? "—",
-        String(item.quantity),
-        unitPrice.toFixed(2).replace(".", ","),
-        subtotal.toFixed(2).replace(".", ","),
-        STATUS_LABEL[order.status],
-      ]);
+      const product   = products.find((p) => p.id === item.productId);
+      const unitPrice = item.unitPrice ?? product?.price ?? 0;
+      detalhe.push({
+        "OS": order.id,
+        "Título": order.title,
+        ...(isSuperAdmin ? { "Empresa": order.tenantName } : {}),
+        "Data": format(parseISO(order.createdAt), "dd/MM/yyyy", { locale: ptBR }),
+        "Status": STATUS_LABEL[order.status],
+        "Produto": item.productName,
+        "Código": product?.code ?? "",
+        "Qtd": item.quantity,
+        "Preço unit. (R$)": unitPrice || null,
+        "Subtotal (R$)": item.quantity * unitPrice || null,
+        "Prazo do item": item.deadline ? format(parseISO(item.deadline), "dd/MM/yyyy") : "",
+        "Tempo até entrega": formatDuracao(horasAteEntrega(order)),
+        "Envio → cliente": formatDuracao(horasEnvioAteEntrega(order)),
+      });
     });
   });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detalhe), "Detalhado por OS");
 
-  const escape = (v: string) => `"${v.replace(/"/g, '""')}"`;
-  const csv = [header, ...rows].map((r) => r.map(escape).join(";")).join("\n");
-  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement("a");
-  a.href     = url;
-  a.download = `consumo_${format(new Date(), "yyyy-MM-dd")}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  // Aba 2 — por empresa (visão do super admin com todas)
+  if (isSuperAdmin && companySummary.length > 0) {
+    const porEmpresa = companySummary.map((r) => ({
+      "Empresa": r.name,
+      "Pedidos": r.orders,
+      "Peças": r.pieces,
+      "Valor total (R$)": r.total || null,
+    }));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(porEmpresa), "Por empresa");
+  }
+
+  XLSX.writeFile(wb, `relatorio_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
 }
 
 // ── Expandable order row ──────────────────────────────────────────────────────
@@ -297,6 +306,11 @@ export function Reports() {
   const totalRevenue  = productSummary.reduce((s, r) => s + r.subtotal, 0);
   const totalProducts = productSummary.length;
 
+  // Tempos médios do período: abertura → entrega, e envio ao cliente →
+  // entrega (mede a saída da linha de impressão até o cliente)
+  const tempoEntrega = media(filteredOrders.map(horasAteEntrega));
+  const tempoEnvio   = media(filteredOrders.map(horasEnvioAteEntrega));
+
   // Quebra por empresa: com o filtro em "Todas", os KPIs saem somados e não
   // dizem quem consumiu o quê. Este quadro responde isso sem trocar de filtro,
   // e clicar numa linha foca o relatório inteiro naquela empresa.
@@ -337,11 +351,11 @@ export function Reports() {
           <Button
             variant="outline"
             className="gap-2"
-            onClick={() => downloadCSV(filteredOrders, products, isSuperAdmin)}
+            onClick={() => downloadExcel(filteredOrders, products, companySummary, isSuperAdmin)}
             disabled={filteredOrders.length === 0}
           >
             <FileText className="h-4 w-4" />
-            Exportar CSV
+            Exportar Excel
           </Button>
           <Button variant="outline" className="gap-2" onClick={() => window.print()}>
             <FileDown className="h-4 w-4" />
@@ -421,12 +435,14 @@ export function Reports() {
       </Card>
 
       {/* KPI cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
         {[
           { label: "Pedidos",        value: filteredOrders.length, icon: ShoppingCart, color: "text-primary bg-primary/10",   fmt: String },
           { label: "Produtos únicos",value: totalProducts,         icon: Package,      color: "text-accent bg-accent/10",     fmt: String },
           { label: "Total de peças", value: totalPieces,           icon: BarChart3,    color: "text-success bg-success/10",   fmt: formatQty },
           { label: "Valor total",    value: totalRevenue,          icon: DollarSign,   color: "text-warning bg-warning/10",   fmt: formatBRL },
+          { label: "Solicitação → entrega (média)", value: formatDuracao(tempoEntrega), icon: Timer, color: "text-primary bg-primary/10", fmt: String },
+          { label: "Envio → cliente (média)",       value: formatDuracao(tempoEnvio),   icon: Truck, color: "text-cyan-600 bg-cyan-500/10", fmt: String },
         ].map((s, i) => (
           <motion.div key={s.label} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}>
             <Card className="p-4 bg-gradient-card">

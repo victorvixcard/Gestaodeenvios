@@ -1,9 +1,10 @@
+import { useMemo } from "react";
 import { motion } from "framer-motion";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
 } from "recharts";
-import { ShoppingCart, Clock, CheckCircle2, XCircle, TrendingUp, Zap } from "lucide-react";
+import { ShoppingCart, Clock, CheckCircle2, XCircle, TrendingUp, Zap, Timer, Truck } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useTenant } from "../contexts/TenantContext";
 import { useOrders } from "../contexts/OrdersContext";
@@ -12,25 +13,9 @@ import { StatusBadge } from "../components/shared/StatusBadge";
 import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { formatDateShort } from "../lib/utils";
+import { horasAteEntrega, horasEnvioAteEntrega, media, formatDuracao } from "../lib/metrics";
 import { useNavigate } from "react-router-dom";
 
-const AREA_DATA = [
-  { mes: "Out", pedidos: 12 }, { mes: "Nov", pedidos: 18 }, { mes: "Dez", pedidos: 15 },
-  { mes: "Jan", pedidos: 22 }, { mes: "Fev", pedidos: 28 }, { mes: "Mar", pedidos: 35 },
-  { mes: "Abr", pedidos: 30 },
-];
-
-const STATUS_PIE = [
-  { name: "Em Produção", value: 8, color: "hsl(262 70% 56%)" },
-  { name: "Pendente",    value: 5, color: "hsl(215 18% 55%)" },
-  { name: "Finalizado",  value: 14, color: "hsl(152 62% 40%)" },
-  { name: "Cancelado",   value: 3, color: "hsl(0 78% 55%)" },
-];
-
-const BAR_DATA = [
-  { tipo: "Cartão PVC", qtd: 15 }, { tipo: "Carnê", qtd: 8 },
-  { tipo: "Etiqueta", qtd: 12 }, { tipo: "Impressão", qtd: 6 }, { tipo: "Serviço", qtd: 4 },
-];
 
 export function Dashboard() {
   const { user } = useAuth();
@@ -43,7 +28,7 @@ export function Dashboard() {
     : orders.filter((o) => o.tenantSlug === tenant.slug);
 
   const pending    = tenantOrders.filter((o) => o.status === "pending").length;
-  const inProgress = tenantOrders.filter((o) => ["started", "production", "finishing"].includes(o.status)).length;
+  const inProgress = tenantOrders.filter((o) => ["started", "production", "finishing", "shipped"].includes(o.status)).length;
   const done       = tenantOrders.filter((o) => o.status === "done").length;
   const cancelled  = tenantOrders.filter((o) => o.status === "cancelled").length;
   const total      = tenantOrders.length;
@@ -51,6 +36,50 @@ export function Dashboard() {
   const recent = [...tenantOrders]
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .slice(0, 5);
+
+  // Graficos com dados REAIS dos pedidos — antes eram numeros fixos de
+  // demonstracao, que nunca mudavam com o uso do sistema.
+  const areaData = useMemo(() => {
+    const meses: { chave: string; mes: string; pedidos: number }[] = [];
+    const agora = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(agora.getFullYear(), agora.getMonth() - i, 1);
+      meses.push({
+        chave: `${d.getFullYear()}-${d.getMonth()}`,
+        mes: d.toLocaleDateString("pt-BR", { month: "short" }).replace(".", ""),
+        pedidos: 0,
+      });
+    }
+    tenantOrders.forEach((o) => {
+      const d = new Date(o.createdAt);
+      const alvo = meses.find((m) => m.chave === `${d.getFullYear()}-${d.getMonth()}`);
+      if (alvo) alvo.pedidos += 1;
+    });
+    return meses;
+  }, [tenantOrders]);
+
+  const statusPie = useMemo(() => [
+    { name: "Pendente",     value: pending,    color: "hsl(215 18% 55%)" },
+    { name: "Em andamento", value: inProgress, color: "hsl(262 70% 56%)" },
+    { name: "Finalizado",   value: done,       color: "hsl(152 62% 40%)" },
+    { name: "Cancelado",    value: cancelled,  color: "hsl(0 78% 55%)" },
+  ].filter((s) => s.value > 0), [pending, inProgress, done, cancelled]);
+
+  const topProdutos = useMemo(() => {
+    const mapa: Record<string, number> = {};
+    tenantOrders.forEach((o) => {
+      if (o.status === "cancelled") return;
+      o.items.forEach((it) => { mapa[it.productName] = (mapa[it.productName] ?? 0) + it.quantity; });
+    });
+    return Object.entries(mapa)
+      .map(([tipo, qtd]) => ({ tipo: tipo.length > 14 ? tipo.slice(0, 13) + "…" : tipo, qtd }))
+      .sort((a, b) => b.qtd - a.qtd)
+      .slice(0, 5);
+  }, [tenantOrders]);
+
+  // Tempos medios: solicitacao -> entrega, e envio a linha de impressao -> cliente
+  const tempoEntrega = media(tenantOrders.map(horasAteEntrega));
+  const tempoEnvio   = media(tenantOrders.map(horasEnvioAteEntrega));
 
   return (
     <div className="space-y-6">
@@ -83,10 +112,32 @@ export function Dashboard() {
 
       {/* KPI Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPICard label="Total de Pedidos" value={total} icon={ShoppingCart} color="primary" trend={12} trendLabel="vs mês anterior" delay={0} />
+        <KPICard label="Total de Pedidos" value={total} icon={ShoppingCart} color="primary" delay={0} />
         <KPICard label="Em Andamento" value={inProgress} icon={TrendingUp} color="accent" delay={0.05} />
         <KPICard label="Pendentes" value={pending} icon={Clock} color="warning" delay={0.1} />
-        <KPICard label="Finalizados" value={done} icon={CheckCircle2} color="success" trend={8} delay={0.15} />
+        <KPICard label="Finalizados" value={done} icon={CheckCircle2} color="success" delay={0.15} />
+      </div>
+
+      {/* Tempos medios — medem a operacao, nao o volume */}
+      <div className="grid sm:grid-cols-2 gap-4">
+        <Card className="p-4 flex items-center gap-4">
+          <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+            <Timer className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="font-display text-xl font-extrabold leading-tight">{formatDuracao(tempoEntrega)}</p>
+            <p className="text-xs text-muted-foreground">Tempo médio: solicitação → entrega</p>
+          </div>
+        </Card>
+        <Card className="p-4 flex items-center gap-4">
+          <div className="h-10 w-10 rounded-xl bg-accent/10 text-accent flex items-center justify-center flex-shrink-0">
+            <Truck className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="font-display text-xl font-extrabold leading-tight">{formatDuracao(tempoEnvio)}</p>
+            <p className="text-xs text-muted-foreground">Tempo médio: envio ao cliente → entrega</p>
+          </div>
+        </Card>
       </div>
 
       {/* Charts row */}
@@ -98,7 +149,7 @@ export function Dashboard() {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={200}>
-              <AreaChart data={AREA_DATA} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+              <AreaChart data={areaData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorPedidos" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.35} />
@@ -127,8 +178,8 @@ export function Dashboard() {
           <CardContent className="flex flex-col items-center">
             <ResponsiveContainer width="100%" height={150}>
               <PieChart>
-                <Pie data={STATUS_PIE} innerRadius={45} outerRadius={70} paddingAngle={3} dataKey="value" startAngle={90} endAngle={-270}>
-                  {STATUS_PIE.map((entry, i) => (
+                <Pie data={statusPie} innerRadius={45} outerRadius={70} paddingAngle={3} dataKey="value" startAngle={90} endAngle={-270}>
+                  {statusPie.map((entry, i) => (
                     <Cell key={i} fill={entry.color} />
                   ))}
                 </Pie>
@@ -138,7 +189,7 @@ export function Dashboard() {
               </PieChart>
             </ResponsiveContainer>
             <div className="w-full space-y-1.5 mt-2">
-              {STATUS_PIE.map((s) => (
+              {statusPie.map((s) => (
                 <div key={s.name} className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2">
                     <div className="h-2 w-2 rounded-full" style={{ background: s.color }} />
@@ -156,11 +207,11 @@ export function Dashboard() {
       <div className="grid lg:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle>Pedidos por Tipo</CardTitle>
+            <CardTitle>Produtos mais pedidos</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={BAR_DATA} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+              <BarChart data={topProdutos} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                 <XAxis dataKey="tipo" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
