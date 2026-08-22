@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
-import type { Product, Company, User, Permission, UserRole } from "../types";
+import type { Product, Company, User, Sector, Permission, UserRole } from "../types";
 import { api } from "../lib/api";
 import { mapProduct, mapCompany, mapUser } from "../lib/mappers";
 import { useAuth } from "./AuthContext";
@@ -33,8 +33,11 @@ interface DataContextValue {
   updateCompany: (slug: string, updates: Partial<Company>) => Promise<void>;
 
   users: User[];
-  addUser: (data: Omit<User, "id" | "avatarInitials"> & { password?: string }) => Promise<Record<string, unknown>>;
-  updateUser: (id: string, updates: Partial<User>) => Promise<void>;
+  addUser: (data: Omit<User, "id" | "avatarInitials" | "sectors"> & { password?: string; sectorIds?: string[] }) => Promise<Record<string, unknown>>;
+  updateUser: (id: string, updates: Partial<Omit<User, "sectors">> & { sectorIds?: string[] }) => Promise<void>;
+
+  sectors: Sector[];
+  reloadSectors: () => Promise<void>;
 
   getProductsForTenant: (tenantSlug: string) => Product[];
   getUsersForTenant: (tenantSlug: string) => User[];
@@ -48,6 +51,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [products, setProducts]   = useState<Product[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [users, setUsers]         = useState<User[]>([]);
+  const [sectors, setSectors]     = useState<Sector[]>([]);
+
+  const reloadSectors = async () => {
+    const data = await api.get<Sector[]>('/sectors?all=1');
+    setSectors(data);
+  };
 
   useEffect(() => {
     if (authLoading || !isAuthenticated) {
@@ -55,19 +64,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setProducts([]);
         setCompanies([]);
         setUsers([]);
+        setSectors([]);
       }
       return;
     }
 
     const fetchAll = async () => {
-      const [prods, comps, usrs] = await Promise.allSettled([
+      const [prods, comps, usrs, secs] = await Promise.allSettled([
         api.get<Record<string, unknown>[]>('/products'),
         api.get<Record<string, unknown>[]>('/companies'),
         api.get<Record<string, unknown>[]>('/users'),
+        api.get<Sector[]>('/sectors?all=1'),
       ]);
       if (prods.status === 'fulfilled') setProducts(prods.value.map(mapProduct));
       if (comps.status === 'fulfilled') setCompanies(comps.value.map(mapCompany));
       if (usrs.status === 'fulfilled')  setUsers(usrs.value.map(mapUser));
+      if (secs.status === 'fulfilled')  setSectors(secs.value);
     };
 
     fetchAll();
@@ -155,22 +167,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   // ── Users ─────────────────────────────────────────────────────────────────
-  const addUser = async (data: Omit<User, "id" | "avatarInitials"> & { password?: string }): Promise<Record<string, unknown>> => {
+  const addUser = async (data: Omit<User, "id" | "avatarInitials" | "sectors"> & { password?: string; sectorIds?: string[] }): Promise<Record<string, unknown>> => {
     const u = await api.post<Record<string, unknown>>('/users', {
       name: data.name,
       email: data.email,
       role: data.role,
       tenant_slug: data.tenantSlug,
       password: data.password,
-      whatsapp: (data as Record<string, unknown>).whatsapp,
+      whatsapp: data.whatsapp,
       avatar_url: data.avatarUrl,
       permissions: data.permissions,
+      sector_ids: data.sectorIds?.map(Number),
     });
     setUsers((prev) => [...prev, mapUser(u)]);
     return u;
   };
 
-  const updateUser = async (id: string, updates: Partial<User>): Promise<void> => {
+  const updateUser = async (id: string, updates: Partial<Omit<User, "sectors">> & { sectorIds?: string[] }): Promise<void> => {
     if (updates.active !== undefined && Object.keys(updates).length === 1) {
       const u = await api.patch<Record<string, unknown>>(`/users/${id}/toggle`, {});
       setUsers((prev) => prev.map((x) => (x.id === id ? mapUser(u) : x)));
@@ -180,8 +193,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       name: updates.name,
       email: updates.email,
       role: updates.role,
+      whatsapp: updates.whatsapp,
       avatar_url: updates.avatarUrl,
       permissions: updates.permissions,
+      sector_ids: updates.sectorIds?.map(Number),
     });
     setUsers((prev) => prev.map((x) => (x.id === id ? mapUser(u) : x)));
   };
@@ -204,6 +219,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       products, addProduct, updateProduct, deleteProduct,
       companies, addCompany, updateCompany,
       users, addUser, updateUser,
+      sectors, reloadSectors,
       getProductsForTenant, getUsersForTenant, getCompanyBySlug,
     }}>
       {children}

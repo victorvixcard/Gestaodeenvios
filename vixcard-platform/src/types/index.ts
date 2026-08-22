@@ -25,6 +25,13 @@ export interface Tenant {
   logoUrl?: string;
 }
 
+export interface Sector {
+  id: string;
+  name: string;
+  active: boolean;
+  usersCount: number;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -35,6 +42,10 @@ export interface User {
   avatarUrl?: string;
   active: boolean;
   permissions: Permission[];
+  /** Telefone/WhatsApp para contato e envio de credenciais. */
+  whatsapp?: string;
+  /** Um usuário pode estar em mais de um setor. */
+  sectors: { id: string; name: string }[];
 }
 
 export interface VariationOption {

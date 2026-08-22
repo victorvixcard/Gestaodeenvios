@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
@@ -27,6 +28,11 @@ class User extends Authenticatable
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class, 'tenant_slug', 'slug');
+    }
+
+    public function sectors(): BelongsToMany
+    {
+        return $this->belongsToMany(Sector::class);
     }
 
     public function isSuperAdmin(): bool

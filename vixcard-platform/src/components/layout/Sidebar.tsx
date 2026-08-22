@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, ShoppingCart, Package, Users,
   LogOut, ChevronRight, X, Shield, Building2,
-  FolderOpen, ChevronDown, ClipboardList, BarChart3, KanbanSquare, Tags,
+  FolderOpen, ChevronDown, ClipboardList, BarChart3, KanbanSquare, Tags, Network,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTenant } from "../../contexts/TenantContext";
@@ -23,7 +23,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const isSuperAdmin = user?.role === "super_admin";
   const isAdmin = isSuperAdmin || user?.role === "tenant_admin";
 
-  const cadastrosRoutes = [`/${tenant.slug}/empresas`, `/${tenant.slug}/produtos`, `/${tenant.slug}/categorias`, `/${tenant.slug}/usuarios`];
+  const cadastrosRoutes = [`/${tenant.slug}/empresas`, `/${tenant.slug}/produtos`, `/${tenant.slug}/categorias`, `/${tenant.slug}/usuarios`, `/${tenant.slug}/setores`];
   const cadastrosActive = cadastrosRoutes.some((r) => location.pathname.startsWith(r));
   const [cadastrosOpen, setCadastrosOpen] = useState(cadastrosActive);
 
@@ -193,6 +193,16 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                       </>
                     )}
                   </NavLink>
+                  {isSuperAdmin && (
+                    <NavLink to={`/${tenant.slug}/setores`} onClick={onClose} className={subNavLinkClass}>
+                      {({ isActive }) => (
+                        <>
+                          <Network className={cn("h-3.5 w-3.5 flex-shrink-0", isActive && "text-sidebar-primary")} />
+                          <span>Setores</span>
+                        </>
+                      )}
+                    </NavLink>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>

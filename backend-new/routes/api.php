@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
+use App\Http\Controllers\Api\SectorController;
 use App\Http\Controllers\Api\CompanyController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\ProductController;
@@ -62,6 +63,17 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::put('/{id}',          [CategoryController::class, 'update']);
         Route::delete('/{id}',       [CategoryController::class, 'destroy']);
         Route::patch('/{id}/toggle', [CategoryController::class, 'toggleActive']);
+    });
+
+    // ── Setores ────────────────────────────────────────────────────────────
+    // Organizam a equipe interna da VIXCard. Listar é liberado porque o
+    // cadastro de usuário precisa das opções; escrita é do super admin.
+    Route::get('/sectors', [SectorController::class, 'index']);
+    Route::prefix('sectors')->middleware('role:super_admin')->group(function () {
+        Route::post('/',             [SectorController::class, 'store']);
+        Route::put('/{id}',          [SectorController::class, 'update']);
+        Route::delete('/{id}',       [SectorController::class, 'destroy']);
+        Route::patch('/{id}/toggle', [SectorController::class, 'toggleActive']);
     });
 
     Route::get('/products', [ProductController::class, 'index']); // todos podem listar

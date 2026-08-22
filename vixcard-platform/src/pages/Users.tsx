@@ -34,12 +34,13 @@ const ROLE_LABELS: Record<UserRole, { label: string; variant: "default" | "accen
 
 const EMPTY_FORM = {
   name: "", email: "", role: "operator" as UserRole, tenantSlug: "", permissions: [] as Permission[], active: true, avatarUrl: "", password: "",
+  whatsapp: "", sectorIds: [] as string[],
 };
 
 export function Users() {
   const { user: currentUser } = useAuth();
   const tenant = useTenant();
-  const { users, companies, addUser, updateUser } = useData();
+  const { users, companies, sectors, addUser, updateUser } = useData();
   const { addLog } = useLog();
   const isSuperAdmin = currentUser?.role === "super_admin";
   const isTenantAdmin = currentUser?.role === "tenant_admin";
@@ -175,9 +176,20 @@ export function Users() {
       name: u.name, email: u.email, role: u.role,
       tenantSlug: u.tenantSlug, permissions: [...u.permissions], active: u.active, avatarUrl: u.avatarUrl ?? "",
       password: "",
+      whatsapp: u.whatsapp ?? "",
+      sectorIds: u.sectors.map((s) => s.id),
     });
     setEditId(u.id);
     setDialog("edit");
+  };
+
+  const toggleSector = (id: string) => {
+    setForm((f) => ({
+      ...f,
+      sectorIds: f.sectorIds.includes(id)
+        ? f.sectorIds.filter((s) => s !== id)
+        : [...f.sectorIds, id],
+    }));
   };
 
   const handleRoleChange = (role: UserRole) => {
@@ -344,6 +356,14 @@ export function Users() {
                         <span className="text-[10px] text-muted-foreground">{u.permissions.length} permissões</span>
                       </div>
 
+                      {u.sectors.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-3 -mt-1">
+                          {u.sectors.map((s) => (
+                            <Badge key={s.id} variant="muted" className="text-[10px]">{s.name}</Badge>
+                          ))}
+                        </div>
+                      )}
+
                       <div className="flex gap-2">
                         <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => openEdit(u)}>
                           <Pencil className="h-3 w-3" />Editar
@@ -412,6 +432,12 @@ export function Users() {
               </div>
 
               <div className="space-y-1.5">
+                <Label>Telefone / WhatsApp</Label>
+                <Input placeholder="(27) 99999-9999" type="tel" value={form.whatsapp}
+                       onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} />
+              </div>
+
+              <div className="space-y-1.5">
                 <Label>Perfil</Label>
                 <Select value={form.role} onValueChange={(v) => handleRoleChange(v as UserRole)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -451,6 +477,49 @@ export function Users() {
                 </div>
               )}
             </div>
+
+            {/* Setores — um usuário pode estar em mais de um */}
+            {sectors.length > 0 && (
+              <>
+                <Separator />
+                <div className="space-y-2">
+                  <Label>Setores</Label>
+                  <p className="text-[10px] text-muted-foreground -mt-1">
+                    O colaborador pode estar em mais de um setor. Os setores agrupam a equipe
+                    no painel de Pedidos e Kanban.
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {sectors
+                      .filter((s) => s.active || form.sectorIds.includes(s.id))
+                      .map((s) => {
+                        const marcado = form.sectorIds.includes(s.id);
+                        return (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => toggleSector(s.id)}
+                            className={cn(
+                              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all",
+                              marcado
+                                ? "bg-primary/10 border-primary/40 text-primary"
+                                : "border-border text-muted-foreground hover:bg-muted"
+                            )}
+                          >
+                            <span className={cn(
+                              "h-3.5 w-3.5 rounded flex items-center justify-center border-2 flex-shrink-0",
+                              marcado ? "bg-primary border-primary" : "border-border"
+                            )}>
+                              {marcado && <Check className="h-2.5 w-2.5 text-white" />}
+                            </span>
+                            {s.name}
+                            {!s.active && <span className="text-[9px] opacity-60">(inativo)</span>}
+                          </button>
+                        );
+                      })}
+                  </div>
+                </div>
+              </>
+            )}
 
             <Separator />
 

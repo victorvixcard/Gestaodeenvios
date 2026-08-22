@@ -52,7 +52,9 @@ class UserController extends Controller
             $query->where('tenant_slug', $request->tenant_slug);
         }
 
-        return response()->json($query->orderBy('name')->get()->makeHidden('password'));
+        return response()->json(
+            $query->with('sectors:id,name')->orderBy('name')->get()->makeHidden('password')
+        );
     }
 
     public function store(Request $request): JsonResponse
@@ -70,6 +72,8 @@ class UserController extends Controller
             'avatar_url'    => 'nullable|string',
             'permissions'   => 'nullable|array',
             'permissions.*' => 'string',
+            'sector_ids'    => 'nullable|array',
+            'sector_ids.*'  => 'integer|exists:sectors,id',
         ]);
 
         // Tenant admin só pode criar usuários no próprio tenant
@@ -93,13 +97,18 @@ class UserController extends Controller
             'active'          => true,
         ]);
 
+        // Um usuário pode estar em mais de um setor (ex.: Linha de impressão e Designer)
+        if ($request->has('sector_ids')) {
+            $user->sectors()->sync($request->sector_ids ?? []);
+        }
+
         AuditLog::record(
             'usuario_criado', 'Usuário', $user->id, $user->name,
             $actor, "Role: {$user->role} | Empresa: {$user->tenant_slug}"
         );
 
         return response()->json(array_merge(
-            $user->makeHidden('password')->toArray(),
+            $user->load('sectors:id,name')->makeHidden('password')->toArray(),
             ['plain_password' => $password]
         ), 201);
     }
@@ -123,6 +132,8 @@ class UserController extends Controller
             'avatar_url'    => 'nullable|string',
             'permissions'   => 'sometimes|array',
             'permissions.*' => 'string',
+            'sector_ids'    => 'sometimes|array',
+            'sector_ids.*'  => 'integer|exists:sectors,id',
         ]);
 
         $target->update($request->only(['name', 'email', 'role', 'whatsapp', 'avatar_url', 'permissions']));
@@ -131,11 +142,15 @@ class UserController extends Controller
             $target->update(['avatar_initials' => $this->initials($request->name)]);
         }
 
+        if ($request->has('sector_ids')) {
+            $target->sectors()->sync($request->sector_ids ?? []);
+        }
+
         AuditLog::record(
             'usuario_atualizado', 'Usuário', $target->id, $target->name, $actor
         );
 
-        return response()->json($target->fresh()->makeHidden('password'));
+        return response()->json($target->fresh()->load('sectors:id,name')->makeHidden('password'));
     }
 
     public function toggleActive(Request $request, string $id): JsonResponse

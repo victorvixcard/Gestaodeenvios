@@ -21,6 +21,9 @@ export function mapUser(u: Record<string, unknown>): User {
     avatarUrl: (u.avatar_url ?? u.avatarUrl) as string | undefined,
     active: Boolean(u.active),
     permissions: (u.permissions as Permission[]) ?? [],
+    whatsapp: (u.whatsapp as string | null) ?? undefined,
+    sectors: ((u.sectors as Array<{ id: number | string; name: string }> | null) ?? [])
+      .map((s) => ({ id: String(s.id), name: s.name })),
   }
 }
 
