@@ -115,6 +115,8 @@ export interface Company {
   logoUrl?: string;
   active: boolean;
   allowedProductIds: string[];
+  /** Colaboradores da VIXCard que atendem esta empresa. */
+  attendantIds: string[];
   createdAt: string;
 }
 

@@ -68,6 +68,7 @@ export function mapCompany(c: Record<string, unknown>): Company {
     logoUrl: (c.logoUrl ?? c.logo_url) as string | undefined,
     active: Boolean(c.active),
     allowedProductIds,
+    attendantIds: ((c.attendantIds as Array<string | number> | null) ?? []).map(String),
     createdAt: String(c.createdAt ?? c.created_at ?? new Date().toISOString()),
   }
 }

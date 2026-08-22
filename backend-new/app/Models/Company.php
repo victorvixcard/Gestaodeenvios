@@ -37,6 +37,15 @@ class Company extends Model
     }
 
     /**
+     * Colaboradores da VIXCard que atendem esta empresa. OS nova "cai" para
+     * eles: recebem o e-mail de abertura e o painel lateral filtra por eles.
+     */
+    public function attendants(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'company_user', 'company_slug', 'user_id');
+    }
+
+    /**
      * Prazo de entrega em dias úteis para um produto desta empresa.
      * Cai no padrão global quando o vínculo não tem prazo próprio.
      */

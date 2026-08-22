@@ -14,7 +14,7 @@ class CompanyController extends Controller
     public function index(): JsonResponse
     {
         $companies = Company::withCount('users')
-            ->with(['products' => fn($q) => $q->where('active', true)])
+            ->with(['products' => fn($q) => $q->where('active', true), 'attendants:users.id'])
             ->get()
             ->map(fn($c) => $this->formatCompany($c));
 
@@ -23,8 +23,33 @@ class CompanyController extends Controller
 
     public function show(string $slug): JsonResponse
     {
-        $company = Company::with(['users', 'products'])->findOrFail($slug);
+        $company = Company::with(['users', 'products', 'attendants:users.id'])->findOrFail($slug);
         return response()->json($this->formatCompany($company));
+    }
+
+    /**
+     * Define quais colaboradores atendem esta empresa. Aceita qualquer
+     * usuário ativo — na prática são os usuários do tenant vixcard.
+     */
+    public function syncAttendants(Request $request, string $slug): JsonResponse
+    {
+        $company = Company::findOrFail($slug);
+
+        $request->validate([
+            'user_ids'   => 'nullable|array',
+            'user_ids.*' => 'integer|exists:users,id',
+        ]);
+
+        $company->attendants()->sync($request->user_ids ?? []);
+
+        AuditLog::record(
+            'empresa_atendentes_atualizados', 'Empresa', $company->slug, $company->name,
+            $request->user(), count($request->user_ids ?? []) . ' atendente(s)'
+        );
+
+        return response()->json($this->formatCompany(
+            $company->fresh(['users', 'products', 'attendants'])
+        ));
     }
 
     /**
@@ -229,6 +254,9 @@ class CompanyController extends Controller
             'usersCount'   => $company->users_count ?? $company->users?->count() ?? 0,
             'users'        => $company->relationLoaded('users') ? $company->users : null,
             'products'     => $company->relationLoaded('products') ? $company->products : null,
+            'attendantIds' => $company->relationLoaded('attendants')
+                ? $company->attendants->pluck('id')->map(fn($i) => (string) $i)->values()
+                : null,
             'createdAt'    => $company->created_at,
         ];
     }

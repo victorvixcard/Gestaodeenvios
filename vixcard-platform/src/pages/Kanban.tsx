@@ -13,7 +13,11 @@ import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 import { useTenant } from "../contexts/TenantContext";
 import { useOrders } from "../contexts/OrdersContext";
+import { useData } from "../contexts/DataContext";
 import { ItemDeadlineBadge, OrderDeadlineSummary } from "../components/shared/ItemDeadlineBadge";
+import {
+  CollaboratorsPanel, tenantPassaNoFiltro, empresasDoUsuario, type SelecaoColab,
+} from "../components/shared/CollaboratorsPanel";
 import {
   StatusFilterChips, STATUS_FILTER_LABELS, type StatusFilterValue,
 } from "../components/shared/StatusFilterChips";
@@ -166,9 +170,12 @@ export function Kanban() {
   const { user } = useAuth();
   const tenant = useTenant();
   const { orders, updateStatus } = useOrders();
+  const { companies, users } = useData();
   const isSuperAdmin = user?.role === "super_admin";
+  const mostraPainel = isSuperAdmin && user?.tenantSlug === "vixcard";
 
   const [busca, setBusca] = useState("");
+  const [colab, setColab] = useState<SelecaoColab>(null);
   // "all" mostra as 6 colunas. Um status especifico mostra so aquela coluna —
   // e o equivalente a filtrar num quadro. "overdue" mantem as colunas mas so
   // com os cards em atraso.
@@ -190,6 +197,7 @@ export function Kanban() {
     const t = busca.toLowerCase().trim();
 
     return doTenant.filter((o) => {
+      if (!tenantPassaNoFiltro(colab, o.tenantSlug, companies, users)) return false;
       if (statusFilter === "overdue" && !orderIsOverdue(o.items, o.status)) return false;
       if (!t) return true;
       return o.id.toLowerCase().includes(t) ||
@@ -197,7 +205,7 @@ export function Kanban() {
              o.tenantName.toLowerCase().includes(t) ||
              o.requestedBy.toLowerCase().includes(t);
     });
-  }, [orders, isSuperAdmin, tenant.slug, busca, statusFilter]);
+  }, [orders, isSuperAdmin, tenant.slug, busca, statusFilter, colab, companies, users]);
 
   // Filtrar por um status especifico esconde as outras colunas
   const colunasVisiveis = useMemo(() => {
@@ -212,16 +220,24 @@ export function Kanban() {
     return m;
   }, [visiveis]);
 
-  // Contagem por status para os chips — mesma leitura da tela de Pedidos
+  // Contagem por status para os chips — mesma leitura da tela de Pedidos.
+  // Respeita o filtro de colaborador para os números baterem com o quadro.
   const statusCounts = useMemo(() => {
-    const doTenant = isSuperAdmin ? orders : orders.filter((o) => o.tenantSlug === tenant.slug);
+    const doTenant = (isSuperAdmin ? orders : orders.filter((o) => o.tenantSlug === tenant.slug))
+      .filter((o) => tenantPassaNoFiltro(colab, o.tenantSlug, companies, users));
     const c: Partial<Record<StatusFilterValue, number>> = {
       all: doTenant.length,
       overdue: doTenant.filter((o) => orderIsOverdue(o.items, o.status)).length,
     };
     doTenant.forEach((o) => { c[o.status] = (c[o.status] ?? 0) + 1; });
     return c;
-  }, [orders, isSuperAdmin, tenant.slug]);
+  }, [orders, isSuperAdmin, tenant.slug, colab, companies, users]);
+
+  // Badge de quantidade ao lado de cada nome no painel
+  const contadorOs = (userId: string) => {
+    const slugs = empresasDoUsuario(companies, userId);
+    return orders.filter((o) => slugs.has(o.tenantSlug)).length;
+  };
 
   const handleStart = (e: DragStartEvent) => {
     setArrastando(orders.find((o) => o.id === e.active.id) ?? null);
@@ -272,7 +288,11 @@ export function Kanban() {
   const totalAtraso = visiveis.filter((o) => orderIsOverdue(o.items, o.status)).length;
 
   return (
-    <div className="space-y-4">
+    <div className="flex gap-4 items-start">
+      {mostraPainel && (
+        <CollaboratorsPanel selecao={colab} onChange={setColab} contadorOs={contadorOs} />
+      )}
+      <div className="space-y-4 flex-1 min-w-0">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <p className="text-[11px] font-semibold tracking-wider text-primary uppercase">Operação</p>
@@ -350,6 +370,7 @@ export function Kanban() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }

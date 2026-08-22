@@ -168,6 +168,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       }));
     }
 
+    if (updates.attendantIds) {
+      promises.push(api.put(`/companies/${slug}/attendants`, {
+        user_ids: updates.attendantIds.map(Number),
+      }));
+    }
+
     if (updates.active !== undefined && updates.name === undefined) {
       promises.push(api.patch(`/companies/${slug}/toggle`, {}));
     }

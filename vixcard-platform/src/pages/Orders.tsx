@@ -9,8 +9,12 @@ import {
 import { useAuth } from "../contexts/AuthContext";
 import { useTenant } from "../contexts/TenantContext";
 import { useOrders } from "../contexts/OrdersContext";
+import { useData } from "../contexts/DataContext";
 import { StatusBadge } from "../components/shared/StatusBadge";
 import { StatusFilterChips, type StatusFilterValue } from "../components/shared/StatusFilterChips";
+import {
+  CollaboratorsPanel, tenantPassaNoFiltro, empresasDoUsuario, type SelecaoColab,
+} from "../components/shared/CollaboratorsPanel";
 import { ItemDeadlineBadge, OrderDeadlineSummary } from "../components/shared/ItemDeadlineBadge";
 import { orderIsOverdue } from "../lib/itemDeadline";
 import { Button } from "../components/ui/button";
@@ -173,6 +177,7 @@ export function Orders() {
   const { user } = useAuth();
   const tenant = useTenant();
   const { orders } = useOrders();
+  const { companies, users } = useData();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -181,19 +186,28 @@ export function Orders() {
   // Lista é o padrão: mostra mais OS por tela. A linha do tempo segue
   // disponível no botão ao lado.
   const [view, setView] = useState<"list" | "timeline">("list");
+  // Filtro do painel de colaboradores (só para admins da VIXCard)
+  const [colab, setColab] = useState<SelecaoColab>(null);
 
   const isSuperAdmin = user?.role === "super_admin";
+  const mostraPainel = isSuperAdmin && user?.tenantSlug === "vixcard";
 
   const tenantOrders = isSuperAdmin ? orders : orders.filter((o) => o.tenantSlug === tenant.slug);
 
-  const overdueCount = tenantOrders.filter((o) => orderIsOverdue(o.items, o.status)).length;
+  // O painel de colaboradores corta antes dos chips, para as contagens
+  // refletirem o que está em tela
+  const doColab = tenantOrders.filter((o) =>
+    tenantPassaNoFiltro(colab, o.tenantSlug, companies, users)
+  );
+
+  const overdueCount = doColab.filter((o) => orderIsOverdue(o.items, o.status)).length;
 
   // Contagem por status para os chips do filtro (ignora a busca de texto,
   // para os números não pularem enquanto o usuário digita)
-  const statusCounts: Partial<Record<StatusFilterValue, number>> = { all: tenantOrders.length, overdue: overdueCount };
-  tenantOrders.forEach((o) => { statusCounts[o.status] = (statusCounts[o.status] ?? 0) + 1; });
+  const statusCounts: Partial<Record<StatusFilterValue, number>> = { all: doColab.length, overdue: overdueCount };
+  doColab.forEach((o) => { statusCounts[o.status] = (statusCounts[o.status] ?? 0) + 1; });
 
-  const filtered = tenantOrders.filter((o) => {
+  const filtered = doColab.filter((o) => {
     const matchStatus =
       statusFilter === "all" ||
       (statusFilter === "overdue" ? orderIsOverdue(o.items, o.status) : o.status === statusFilter);
@@ -205,8 +219,18 @@ export function Orders() {
     return matchStatus && matchSearch;
   });
 
+  // Badge de quantidade ao lado de cada nome no painel
+  const contadorOs = (userId: string) => {
+    const slugs = empresasDoUsuario(companies, userId);
+    return tenantOrders.filter((o) => slugs.has(o.tenantSlug)).length;
+  };
+
   return (
-    <div className="space-y-5">
+    <div className="flex gap-4 items-start">
+      {mostraPainel && (
+        <CollaboratorsPanel selecao={colab} onChange={setColab} contadorOs={contadorOs} />
+      )}
+      <div className="space-y-5 flex-1 min-w-0">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -356,6 +380,7 @@ export function Orders() {
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 }

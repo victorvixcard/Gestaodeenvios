@@ -69,9 +69,19 @@ export function EmpresaDetalhe() {
   // chegava do DataContext e a tela morria em branco.
   const [savingDados, setSavingDados] = useState(false);
 
+  // Atendentes: colaboradores da VIXCard que cuidam desta empresa
+  const [attendantIds, setAttendantIds] = useState<string[]>(
+    () => company?.attendantIds ?? []
+  );
+  const [savingAttendants, setSavingAttendants] = useState(false);
+
   useEffect(() => {
     if (company) setSelectedProductIds(company.allowedProductIds);
   }, [company?.allowedProductIds.join(",")]);
+
+  useEffect(() => {
+    if (company) setAttendantIds(company.attendantIds);
+  }, [company?.attendantIds.join(",")]);
 
   const toggleProduct = (id: string) => {
     setSelectedProductIds((prev) =>
@@ -88,6 +98,24 @@ export function EmpresaDetalhe() {
       toast.error("Erro ao atualizar produtos. Tente novamente.");
     } finally {
       setSavingProducts(false);
+    }
+  };
+
+  const toggleAttendant = (id: string) => {
+    setAttendantIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleSaveAttendants = async () => {
+    setSavingAttendants(true);
+    try {
+      await updateCompany(company!.slug, { attendantIds });
+      toast.success("Atendentes atualizados!");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Erro ao atualizar atendentes.");
+    } finally {
+      setSavingAttendants(false);
     }
   };
 
@@ -207,6 +235,12 @@ export function EmpresaDetalhe() {
             <TabsTrigger value="catalogo" className="flex items-center gap-1.5">
               <Timer className="h-3.5 w-3.5" />
               Prazos e preços
+            </TabsTrigger>
+            <TabsTrigger value="atendentes">
+              Atendentes
+              <span className="ml-1.5 bg-primary/10 text-primary text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                {attendantIds.length}
+              </span>
             </TabsTrigger>
           </TabsList>
 
@@ -447,6 +481,66 @@ export function EmpresaDetalhe() {
           {/* ── Prazos e preços ── */}
           <TabsContent value="catalogo">
             <CompanyCatalogTab slug={company.slug} />
+          </TabsContent>
+
+          {/* ── Atendentes ── */}
+          <TabsContent value="atendentes">
+            <Card className="p-5 bg-gradient-card max-w-2xl">
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold">Quem atende esta empresa</h3>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Quando a {company.name} abrir uma OS, ela cai para os colaboradores
+                    marcados aqui: eles recebem o aviso e o painel de Pedidos/Kanban
+                    agrupa as demandas por atendente.
+                  </p>
+                </div>
+
+                {users.filter((u) => u.tenantSlug === "vixcard" && u.active).length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4">
+                    Nenhum colaborador da VIXCard cadastrado ainda.
+                  </p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {users
+                      .filter((u) => u.tenantSlug === "vixcard" && u.active)
+                      .map((u) => {
+                        const marcado = attendantIds.includes(u.id);
+                        return (
+                          <button
+                            key={u.id}
+                            type="button"
+                            onClick={() => toggleAttendant(u.id)}
+                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all border ${
+                              marcado ? "bg-primary/8 border-primary/30" : "border-border hover:bg-muted/60"
+                            }`}
+                          >
+                            <div className={`h-4 w-4 rounded flex items-center justify-center flex-shrink-0 border-2 ${
+                              marcado ? "bg-primary border-primary" : "border-border"
+                            }`}>
+                              {marcado && <Check className="h-2.5 w-2.5 text-white" />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium truncate">{u.name}</p>
+                              <p className="text-[10px] text-muted-foreground truncate">{u.email}</p>
+                            </div>
+                            <div className="flex gap-1 flex-shrink-0">
+                              {u.sectors.map((s) => (
+                                <Badge key={s.id} variant="muted" className="text-[9px]">{s.name}</Badge>
+                              ))}
+                            </div>
+                          </button>
+                        );
+                      })}
+                  </div>
+                )}
+
+                <Button variant="brand" onClick={handleSaveAttendants} className="w-full" disabled={savingAttendants}>
+                  <Save className="h-4 w-4" />
+                  {savingAttendants ? "Salvando..." : "Salvar Atendentes"}
+                </Button>
+              </div>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
