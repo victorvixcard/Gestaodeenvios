@@ -29,7 +29,7 @@ interface DataContextValue {
   deleteProduct: (id: string) => Promise<void>;
 
   companies: Company[];
-  addCompany: (data: Omit<Company, "slug" | "createdAt">) => Promise<void>;
+  addCompany: (data: Omit<Company, "slug" | "createdAt" | "attendantIds" | "timeline">) => Promise<void>;
   updateCompany: (slug: string, updates: Partial<Company>) => Promise<void>;
   setCompanyTimeline: (slug: string, steps: TimelineStep[] | null) => Promise<void>;
 
@@ -129,7 +129,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       .then(() => setProducts((prev) => prev.filter((x) => x.id !== id)));
 
   // ── Companies ─────────────────────────────────────────────────────────────
-  const addCompany = (data: Omit<Company, "slug" | "createdAt">): Promise<void> => {
+  const addCompany = (data: Omit<Company, "slug" | "createdAt" | "attendantIds" | "timeline">): Promise<void> => {
     const slug = data.name
       .toLowerCase()
       .normalize("NFD")

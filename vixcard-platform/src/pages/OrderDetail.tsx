@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
-  ArrowLeft, Play, CheckCircle2, Wrench, PackageCheck,
+  ArrowLeft, Play, CheckCircle2,
   XCircle, MessageSquarePlus, Send, Download, FileText, FileImage, File as FileIcon, Paperclip,
   MessageCircle, AlertTriangle, Undo2, RotateCcw, Trash2, Pencil, Plus, X,
 } from "lucide-react";
@@ -68,7 +68,7 @@ export function OrderDetail() {
   // Fluxo do PROPRIO pedido, congelado na criacao. Avancar/voltar percorre
   // essas etapas — pedido de fluxo curto pula direto o que nao tem.
   const steps = orderTimeline(order);
-  const stageOrder = steps.map((s) => s.status);
+  const stageOrder: OrderStatus[] = steps.map((s) => s.status);
   const rotulo = (status: string) =>
     steps.find((s) => s.status === status)?.label ?? status;
 

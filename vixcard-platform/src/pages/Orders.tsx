@@ -23,7 +23,7 @@ import { Card } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { formatDateShort } from "../lib/utils";
 import { cn } from "../lib/utils";
-import type { Order, OrderStatus } from "../types";
+import type { Order } from "../types";
 
 function OrderProgressBar({ order }: { order: Order }) {
   const isCancelled = order.status === "cancelled";
