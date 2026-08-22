@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\NovaOsMail;
 use App\Models\AuditLog;
 use App\Models\Company;
 use App\Models\Order;
@@ -11,6 +12,8 @@ use App\Services\BusinessDayService;
 use App\Services\WhatsAppService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 
 class OrderController extends Controller
@@ -135,6 +138,23 @@ class OrderController extends Controller
             'pedido_criado', 'Pedido', $order->id, $order->title, $user,
             count($request->items) . ' item(s) — Prazo: ' . $order->deadline->format('d/m/Y')
         );
+
+        // Aviso por e-mail aos atendentes da empresa. Falha de e-mail nunca
+        // pode derrubar a criação da OS — só registra no log.
+        try {
+            $atendentes = $company?->attendants()
+                ->where('users.active', true)
+                ->whereNotNull('users.email')
+                ->get() ?? collect();
+
+            foreach ($atendentes as $atendente) {
+                Mail::to($atendente->email)->send(
+                    new NovaOsMail($order->fresh('items'), $company->name)
+                );
+            }
+        } catch (\Throwable $e) {
+            Log::warning("Falha ao enviar e-mail de nova OS {$order->id}: {$e->getMessage()}");
+        }
 
         return response()->json($this->formatOrder($order->load(['items', 'events'])), 201);
     }

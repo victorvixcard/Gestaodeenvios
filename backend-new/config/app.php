@@ -86,6 +86,15 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | URL do frontend
+    |--------------------------------------------------------------------------
+    | Base dos links que saem em e-mail (ex.: "clique aqui e visualize a OS").
+    | Em producao e o mesmo dominio do APP_URL; em dev, a porta do Vite.
+    */
+    'frontend_url' => env('FRONTEND_URL', env('APP_URL', 'http://localhost:5175')),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------
     |
