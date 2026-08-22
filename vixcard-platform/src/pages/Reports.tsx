@@ -295,6 +295,26 @@ export function Reports() {
   const totalRevenue  = productSummary.reduce((s, r) => s + r.subtotal, 0);
   const totalProducts = productSummary.length;
 
+  // Quebra por empresa: com o filtro em "Todas", os KPIs saem somados e não
+  // dizem quem consumiu o quê. Este quadro responde isso sem trocar de filtro,
+  // e clicar numa linha foca o relatório inteiro naquela empresa.
+  const companySummary = useMemo(() => {
+    if (!isSuperAdmin) return [];
+    const map: Record<string, { slug: string; name: string; orders: number; pieces: number; total: number }> = {};
+    filteredOrders.forEach((o) => {
+      if (!map[o.tenantSlug]) {
+        map[o.tenantSlug] = { slug: o.tenantSlug, name: o.tenantName, orders: 0, pieces: 0, total: 0 };
+      }
+      map[o.tenantSlug].orders += 1;
+      o.items.forEach((item) => {
+        const p = products.find((x) => x.id === item.productId);
+        map[o.tenantSlug].pieces += item.quantity;
+        map[o.tenantSlug].total  += item.quantity * (p?.price ?? 0);
+      });
+    });
+    return Object.values(map).sort((a, b) => b.total - a.total);
+  }, [filteredOrders, products, isSuperAdmin]);
+
   const PERIOD_LABELS: Record<Period, string> = {
     today: "Hoje", week: "Esta semana", month: "Este mês",
     last30: "Últimos 30 dias", custom: "Personalizado",
@@ -417,6 +437,62 @@ export function Reports() {
           </motion.div>
         ))}
       </div>
+
+      {/* ── 0. Por empresa (super admin, filtro em "Todas") ── */}
+      {isSuperAdmin && companyFilter === "all" && companySummary.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold flex items-center gap-2">
+            <BarChart3 className="h-4 w-4 text-primary" />
+            Por empresa
+            <span className="text-xs text-muted-foreground font-normal">— clique numa linha para ver só aquela empresa</span>
+          </h2>
+          <Card className="overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-muted/40">
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Empresa</th>
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Pedidos</th>
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Peças</th>
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Valor total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {companySummary.map((row) => (
+                    <tr
+                      key={row.slug}
+                      className="border-b border-border/50 hover:bg-muted/40 transition-colors cursor-pointer"
+                      onClick={() => setCompanyFilter(row.slug)}
+                    >
+                      <td className="px-4 py-3 font-medium">{row.name}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{row.orders}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{formatQty(row.pieces)}</td>
+                      <td className="px-4 py-3 text-right font-bold tabular-nums">
+                        {row.total > 0 ? formatBRL(row.total) : <span className="opacity-40">—</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Aviso de foco em uma empresa, com volta rápida */}
+      {isSuperAdmin && companyFilter !== "all" && (
+        <div className="flex items-center gap-2 text-xs">
+          <Badge variant="outline" className="gap-1.5 py-1.5 px-3">
+            Vendo apenas: <strong>{companies.find((c) => c.slug === companyFilter)?.name ?? companyFilter}</strong>
+          </Badge>
+          <button
+            onClick={() => setCompanyFilter("all")}
+            className="text-primary font-semibold hover:underline"
+          >
+            Ver todas as empresas
+          </button>
+        </div>
+      )}
 
       {/* ── 1. Resumo por produto ── */}
       <div className="space-y-3">

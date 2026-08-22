@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
-  Plus, Search, Filter, ChevronRight, List, GitBranch,
+  Plus, Search, ChevronRight, List, GitBranch,
   ClipboardCheck, Play, Wrench, PackageCheck, CheckCircle2,
   XCircle, Calendar, User, Package,
 } from "lucide-react";
@@ -10,29 +10,16 @@ import { useAuth } from "../contexts/AuthContext";
 import { useTenant } from "../contexts/TenantContext";
 import { useOrders } from "../contexts/OrdersContext";
 import { StatusBadge } from "../components/shared/StatusBadge";
+import { StatusFilterChips, type StatusFilterValue } from "../components/shared/StatusFilterChips";
 import { ItemDeadlineBadge, OrderDeadlineSummary } from "../components/shared/ItemDeadlineBadge";
 import { orderIsOverdue } from "../lib/itemDeadline";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Card } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "../components/ui/select";
 import { formatDateShort } from "../lib/utils";
 import { cn } from "../lib/utils";
 import type { Order, OrderStatus } from "../types";
-
-const STATUS_LABELS: Record<OrderStatus | "all" | "overdue", string> = {
-  all: "Todos",
-  overdue: "⚠ Em Atraso",
-  pending: "Pendente",
-  started: "Iniciado",
-  production: "Em Produção",
-  finishing: "Acabamento",
-  done: "Finalizado",
-  cancelled: "Cancelado",
-};
 
 const STAGES: { key: OrderStatus; label: string; short: string; Icon: React.ElementType }[] = [
   { key: "pending",    label: "Recebido",   short: "Recebido",  Icon: ClipboardCheck },
@@ -191,13 +178,20 @@ export function Orders() {
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>(searchParams.get("status") ?? "all");
-  const [view, setView] = useState<"list" | "timeline">("timeline");
+  // Lista é o padrão: mostra mais OS por tela. A linha do tempo segue
+  // disponível no botão ao lado.
+  const [view, setView] = useState<"list" | "timeline">("list");
 
   const isSuperAdmin = user?.role === "super_admin";
 
   const tenantOrders = isSuperAdmin ? orders : orders.filter((o) => o.tenantSlug === tenant.slug);
 
   const overdueCount = tenantOrders.filter((o) => orderIsOverdue(o.items, o.status)).length;
+
+  // Contagem por status para os chips do filtro (ignora a busca de texto,
+  // para os números não pularem enquanto o usuário digita)
+  const statusCounts: Partial<Record<StatusFilterValue, number>> = { all: tenantOrders.length, overdue: overdueCount };
+  tenantOrders.forEach((o) => { statusCounts[o.status] = (statusCounts[o.status] ?? 0) + 1; });
 
   const filtered = tenantOrders.filter((o) => {
     const matchStatus =
@@ -258,8 +252,8 @@ export function Orders() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
+      <div className="space-y-3">
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Buscar por título, número da OS ou solicitante..."
@@ -268,26 +262,7 @@ export function Orders() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-[200px]">
-            <Filter className="h-4 w-4 mr-2 text-muted-foreground" />
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {(Object.keys(STATUS_LABELS) as (OrderStatus | "all" | "overdue")[]).map((s) => (
-              <SelectItem key={s} value={s}>
-                <span className="flex items-center gap-2">
-                  {STATUS_LABELS[s]}
-                  {s === "overdue" && overdueCount > 0 && (
-                    <span className="ml-1 bg-destructive text-destructive-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                      {overdueCount}
-                    </span>
-                  )}
-                </span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <StatusFilterChips value={statusFilter} onChange={setStatusFilter} counts={statusCounts} />
       </div>
 
       {/* List view */}
