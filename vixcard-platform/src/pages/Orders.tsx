@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   Plus, Search, ChevronRight, List, GitBranch,
-  ClipboardCheck, Play, Wrench, PackageCheck, CheckCircle2,
   XCircle, Calendar, User, Package,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
@@ -17,6 +16,7 @@ import {
 } from "../components/shared/CollaboratorsPanel";
 import { ItemDeadlineBadge, OrderDeadlineSummary } from "../components/shared/ItemDeadlineBadge";
 import { orderIsOverdue } from "../lib/itemDeadline";
+import { orderTimeline, stepState, STATUS_ICON } from "../lib/timeline";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Card } from "../components/ui/card";
@@ -25,19 +25,11 @@ import { formatDateShort } from "../lib/utils";
 import { cn } from "../lib/utils";
 import type { Order, OrderStatus } from "../types";
 
-const STAGES: { key: OrderStatus; label: string; short: string; Icon: React.ElementType }[] = [
-  { key: "pending",    label: "Recebido",   short: "Recebido",  Icon: ClipboardCheck },
-  { key: "started",    label: "Iniciado",   short: "Iniciado",  Icon: Play },
-  { key: "production", label: "Produção",   short: "Produção",  Icon: Wrench },
-  { key: "finishing",  label: "Acabamento", short: "Acabam.",   Icon: PackageCheck },
-  { key: "done",       label: "Entregue",   short: "Entregue",  Icon: CheckCircle2 },
-];
-
-const STAGE_ORDER = ["pending", "started", "production", "finishing", "done"];
-
 function OrderProgressBar({ order }: { order: Order }) {
   const isCancelled = order.status === "cancelled";
-  const currentIndex = isCancelled ? -1 : STAGE_ORDER.indexOf(order.status);
+  // Fluxo do PROPRIO pedido, congelado na criacao — pedidos de empresas
+  // com linha do tempo personalizada mostram as etapas delas
+  const steps = orderTimeline(order);
 
   if (isCancelled) {
     return (
@@ -53,14 +45,15 @@ function OrderProgressBar({ order }: { order: Order }) {
 
   return (
     <div className="flex items-center gap-0 w-full">
-      {STAGES.map((stage, i) => {
-        const isCompleted = i < currentIndex;
-        const isCurrent = i === currentIndex;
-        const isPending = i > currentIndex;
-        const Icon = stage.Icon;
+      {steps.map((stage, i) => {
+        const estado = stepState(stage, order.status);
+        const isCompleted = estado === "done";
+        const isCurrent = estado === "current";
+        const isPending = estado === "pending";
+        const Icon = STATUS_ICON[stage.status];
 
         return (
-          <div key={stage.key} className="flex items-center flex-1 min-w-0">
+          <div key={stage.status} className="flex items-center flex-1 min-w-0">
             {/* Stage node */}
             <div className="flex flex-col items-center gap-1 flex-shrink-0">
               <div
@@ -81,14 +74,14 @@ function OrderProgressBar({ order }: { order: Order }) {
                   isPending && "text-muted-foreground/40"
                 )}
               >
-                {stage.short}
+                {stage.label}
               </span>
             </div>
 
             {/* Connector line (not after last) */}
-            {i < STAGES.length - 1 && (
+            {i < steps.length - 1 && (
               <div className="flex-1 h-0.5 mx-1 rounded-full transition-all"
-                style={{ background: i < currentIndex ? "hsl(var(--primary))" : "hsl(var(--border))" }}
+                style={{ background: isCompleted ? "hsl(var(--primary))" : "hsl(var(--border))" }}
               />
             )}
           </div>

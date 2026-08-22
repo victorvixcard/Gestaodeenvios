@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
-import type { Product, Company, User, Sector, Papel, Permission, UserRole } from "../types";
+import type { Product, Company, User, Sector, Papel, Permission, UserRole, TimelineStep } from "../types";
 import { api } from "../lib/api";
 import { mapProduct, mapCompany, mapUser } from "../lib/mappers";
 import { useAuth } from "./AuthContext";
@@ -31,6 +31,7 @@ interface DataContextValue {
   companies: Company[];
   addCompany: (data: Omit<Company, "slug" | "createdAt">) => Promise<void>;
   updateCompany: (slug: string, updates: Partial<Company>) => Promise<void>;
+  setCompanyTimeline: (slug: string, steps: TimelineStep[] | null) => Promise<void>;
 
   users: User[];
   addUser: (data: Omit<User, "id" | "avatarInitials" | "sectors"> & { password?: string; sectorIds?: string[]; roleId?: string }) => Promise<Record<string, unknown>>;
@@ -184,6 +185,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  // Linha do tempo da empresa: null volta ao fluxo padrao. So afeta OS
+  // futuras — o pedido congela o fluxo vigente na criacao.
+  const setCompanyTimeline = async (slug: string, steps: TimelineStep[] | null): Promise<void> => {
+    const fresh = await api.put<Record<string, unknown>>(`/companies/${slug}/timeline`, { timeline: steps });
+    setCompanies((prev) => prev.map((x) => (x.slug === slug ? mapCompany(fresh) : x)));
+  };
+
   // ── Users ─────────────────────────────────────────────────────────────────
   const addUser = async (data: Omit<User, "id" | "avatarInitials" | "sectors"> & { password?: string; sectorIds?: string[]; roleId?: string }): Promise<Record<string, unknown>> => {
     const u = await api.post<Record<string, unknown>>('/users', {
@@ -237,7 +245,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   return (
     <DataContext.Provider value={{
       products, addProduct, updateProduct, deleteProduct,
-      companies, addCompany, updateCompany,
+      companies, addCompany, updateCompany, setCompanyTimeline,
       users, addUser, updateUser,
       sectors, reloadSectors,
       papeis, reloadPapeis,

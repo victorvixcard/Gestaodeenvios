@@ -17,6 +17,7 @@ const CHIPS: { key: StatusFilterValue; label: string; ativo: string; dot?: strin
   { key: "started",    label: "Iniciado",    ativo: "bg-blue-600 text-white border-blue-600",       dot: "bg-blue-500" },
   { key: "production", label: "Em Produção", ativo: "bg-violet-600 text-white border-violet-600",   dot: "bg-violet-500" },
   { key: "finishing",  label: "Acabamento",  ativo: "bg-amber-500 text-white border-amber-500",     dot: "bg-amber-400" },
+  { key: "shipped",    label: "Enviado",     ativo: "bg-cyan-600 text-white border-cyan-600",       dot: "bg-cyan-500" },
   { key: "done",       label: "Finalizado",  ativo: "bg-emerald-600 text-white border-emerald-600", dot: "bg-emerald-500" },
   { key: "cancelled",  label: "Cancelado",   ativo: "bg-zinc-600 text-white border-zinc-600",       dot: "bg-zinc-400" },
 ];

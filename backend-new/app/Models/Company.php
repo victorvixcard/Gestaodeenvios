@@ -14,10 +14,12 @@ class Company extends Model
 
     protected $fillable = [
         'slug', 'name', 'logo_color', 'logo_initials', 'logo_url', 'active',
+        'timeline',
     ];
 
     protected $casts = [
-        'active' => 'boolean',
+        'active'   => 'boolean',
+        'timeline' => 'array',
     ];
 
     public function users(): HasMany

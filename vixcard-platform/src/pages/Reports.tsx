@@ -28,6 +28,7 @@ const STATUS_LABEL: Record<OrderStatus, string> = {
   started:    "Iniciado",
   production: "Em Produção",
   finishing:  "Acabamento",
+  shipped:    "Enviado",
   done:       "Finalizado",
   cancelled:  "Cancelado",
 };
@@ -37,6 +38,7 @@ const STATUS_VARIANT: Record<OrderStatus, string> = {
   started:    "bg-primary/15 text-primary",
   production: "bg-accent/15 text-accent",
   finishing:  "bg-indigo-500/15 text-indigo-600",
+  shipped:    "bg-cyan-500/15 text-cyan-600",
   done:       "bg-success/15 text-success",
   cancelled:  "bg-destructive/15 text-destructive",
 };

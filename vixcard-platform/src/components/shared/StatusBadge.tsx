@@ -6,6 +6,7 @@ const STATUS_CONFIG: Record<OrderStatus, { label: string; active: boolean }> = {
   started:    { label: "Iniciado",     active: true  },
   production: { label: "Em Produção",  active: true  },
   finishing:  { label: "Acabamento",   active: true  },
+  shipped:    { label: "Enviado",      active: true  },
   done:       { label: "Finalizado",   active: false },
   cancelled:  { label: "Cancelado",    active: false },
 };

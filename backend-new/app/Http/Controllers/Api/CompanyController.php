@@ -28,6 +28,58 @@ class CompanyController extends Controller
     }
 
     /**
+     * Define a linha do tempo (fluxo de etapas) da empresa. Recebido e
+     * Entregue são obrigatórios; as etapas do meio a empresa escolhe e
+     * pode renomear. Enviar null volta ao fluxo padrão.
+     *
+     * Só afeta OS criadas DEPOIS: o pedido congela o fluxo vigente na
+     * criação, mesma regra dos prazos e preços.
+     */
+    public function syncTimeline(Request $request, string $slug): JsonResponse
+    {
+        $company = Company::findOrFail($slug);
+
+        $request->validate([
+            'timeline'          => 'nullable|array|min:2',
+            'timeline.*.status' => 'required_with:timeline|in:pending,started,production,finishing,shipped,done',
+            'timeline.*.label'  => 'required_with:timeline|string|max:40',
+        ]);
+
+        $steps = $request->timeline;
+
+        if ($steps !== null) {
+            $statuses = array_column($steps, 'status');
+            if (count($statuses) !== count(array_unique($statuses))) {
+                return response()->json(['message' => 'Cada etapa só pode aparecer uma vez.'], 422);
+            }
+            if ($statuses[0] !== 'pending' || end($statuses) !== 'done') {
+                return response()->json(['message' => 'O fluxo precisa começar em Recebido e terminar em Entregue.'], 422);
+            }
+            // Mantém a ordem canônica das etapas intermediárias — o Kanban
+            // depende dela para as colunas fazerem sentido
+            $canonica  = ['pending', 'started', 'production', 'finishing', 'shipped', 'done'];
+            $posicoes  = array_map(fn($s) => array_search($s, $canonica), $statuses);
+            $ordenadas = $posicoes;
+            sort($ordenadas);
+            if ($posicoes !== $ordenadas) {
+                return response()->json(['message' => 'As etapas devem seguir a ordem do fluxo de produção.'], 422);
+            }
+        }
+
+        $company->update(['timeline' => $steps]);
+
+        AuditLog::record(
+            'empresa_fluxo_atualizado', 'Empresa', $company->slug, $company->name,
+            $request->user(),
+            $steps === null ? 'Fluxo padrão restaurado' : count($steps) . ' etapa(s)'
+        );
+
+        return response()->json($this->formatCompany(
+            $company->fresh(['users', 'products', 'attendants'])
+        ));
+    }
+
+    /**
      * Define quais colaboradores atendem esta empresa. Aceita qualquer
      * usuário ativo — na prática são os usuários do tenant vixcard.
      */
@@ -257,6 +309,7 @@ class CompanyController extends Controller
             'attendantIds' => $company->relationLoaded('attendants')
                 ? $company->attendants->pluck('id')->map(fn($i) => (string) $i)->values()
                 : null,
+            'timeline'     => $company->timeline,
             'createdAt'    => $company->created_at,
         ];
     }

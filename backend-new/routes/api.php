@@ -114,6 +114,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
         // Colaboradores que atendem a empresa (OS nova cai para eles)
         Route::put('/{slug}/attendants', [CompanyController::class, 'syncAttendants']);
 
+        // Linha do tempo (fluxo de etapas) da empresa — null volta ao padrão
+        Route::put('/{slug}/timeline', [CompanyController::class, 'syncTimeline']);
+
         // Catálogo da empresa: prazo e preço de cada produto liberado
         Route::get('/{slug}/catalog', [CompanyController::class, 'catalog']);
         Route::put('/{slug}/catalog', [CompanyController::class, 'syncCatalog']);

@@ -29,17 +29,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "../components/ui/select";
 import { formatDate } from "../lib/utils";
+import { orderTimeline, STATUS_ICON } from "../lib/timeline";
 import type { OrderItem, OrderStatus } from "../types";
 
-const STAGES: { key: OrderStatus; label: string; icon: React.ElementType }[] = [
-  { key: "pending",    label: "Recebido",   icon: CheckCircle2 },
-  { key: "started",    label: "Iniciado",   icon: Play },
-  { key: "production", label: "Produção",   icon: Wrench },
-  { key: "finishing",  label: "Acabamento", icon: PackageCheck },
-  { key: "done",       label: "Entregue",   icon: CheckCircle2 },
-];
-
-const STAGE_ORDER = ["pending", "started", "production", "finishing", "done"];
 
 export function OrderDetail() {
   const { id } = useParams<{ id: string }>();
@@ -73,7 +65,14 @@ export function OrderDetail() {
     );
   }
 
-  const currentStageIndex = STAGE_ORDER.indexOf(order.status);
+  // Fluxo do PROPRIO pedido, congelado na criacao. Avancar/voltar percorre
+  // essas etapas — pedido de fluxo curto pula direto o que nao tem.
+  const steps = orderTimeline(order);
+  const stageOrder = steps.map((s) => s.status);
+  const rotulo = (status: string) =>
+    steps.find((s) => s.status === status)?.label ?? status;
+
+  const currentStageIndex = stageOrder.indexOf(order.status);
   const isSuperAdmin = user?.role === "super_admin";
   const isCancelled = order.status === "cancelled";
   const isDone = order.status === "done";
@@ -96,11 +95,11 @@ export function OrderDetail() {
   };
 
   const handleAdvance = async () => {
-    const nextIndex = STAGE_ORDER.indexOf(order.status) + 1;
-    if (nextIndex >= STAGE_ORDER.length) return;
-    const nextStatus = STAGE_ORDER[nextIndex] as OrderStatus;
-    const prevLabel = STAGES.find((s) => s.key === order.status)?.label ?? order.status;
-    const nextLabel = STAGES.find((s) => s.key === nextStatus)?.label ?? nextStatus;
+    const nextIndex = stageOrder.indexOf(order.status) + 1;
+    if (nextIndex >= stageOrder.length || nextIndex === 0) return;
+    const nextStatus = stageOrder[nextIndex] as OrderStatus;
+    const prevLabel = rotulo(order.status);
+    const nextLabel = rotulo(nextStatus);
     try {
       await updateStatus(order.id, nextStatus, undefined, user?.name);
       addLog({ ...actor, action: "pedido_status", entityType: "Pedido", entityId: order.id, entityName: order.title, details: `Status: ${prevLabel} → ${nextLabel}` });
@@ -112,11 +111,11 @@ export function OrderDetail() {
 
   // Super admin: voltar uma etapa no fluxo
   const handleGoBack = async () => {
-    const prevIndex = STAGE_ORDER.indexOf(order.status) - 1;
+    const prevIndex = stageOrder.indexOf(order.status) - 1;
     if (prevIndex < 0) return;
-    const prevStatus = STAGE_ORDER[prevIndex] as OrderStatus;
-    const currentLabel = STAGES.find((s) => s.key === order.status)?.label ?? order.status;
-    const prevLabel = STAGES.find((s) => s.key === prevStatus)?.label ?? prevStatus;
+    const prevStatus = stageOrder[prevIndex] as OrderStatus;
+    const currentLabel = rotulo(order.status);
+    const prevLabel = rotulo(prevStatus);
     try {
       await updateStatus(order.id, prevStatus, undefined, user?.name);
       addLog({ ...actor, action: "pedido_status", entityType: "Pedido", entityId: order.id, entityName: order.title, details: `Status revertido: ${currentLabel} → ${prevLabel}` });
@@ -259,12 +258,12 @@ export function OrderDetail() {
       {!isCancelled && (
         <Card className="p-4">
           <div className="flex items-center gap-1 overflow-x-auto pb-1">
-            {STAGES.map((stage, i) => {
+            {steps.map((stage, i) => {
               const done = currentStageIndex > i;
               const active = currentStageIndex === i;
-              const StageIcon = stage.icon;
+              const StageIcon = STATUS_ICON[stage.status];
               return (
-                <div key={stage.key} className="flex items-center gap-1 min-w-0">
+                <div key={stage.status} className="flex items-center gap-1 min-w-0">
                   <div className="flex flex-col items-center gap-1 flex-shrink-0">
                     <div
                       className={[
@@ -283,7 +282,7 @@ export function OrderDetail() {
                       {stage.label}
                     </span>
                   </div>
-                  {i < STAGES.length - 1 && (
+                  {i < steps.length - 1 && (
                     <div className={[
                       "flex-1 h-0.5 rounded-full min-w-[16px]",
                       done ? "bg-success" : "bg-border",
@@ -465,7 +464,7 @@ export function OrderDetail() {
                     className="w-full"
                     variant="brand"
                     onClick={handleAdvance}
-                    disabled={currentStageIndex >= STAGE_ORDER.length - 1}
+                    disabled={currentStageIndex >= stageOrder.length - 1}
                   >
                     <Play className="h-4 w-4" />
                     {currentStageIndex === 0 ? "▶ START — Iniciar Produção" : "Avançar Etapa"}

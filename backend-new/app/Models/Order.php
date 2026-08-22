@@ -17,13 +17,34 @@ class Order extends Model
     protected $fillable = [
         'id', 'tenant_slug', 'title', 'status',
         'requested_by', 'assigned_to', 'cancel_reason',
-        'deadline', 'files',
+        'deadline', 'files', 'timeline',
     ];
 
     protected $casts = [
         'deadline' => 'date',
         'files'    => 'array',
+        'timeline' => 'array',
     ];
+
+    /**
+     * Fluxo padrão de etapas. Empresa sem fluxo próprio usa este; o fluxo
+     * vigente é congelado em orders.timeline na criação do pedido.
+     */
+    public const DEFAULT_TIMELINE = [
+        ['status' => 'pending',    'label' => 'Recebido'],
+        ['status' => 'started',    'label' => 'Iniciado'],
+        ['status' => 'production', 'label' => 'Produção'],
+        ['status' => 'finishing',  'label' => 'Acabamento'],
+        ['status' => 'shipped',    'label' => 'Envio ao cliente'],
+        ['status' => 'done',       'label' => 'Entregue'],
+    ];
+
+    /** Statuses do fluxo deste pedido, na ordem (sem cancelled). */
+    public function timelineStatuses(): array
+    {
+        $steps = $this->timeline ?: self::DEFAULT_TIMELINE;
+        return array_column($steps, 'status');
+    }
 
     public function company(): BelongsTo
     {

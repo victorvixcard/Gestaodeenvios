@@ -22,7 +22,8 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "../components/ui/dialog";
 import { AvatarUpload } from "../components/shared/AvatarUpload";
-import type { User } from "../types";
+import { DEFAULT_TIMELINE } from "../lib/timeline";
+import type { User, TimelineStep } from "../types";
 
 const PRESET_COLORS = [
   "#1C508A", "#0F7A5A", "#00875A", "#003DA5",
@@ -39,7 +40,7 @@ export function EmpresaDetalhe() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { companies, products, users, updateCompany } = useData();
+  const { companies, products, users, updateCompany, setCompanyTimeline } = useData();
   const { addLog } = useLog();
 
   const company = companies.find((c) => c.slug === slug);
@@ -75,6 +76,21 @@ export function EmpresaDetalhe() {
   );
   const [savingAttendants, setSavingAttendants] = useState(false);
 
+  // Editor da linha do tempo: todas as etapas do padrao, marcando quais o
+  // cliente usa e com o rotulo dele. Recebido e Entregue sao obrigatorias.
+  const montarFluxo = (timeline: TimelineStep[] | null) =>
+    DEFAULT_TIMELINE.map((padrao) => {
+      const proprio = timeline?.find((s) => s.status === padrao.status);
+      return {
+        status: padrao.status,
+        label: proprio?.label ?? padrao.label,
+        ativo: timeline ? !!proprio : true,
+        obrigatorio: padrao.status === "pending" || padrao.status === "done",
+      };
+    });
+  const [fluxo, setFluxo] = useState(() => montarFluxo(company?.timeline ?? null));
+  const [savingFluxo, setSavingFluxo] = useState(false);
+
   useEffect(() => {
     if (company) setSelectedProductIds(company.allowedProductIds);
   }, [company?.allowedProductIds.join(",")]);
@@ -82,6 +98,10 @@ export function EmpresaDetalhe() {
   useEffect(() => {
     if (company) setAttendantIds(company.attendantIds);
   }, [company?.attendantIds.join(",")]);
+
+  useEffect(() => {
+    if (company) setFluxo(montarFluxo(company.timeline));
+  }, [JSON.stringify(company?.timeline)]);
 
   const toggleProduct = (id: string) => {
     setSelectedProductIds((prev) =>
@@ -116,6 +136,38 @@ export function EmpresaDetalhe() {
       toast.error(err instanceof ApiError ? err.message : "Erro ao atualizar atendentes.");
     } finally {
       setSavingAttendants(false);
+    }
+  };
+
+  const handleSaveFluxo = async () => {
+    const ativos = fluxo.filter((s) => s.ativo);
+    if (ativos.some((s) => !s.label.trim())) {
+      toast.error("Toda etapa ativa precisa de um nome.");
+      return;
+    }
+    setSavingFluxo(true);
+    try {
+      await setCompanyTimeline(
+        company!.slug,
+        ativos.map((s) => ({ status: s.status, label: s.label.trim() }))
+      );
+      toast.success("Linha do tempo atualizada! Vale para as próximas OS.");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Erro ao salvar a linha do tempo.");
+    } finally {
+      setSavingFluxo(false);
+    }
+  };
+
+  const handleRestaurarFluxo = async () => {
+    setSavingFluxo(true);
+    try {
+      await setCompanyTimeline(company!.slug, null);
+      toast.success("Fluxo padrão restaurado.");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Erro ao restaurar o fluxo.");
+    } finally {
+      setSavingFluxo(false);
     }
   };
 
@@ -242,6 +294,7 @@ export function EmpresaDetalhe() {
                 {attendantIds.length}
               </span>
             </TabsTrigger>
+            <TabsTrigger value="fluxo">Linha do tempo</TabsTrigger>
           </TabsList>
 
           {/* ── Dados Cadastrais ── */}
@@ -539,6 +592,77 @@ export function EmpresaDetalhe() {
                   <Save className="h-4 w-4" />
                   {savingAttendants ? "Salvando..." : "Salvar Atendentes"}
                 </Button>
+              </div>
+            </Card>
+          </TabsContent>
+
+          {/* ── Linha do tempo ── */}
+          <TabsContent value="fluxo">
+            <Card className="p-5 bg-gradient-card max-w-2xl">
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold">Fluxo de etapas da {company.name}</h3>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Marque as etapas que fazem parte do fluxo deste cliente e renomeie como
+                    preferir. Recebido e Entregue são obrigatórias. <strong className="text-foreground">Vale
+                    só para OS novas</strong> — pedido já aberto mantém a linha do tempo com que nasceu.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  {fluxo.map((etapa, i) => (
+                    <div
+                      key={etapa.status}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-lg border transition-all ${
+                        etapa.ativo ? "bg-primary/5 border-primary/25" : "border-border opacity-60"
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        disabled={etapa.obrigatorio}
+                        onClick={() =>
+                          setFluxo((f) => f.map((s, j) => (j === i ? { ...s, ativo: !s.ativo } : s)))
+                        }
+                        className={`h-4 w-4 rounded flex items-center justify-center flex-shrink-0 border-2 ${
+                          etapa.ativo ? "bg-primary border-primary" : "border-border"
+                        } ${etapa.obrigatorio ? "cursor-not-allowed opacity-70" : ""}`}
+                        title={etapa.obrigatorio ? "Etapa obrigatória" : undefined}
+                      >
+                        {etapa.ativo && <Check className="h-2.5 w-2.5 text-white" />}
+                      </button>
+
+                      <span className="text-[10px] font-mono text-muted-foreground w-6 flex-shrink-0">
+                        {i + 1}º
+                      </span>
+
+                      <Input
+                        value={etapa.label}
+                        disabled={!etapa.ativo}
+                        maxLength={40}
+                        onChange={(e) =>
+                          setFluxo((f) => f.map((s, j) => (j === i ? { ...s, label: e.target.value } : s)))
+                        }
+                        className="h-8 text-xs"
+                      />
+
+                      {etapa.obrigatorio && (
+                        <Badge variant="muted" className="text-[9px] flex-shrink-0">obrigatória</Badge>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex gap-2">
+                  <Button variant="brand" onClick={handleSaveFluxo} className="flex-1" disabled={savingFluxo}>
+                    <Save className="h-4 w-4" />
+                    {savingFluxo ? "Salvando..." : "Salvar Linha do Tempo"}
+                  </Button>
+                  {company.timeline && (
+                    <Button variant="outline" onClick={handleRestaurarFluxo} disabled={savingFluxo}>
+                      Restaurar padrão
+                    </Button>
+                  )}
+                </div>
               </div>
             </Card>
           </TabsContent>

@@ -14,8 +14,15 @@ export type OrderStatus =
   | "started"
   | "production"
   | "finishing"
+  | "shipped"
   | "done"
   | "cancelled";
+
+/** Uma etapa da linha do tempo: status canônico + rótulo exibido. */
+export interface TimelineStep {
+  status: Exclude<OrderStatus, "cancelled">;
+  label: string;
+}
 
 export interface Tenant {
   slug: string;
@@ -117,6 +124,8 @@ export interface Company {
   allowedProductIds: string[];
   /** Colaboradores da VIXCard que atendem esta empresa. */
   attendantIds: string[];
+  /** Fluxo de etapas da empresa; null = fluxo padrao. */
+  timeline: TimelineStep[] | null;
   createdAt: string;
 }
 
@@ -180,6 +189,8 @@ export interface Order {
   tenantName: string;
   title: string;
   status: OrderStatus;
+  /** Fluxo congelado na criacao; null = padrao. */
+  timeline?: TimelineStep[] | null;
   items: OrderItem[];
   notes: OrderNote[];
   events: OrderEvent[];

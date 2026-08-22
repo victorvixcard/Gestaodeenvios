@@ -6,7 +6,7 @@ import {
   type DragEndEvent, type DragStartEvent,
 } from "@dnd-kit/core";
 import {
-  ClipboardCheck, Play, Wrench, PackageCheck, CheckCircle2, XCircle,
+  ClipboardCheck, Play, Wrench, PackageCheck, Truck, CheckCircle2, XCircle,
   Search, User, GripVertical, Building2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -38,6 +38,7 @@ const COLUNAS: { key: OrderStatus; label: string; Icon: React.ElementType; cor: 
   { key: "started",    label: "Iniciado",   Icon: Play,           cor: "border-t-blue-400" },
   { key: "production", label: "Produção",   Icon: Wrench,         cor: "border-t-violet-400" },
   { key: "finishing",  label: "Acabamento", Icon: PackageCheck,   cor: "border-t-amber-400" },
+  { key: "shipped",    label: "Enviado",    Icon: Truck,          cor: "border-t-cyan-400" },
   { key: "done",       label: "Entregue",   Icon: CheckCircle2,   cor: "border-t-emerald-400" },
   { key: "cancelled",  label: "Cancelado",  Icon: XCircle,        cor: "border-t-red-400" },
 ];
@@ -129,7 +130,7 @@ function Coluna({ col, orders, isSuperAdmin }: {
     // flex-1 com mínimo: as colunas dividem a largura disponível e só entram em
     // rolagem quando a tela é estreita demais. Largura fixa fazia a última coluna
     // ficar fora da tela, e arrastar para algo invisível é uma experiência ruim.
-    <div className="flex flex-col flex-1 min-w-[178px] max-w-[300px]">
+    <div className="flex flex-col flex-1 min-w-[148px] max-w-[300px]">
       <div className={cn("rounded-t-xl border-t-4 bg-muted/40 px-3 py-2.5", col.cor)}>
         <div className="flex items-center gap-2">
           <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />

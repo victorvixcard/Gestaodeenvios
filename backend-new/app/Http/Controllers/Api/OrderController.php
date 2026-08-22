@@ -80,20 +80,24 @@ class OrderController extends Controller
             'items.*.selected_variations' => 'nullable|array',
         ]);
 
-        $user  = $request->user();
+        $user    = $request->user();
+        $company = Company::with('products')->find($user->tenant_slug);
+
         $order = Order::create([
             'tenant_slug'  => $user->tenant_slug,
             'title'        => $request->title,
             'status'       => 'pending',
             'requested_by' => $user->name,
             'files'        => [],
+            // Fluxo da empresa congelado aqui: mudar a linha do tempo dela
+            // depois so afeta OS futuras, mesma regra dos prazos e precos
+            'timeline'     => $company?->timeline,
         ]);
 
         // Prazo por item, congelado aqui — mudar o cadastro depois não altera
         // pedido já aberto. Precedência: exceção da empresa > padrão do produto
         // > padrão global. Uma consulta só, em vez de uma por item.
         $default = (int) config('app.order_deadline_days', 7);
-        $company = Company::with('products')->find($user->tenant_slug);
 
         $prazos = [];
         $precos = [];
@@ -137,23 +141,23 @@ class OrderController extends Controller
 
     public function updateStatus(Request $request, string $id): JsonResponse
     {
-        $user = $request->user();
-
-        // Super admin pode usar qualquer status, inclusive cancelled (reabrir/cancelar livremente).
-        // Demais usuários ficam restritos aos status do fluxo normal.
-        $allowedStatuses = $user->isSuperAdmin()
-            ? 'pending,started,production,finishing,done,cancelled'
-            : 'pending,started,production,finishing,done';
-
-        $request->validate([
-            'status' => "required|in:{$allowedStatuses}",
-        ]);
-
+        $user  = $request->user();
         $order = Order::findOrFail($id);
 
         if (!$this->authorizeOrder($order, $request)) {
             return response()->json(['message' => 'Acesso não autorizado.'], 403);
         }
+
+        // Cada pedido só transita pelas etapas do PRÓPRIO fluxo (congelado na
+        // criação). Super admin também pode cancelar/reabrir livremente.
+        $allowed = $order->timelineStatuses();
+        if ($user->isSuperAdmin()) {
+            $allowed[] = 'cancelled';
+        }
+
+        $request->validate([
+            'status' => 'required|in:' . implode(',', $allowed),
+        ]);
 
         $prev = $order->status;
         $order->update(['status' => $request->status]);
@@ -407,6 +411,8 @@ class OrderController extends Controller
             'tenantName'   => $order->company?->name ?? $order->tenant_slug,
             'title'        => $order->title,
             'status'       => $order->status,
+            // Fluxo congelado na criação; null = padrão (a tela resolve)
+            'timeline'     => $order->timeline,
             'deadline'     => $order->deadline?->format('Y-m-d'),
             'isOverdue'    => $order->isOverdue(),
             'overdueDays'  => $order->overdue_days,

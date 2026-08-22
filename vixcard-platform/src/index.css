@@ -68,6 +68,7 @@
     --status-started:    204 99% 32%;
     --status-production: 212 66% 33%;
     --status-finishing:  40 99% 57%;
+    --status-shipped:    190 85% 40%;
     --status-done:       152 62% 38%;
     --status-cancelled:  0 78% 55%;
 

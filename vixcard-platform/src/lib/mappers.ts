@@ -1,4 +1,4 @@
-import type { User, Product, Company, Order, OrderItem, OrderNote, OrderEvent, Permission, MenuKey } from '../types'
+import type { User, Product, Company, Order, OrderItem, OrderNote, OrderEvent, Permission, MenuKey, TimelineStep } from '../types'
 import type { LogEntry, LogAction, LogEntityType } from '../contexts/LogsContext'
 import type { UserRole } from '../types'
 
@@ -69,6 +69,7 @@ export function mapCompany(c: Record<string, unknown>): Company {
     active: Boolean(c.active),
     allowedProductIds,
     attendantIds: ((c.attendantIds as Array<string | number> | null) ?? []).map(String),
+    timeline: (c.timeline as TimelineStep[] | null) ?? null,
     createdAt: String(c.createdAt ?? c.created_at ?? new Date().toISOString()),
   }
 }
@@ -120,6 +121,7 @@ export function mapOrder(o: Record<string, unknown>): Order {
     tenantName: String(o.tenantName ?? o.tenant_name ?? o.tenantSlug ?? ''),
     title: String(o.title ?? ''),
     status: o.status as Order['status'],
+    timeline: (o.timeline as TimelineStep[] | null) ?? null,
     items: items.map(mapOrderItem),
     notes: notes.map(mapOrderNote),
     events: events.map(mapOrderEvent),
