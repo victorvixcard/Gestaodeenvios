@@ -193,6 +193,14 @@ npm run build                             # gera dist/ (substitui o antigo)
 # nginx NÃO precisa reload — ele lê dist/ direto
 ```
 
+**Ensaio de deploy (2026-08-23):** o dump de producao daquele dia foi restaurado
+num banco descartavel local e as 11 migrations pendentes do `dev` rodaram em cima:
+nenhum DROP/DELETE/TRUNCATE, 176 OS / 770 itens / 15 usuarios / 3 empresas intactos,
+papeis criados e vinculados, closed_at backfilled, toda OS resolvendo etapa e rotulo.
+Banco de ensaio apagado ao final. Antes do deploy real, repetir o ensaio se novas
+migrations tiverem surgido. Producao tambem precisa de MAIL_* no .env para os
+e-mails (nova OS, saldo negativo) sairem.
+
 **Cuidado com migrations:** o servidor já tem MySQL com tabelas `cache` e `sessions` (driver = database). Antes de aplicar qualquer migration nova que crie tabela, sempre rode `php artisan migrate --pretend` e confira se ela não vai colidir com algo que já existe.
 
 ---
