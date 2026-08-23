@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import {
-  BarChart3, Package, DollarSign, ShoppingCart,
+  BarChart3, Package, ShoppingCart,
   FileDown, Filter, ChevronDown, ChevronRight as ChevronRightIcon, FileText,
   Timer, Truck,
 } from "lucide-react";
@@ -37,9 +37,6 @@ const STATUS_VARIANT: Record<OrderStatus, string> = {
 
 type Period = "today" | "week" | "month" | "last30" | "custom";
 
-function formatBRL(value: number) {
-  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-}
 function formatQty(n: number) {
   return n.toLocaleString("pt-BR");
 }
@@ -61,7 +58,7 @@ function getPeriodRange(period: Period, customFrom: string, customTo: string) {
 async function downloadExcel(
   filteredOrders: Order[],
   products: ReturnType<typeof useData>["products"],
-  companySummary: { name: string; orders: number; pieces: number; total: number }[],
+  companySummary: { name: string; orders: number; pieces: number }[],
   isSuperAdmin: boolean
 ) {
   const XLSX = await import("xlsx");
@@ -71,8 +68,7 @@ async function downloadExcel(
   const detalhe: Record<string, unknown>[] = [];
   filteredOrders.forEach((order) => {
     order.items.forEach((item) => {
-      const product   = products.find((p) => p.id === item.productId);
-      const unitPrice = item.unitPrice ?? product?.price ?? 0;
+      const product = products.find((p) => p.id === item.productId);
       detalhe.push({
         "OS": order.id,
         "Título": order.title,
@@ -82,8 +78,6 @@ async function downloadExcel(
         "Produto": item.productName,
         "Código": product?.code ?? "",
         "Qtd": item.quantity,
-        "Preço unit. (R$)": unitPrice || null,
-        "Subtotal (R$)": item.quantity * unitPrice || null,
         "Prazo do item": item.deadline ? format(parseISO(item.deadline), "dd/MM/yyyy") : "",
         "Tempo até entrega": formatDuracao(horasAteEntrega(order)),
         "Envio → cliente": formatDuracao(horasEnvioAteEntrega(order)),
@@ -98,7 +92,6 @@ async function downloadExcel(
       "Empresa": r.name,
       "Pedidos": r.orders,
       "Peças": r.pieces,
-      "Valor total (R$)": r.total || null,
     }));
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(porEmpresa), "Por empresa");
   }
@@ -120,10 +113,6 @@ function OrderConsumptionRow({
 }) {
   const [expanded, setExpanded] = useState(true);
 
-  const orderTotal = order.items.reduce((sum, item) => {
-    const p = products.find((x) => x.id === item.productId);
-    return sum + item.quantity * (p?.price ?? 0);
-  }, 0);
   const orderPieces = order.items.reduce((s, i) => s + i.quantity, 0);
   const date = format(parseISO(order.createdAt), "dd/MM/yyyy", { locale: ptBR });
 
@@ -139,7 +128,7 @@ function OrderConsumptionRow({
         className="bg-muted/50 border-t-2 border-primary/10 cursor-pointer select-none hover:bg-muted/70 transition-colors"
         onClick={() => setExpanded((v) => !v)}
       >
-        <td className="px-4 py-2.5" colSpan={isSuperAdmin ? 7 : 6}>
+        <td className="px-4 py-2.5" colSpan={isSuperAdmin ? 5 : 4}>
           <div className="flex items-center gap-3 flex-wrap">
             {/* Expand icon */}
             <span className="text-muted-foreground/60">
@@ -173,7 +162,6 @@ function OrderConsumptionRow({
             {/* Summary */}
             <span className="ml-auto text-xs text-muted-foreground hidden sm:block">
               {order.items.length} {order.items.length === 1 ? "item" : "itens"} · {formatQty(orderPieces)} peças
-              {orderTotal > 0 && <> · <strong className="text-foreground">{formatBRL(orderTotal)}</strong></>}
             </span>
           </div>
         </td>
@@ -181,9 +169,7 @@ function OrderConsumptionRow({
 
       {/* ── Item sub-rows ── */}
       {expanded && order.items.map((item, idx) => {
-        const product   = products.find((p) => p.id === item.productId);
-        const unitPrice = product?.price ?? 0;
-        const subtotal  = item.quantity * unitPrice;
+        const product = products.find((p) => p.id === item.productId);
 
         return (
           <tr
@@ -220,15 +206,6 @@ function OrderConsumptionRow({
               {formatQty(item.quantity)}
             </td>
 
-            {/* Unit price */}
-            <td className="px-4 py-2.5 text-right text-muted-foreground text-xs hidden sm:table-cell tabular-nums">
-              {unitPrice > 0 ? formatBRL(unitPrice) : <span className="opacity-40">—</span>}
-            </td>
-
-            {/* Subtotal */}
-            <td className="px-4 py-2.5 text-right font-bold tabular-nums">
-              {subtotal > 0 ? formatBRL(subtotal) : <span className="opacity-40">—</span>}
-            </td>
 
             {/* Empty status col for alignment */}
             {isSuperAdmin && <td />}
@@ -271,29 +248,26 @@ export function Reports() {
   const productSummary = useMemo(() => {
     const map: Record<string, {
       productId: string; name: string; code: string; category: string;
-      unitPrice: number; totalQty: number; orderCount: number; subtotal: number;
+      totalQty: number; orderCount: number;
     }> = {};
     filteredOrders.forEach((order) => {
       order.items.forEach((item) => {
-        const product   = products.find((p) => p.id === item.productId);
-        const unitPrice = product?.price ?? 0;
+        const product = products.find((p) => p.id === item.productId);
         if (!map[item.productId]) {
           map[item.productId] = {
             productId: item.productId, name: item.productName,
             code: product?.code ?? "—", category: product?.category ?? "—",
-            unitPrice, totalQty: 0, orderCount: 0, subtotal: 0,
+            totalQty: 0, orderCount: 0,
           };
         }
         map[item.productId].totalQty   += item.quantity;
         map[item.productId].orderCount += 1;
-        map[item.productId].subtotal   += item.quantity * unitPrice;
       });
     });
-    return Object.values(map).sort((a, b) => b.subtotal - a.subtotal);
+    return Object.values(map).sort((a, b) => b.totalQty - a.totalQty);
   }, [filteredOrders, products]);
 
   const totalPieces   = productSummary.reduce((s, r) => s + r.totalQty, 0);
-  const totalRevenue  = productSummary.reduce((s, r) => s + r.subtotal, 0);
   const totalProducts = productSummary.length;
 
   // Tempos médios do período: abertura → entrega, e envio ao cliente →
@@ -306,20 +280,18 @@ export function Reports() {
   // e clicar numa linha foca o relatório inteiro naquela empresa.
   const companySummary = useMemo(() => {
     if (!isSuperAdmin) return [];
-    const map: Record<string, { slug: string; name: string; orders: number; pieces: number; total: number }> = {};
+    const map: Record<string, { slug: string; name: string; orders: number; pieces: number }> = {};
     filteredOrders.forEach((o) => {
       if (!map[o.tenantSlug]) {
-        map[o.tenantSlug] = { slug: o.tenantSlug, name: o.tenantName, orders: 0, pieces: 0, total: 0 };
+        map[o.tenantSlug] = { slug: o.tenantSlug, name: o.tenantName, orders: 0, pieces: 0 };
       }
       map[o.tenantSlug].orders += 1;
       o.items.forEach((item) => {
-        const p = products.find((x) => x.id === item.productId);
         map[o.tenantSlug].pieces += item.quantity;
-        map[o.tenantSlug].total  += item.quantity * (p?.price ?? 0);
       });
     });
-    return Object.values(map).sort((a, b) => b.total - a.total);
-  }, [filteredOrders, products, isSuperAdmin]);
+    return Object.values(map).sort((a, b) => b.pieces - a.pieces);
+  }, [filteredOrders, isSuperAdmin]);
 
   const PERIOD_LABELS: Record<Period, string> = {
     today: "Hoje", week: "Esta semana", month: "Este mês",
@@ -425,12 +397,11 @@ export function Reports() {
       </Card>
 
       {/* KPI cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {[
           { label: "Pedidos",        value: filteredOrders.length, icon: ShoppingCart, color: "text-primary bg-primary/10",   fmt: String },
           { label: "Produtos únicos",value: totalProducts,         icon: Package,      color: "text-accent bg-accent/10",     fmt: String },
           { label: "Total de peças", value: totalPieces,           icon: BarChart3,    color: "text-success bg-success/10",   fmt: formatQty },
-          { label: "Valor total",    value: totalRevenue,          icon: DollarSign,   color: "text-warning bg-warning/10",   fmt: formatBRL },
           { label: "Solicitação → entrega (média)", value: formatDuracao(tempoEntrega), icon: Timer, color: "text-primary bg-primary/10", fmt: String },
           { label: "Envio → cliente (média)",       value: formatDuracao(tempoEnvio),   icon: Truck, color: "text-cyan-600 bg-cyan-500/10", fmt: String },
         ].map((s, i) => (
@@ -462,7 +433,6 @@ export function Reports() {
                     <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Empresa</th>
                     <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Pedidos</th>
                     <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Peças</th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Valor total</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -475,9 +445,6 @@ export function Reports() {
                       <td className="px-4 py-3 font-medium">{row.name}</td>
                       <td className="px-4 py-3 text-right tabular-nums">{row.orders}</td>
                       <td className="px-4 py-3 text-right tabular-nums">{formatQty(row.pieces)}</td>
-                      <td className="px-4 py-3 text-right font-bold tabular-nums">
-                        {row.total > 0 ? formatBRL(row.total) : <span className="opacity-40">—</span>}
-                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -526,8 +493,6 @@ export function Reports() {
                     <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden md:table-cell">Categoria</th>
                     <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">OS</th>
                     <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Total peças</th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Preço unit.</th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Subtotal</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -546,12 +511,6 @@ export function Reports() {
                       </td>
                       <td className="px-4 py-3 text-right text-muted-foreground">{row.orderCount}</td>
                       <td className="px-4 py-3 text-right font-semibold tabular-nums">{formatQty(row.totalQty)}</td>
-                      <td className="px-4 py-3 text-right text-muted-foreground hidden sm:table-cell tabular-nums">
-                        {row.unitPrice > 0 ? formatBRL(row.unitPrice) : <span className="opacity-40">—</span>}
-                      </td>
-                      <td className="px-4 py-3 text-right font-bold tabular-nums">
-                        {row.unitPrice > 0 ? formatBRL(row.subtotal) : <span className="opacity-40">—</span>}
-                      </td>
                     </motion.tr>
                   ))}
                 </tbody>
@@ -561,8 +520,6 @@ export function Reports() {
                     <td className="hidden md:table-cell" />
                     <td className="px-4 py-3 text-right">{filteredOrders.length}</td>
                     <td className="px-4 py-3 text-right tabular-nums">{formatQty(totalPieces)}</td>
-                    <td className="hidden sm:table-cell" />
-                    <td className="px-4 py-3 text-right text-primary font-extrabold tabular-nums">{formatBRL(totalRevenue)}</td>
                   </tr>
                 </tfoot>
               </table>
@@ -594,8 +551,6 @@ export function Reports() {
                     <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Código</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden md:table-cell">Categoria</th>
                     <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Qtd</th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Preço unit.</th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Subtotal</th>
                     {isSuperAdmin && <th />}
                   </tr>
                 </thead>

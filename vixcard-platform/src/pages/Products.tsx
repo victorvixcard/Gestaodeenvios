@@ -135,7 +135,7 @@ export function Products() {
       if (dialog === "create") {
         await addProduct({
           name: form.name, description: form.description, category: form.category,
-          price: Number(form.price), stock: Number(form.stock),
+          stock: Number(form.stock),
           imageUrl: form.imageUrl || undefined, videoUrl: form.videoUrl || undefined, active: form.active,
           variations: form.variations.length > 0 ? form.variations : undefined,
         });
@@ -149,7 +149,7 @@ export function Products() {
         const product = products.find((p) => p.id === editId);
         await updateProduct(editId, {
           name: form.name, description: form.description, category: form.category,
-          price: Number(form.price), stock: Number(form.stock),
+          stock: Number(form.stock),
           imageUrl: form.imageUrl || undefined, videoUrl: form.videoUrl || undefined, active: form.active,
           variations: form.variations.length > 0 ? form.variations : undefined,
         });
@@ -162,11 +162,9 @@ export function Products() {
         // que não faz parte do PUT /products/{id}.
         await api.put(`/products/${editId}/deadlines`, {
           deadline_days: deadlines.deadlineDays ? Number(deadlines.deadlineDays) : null,
-          price: deadlines.price ? Number(deadlines.price) : null,
           companies: Object.entries(deadlines.companies).map(([slug, v]) => ({
             slug,
             deadline_days: v.deadlineDays ? Number(v.deadlineDays) : null,
-            price: v.price ? Number(v.price) : null,
           })),
         });
 
@@ -369,14 +367,6 @@ export function Products() {
                     <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Estoque</span>
                     <StockBadge stock={product.stock} />
                   </div>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Preço unit.</span>
-                    <span className="text-[11px] font-semibold text-foreground">
-                      {product.price != null && product.price > 0
-                        ? `R$ ${product.price.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
-                        : <span className="text-muted-foreground">—</span>}
-                    </span>
-                  </div>
 
                   {isSuperAdmin && (
                     <>
@@ -471,17 +461,6 @@ export function Products() {
                       {categorias.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Preço unitário (R$)</Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
-                    <Input
-                      type="number" min={0} step={0.01} placeholder="0,00" className="pl-9"
-                      value={form.price}
-                      onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
-                    />
-                  </div>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Estoque inicial</Label>

@@ -118,22 +118,35 @@ export function EmpresaDetalhe() {
     }
   };
 
-  const toggleAttendant = (id: string) => {
-    setAttendantIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
-  };
+  // Colaboradores da VIXCard: quem ja atende esta empresa e quem ainda pode ser adicionado
+  const colaboradores = users.filter((u) => u.tenantSlug === "vixcard" && u.active);
+  const atendentes    = colaboradores.filter((u) => attendantIds.includes(u.id));
+  const disponiveis   = colaboradores.filter((u) => !attendantIds.includes(u.id));
+  const [addAtendente, setAddAtendente] = useState(false);
 
-  const handleSaveAttendants = async () => {
+  // Adicionar/remover salva na hora — sem botao "Salvar" separado para esquecer
+  const salvarAtendentes = async (ids: string[], msg: string) => {
     setSavingAttendants(true);
     try {
-      await updateCompany(company!.slug, { attendantIds });
-      toast.success("Atendentes atualizados!");
+      await updateCompany(company!.slug, { attendantIds: ids });
+      setAttendantIds(ids);
+      toast.success(msg);
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Erro ao atualizar atendentes.");
     } finally {
       setSavingAttendants(false);
     }
+  };
+
+  const adicionarAtendente = (id: string) => {
+    const u = users.find((x) => x.id === id);
+    salvarAtendentes([...attendantIds, id], `${u?.name ?? "Atendente"} passou a atender a ${company?.name}.`);
+    setAddAtendente(false);
+  };
+
+  const removerAtendente = (id: string) => {
+    const u = users.find((x) => x.id === id);
+    salvarAtendentes(attendantIds.filter((x) => x !== id), `${u?.name ?? "Atendente"} removido.`);
   };
 
   const handleSaveFluxo = async () => {
@@ -302,7 +315,7 @@ export function EmpresaDetalhe() {
             </TabsTrigger>
             <TabsTrigger value="catalogo" className="flex items-center gap-1.5">
               <Timer className="h-3.5 w-3.5" />
-              Prazos e preços
+              Prazos
             </TabsTrigger>
             <TabsTrigger value="atendentes">
               Atendentes
@@ -547,7 +560,7 @@ export function EmpresaDetalhe() {
             </div>
           </TabsContent>
 
-          {/* ── Prazos e preços ── */}
+          {/* ── Prazos ── */}
           <TabsContent value="catalogo">
             <CompanyCatalogTab slug={company.slug} />
           </TabsContent>
@@ -556,60 +569,97 @@ export function EmpresaDetalhe() {
           <TabsContent value="atendentes">
             <Card className="p-5 bg-gradient-card max-w-2xl">
               <div className="space-y-4">
-                <div>
-                  <h3 className="text-sm font-semibold">Quem atende esta empresa</h3>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Quando a {company.name} abrir uma OS, ela cai para os colaboradores
-                    marcados aqui: eles recebem o aviso e o painel de Pedidos/Kanban
-                    agrupa as demandas por atendente.
-                  </p>
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div>
+                    <h3 className="text-sm font-semibold">Quem atende a {company.name}</h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      OS nova desta empresa cai para estas pessoas: recebem o aviso por
+                      e-mail e aparecem no painel de equipe de Pedidos e Kanban.
+                    </p>
+                  </div>
+                  <Button variant="brand" size="sm" onClick={() => setAddAtendente(true)}
+                          disabled={disponiveis.length === 0}>
+                    <Plus className="h-4 w-4" />
+                    Adicionar atendente
+                  </Button>
                 </div>
 
-                {users.filter((u) => u.tenantSlug === "vixcard" && u.active).length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4">
-                    Nenhum colaborador da VIXCard cadastrado ainda.
-                  </p>
+                {atendentes.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground border border-dashed border-border rounded-xl">
+                    <UserIcon className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-sm">Nenhum atendente vinculado.</p>
+                    <p className="text-xs mt-1">
+                      {disponiveis.length === 0
+                        ? "Cadastre colaboradores da VIXCard em Cadastros > Usuários."
+                        : "Clique em Adicionar atendente para escolher quem cuida desta empresa."}
+                    </p>
+                  </div>
                 ) : (
                   <div className="space-y-1.5">
-                    {users
-                      .filter((u) => u.tenantSlug === "vixcard" && u.active)
-                      .map((u) => {
-                        const marcado = attendantIds.includes(u.id);
-                        return (
-                          <button
-                            key={u.id}
-                            type="button"
-                            onClick={() => toggleAttendant(u.id)}
-                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all border ${
-                              marcado ? "bg-primary/8 border-primary/30" : "border-border hover:bg-muted/60"
-                            }`}
-                          >
-                            <div className={`h-4 w-4 rounded flex items-center justify-center flex-shrink-0 border-2 ${
-                              marcado ? "bg-primary border-primary" : "border-border"
-                            }`}>
-                              {marcado && <Check className="h-2.5 w-2.5 text-white" />}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-medium truncate">{u.name}</p>
-                              <p className="text-[10px] text-muted-foreground truncate">{u.email}</p>
-                            </div>
-                            <div className="flex gap-1 flex-shrink-0">
-                              {u.sectors.map((s) => (
-                                <Badge key={s.id} variant="muted" className="text-[9px]">{s.name}</Badge>
-                              ))}
-                            </div>
-                          </button>
-                        );
-                      })}
+                    {atendentes.map((u) => (
+                      <div key={u.id}
+                           className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-border bg-background/40">
+                        <div className="h-8 w-8 rounded-full bg-primary/15 text-primary flex items-center justify-center text-xs font-bold flex-shrink-0">
+                          {u.avatarInitials}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium truncate">{u.name}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">{u.email}</p>
+                        </div>
+                        <div className="flex gap-1 flex-shrink-0">
+                          {u.sectors.map((s) => (
+                            <Badge key={s.id} variant="muted" className="text-[9px]">{s.name}</Badge>
+                          ))}
+                        </div>
+                        <button type="button" onClick={() => removerAtendente(u.id)}
+                                disabled={savingAttendants}
+                                className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors flex-shrink-0"
+                                title="Remover atendente">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 )}
-
-                <Button variant="brand" onClick={handleSaveAttendants} className="w-full" disabled={savingAttendants}>
-                  <Save className="h-4 w-4" />
-                  {savingAttendants ? "Salvando..." : "Salvar Atendentes"}
-                </Button>
               </div>
             </Card>
+
+            {/* Escolher colaborador para adicionar */}
+            <Dialog open={addAtendente} onOpenChange={(v) => !v && setAddAtendente(false)}>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Adicionar atendente</DialogTitle>
+                </DialogHeader>
+                <p className="text-xs text-muted-foreground">
+                  Colaboradores da VIXCard que ainda não atendem a {company.name}.
+                </p>
+                <div className="space-y-1.5 max-h-[50vh] overflow-y-auto py-1">
+                  {disponiveis.map((u) => (
+                    <button key={u.id} type="button"
+                            onClick={() => adicionarAtendente(u.id)}
+                            disabled={savingAttendants}
+                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-border hover:bg-primary/5 hover:border-primary/30 text-left transition-all">
+                      <div className="h-8 w-8 rounded-full bg-primary/15 text-primary flex items-center justify-center text-xs font-bold flex-shrink-0">
+                        {u.avatarInitials}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium truncate">{u.name}</p>
+                        <p className="text-[10px] text-muted-foreground truncate">{u.email}</p>
+                      </div>
+                      <div className="flex gap-1 flex-shrink-0">
+                        {u.sectors.map((s) => (
+                          <Badge key={s.id} variant="muted" className="text-[9px]">{s.name}</Badge>
+                        ))}
+                      </div>
+                      <Plus className="h-4 w-4 text-primary flex-shrink-0" />
+                    </button>
+                  ))}
+                </div>
+                <DialogFooter>
+                  <Button variant="ghost" onClick={() => setAddAtendente(false)}>Fechar</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
           {/* ── Linha do tempo ── */}

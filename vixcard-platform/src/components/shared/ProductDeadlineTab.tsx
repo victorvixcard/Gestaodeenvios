@@ -116,7 +116,7 @@ export function ProductDeadlineTab({ productId, draft, onChange }: Props) {
         <Timer className="h-8 w-8 mx-auto text-muted-foreground/30 mb-3" />
         <p className="text-sm font-medium">Salve o produto primeiro</p>
         <p className="text-xs text-muted-foreground mt-1">
-          Prazo e preço por empresa ficam disponíveis depois que o produto existe.
+          Prazo por empresa fica disponível depois que o produto existe.
         </p>
       </Card>
     );
@@ -130,7 +130,7 @@ export function ProductDeadlineTab({ productId, draft, onChange }: Props) {
       <Card className="p-3 bg-primary/5 border-primary/20 flex gap-2.5 items-start">
         <Info className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
         <p className="text-xs text-muted-foreground leading-relaxed">
-          Prazo e preço são <strong className="text-foreground">congelados quando o pedido é criado</strong> —
+          O prazo é <strong className="text-foreground">congelado quando o pedido é criado</strong> —
           alterar aqui não muda pedidos já abertos, só os próximos.
         </p>
       </Card>
@@ -144,16 +144,6 @@ export function ProductDeadlineTab({ productId, draft, onChange }: Props) {
                    value={draft.deadlineDays}
                    onChange={(e) => onChange({ ...draft, deadlineDays: e.target.value })} />
             <span className="text-xs text-muted-foreground">dias úteis</span>
-          </div>
-        </div>
-        <div className="space-y-1.5">
-          <Label>Preço padrão</Label>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">R$</span>
-            <Input type="number" min={0} step="0.01" className="w-28 text-center"
-                   placeholder="0,00"
-                   value={draft.price}
-                   onChange={(e) => onChange({ ...draft, price: e.target.value })} />
           </div>
         </div>
       </div>
@@ -214,11 +204,6 @@ export function ProductDeadlineTab({ productId, draft, onChange }: Props) {
                            onChange={(e) => setEmpresa(c.slug, "deadlineDays", e.target.value)}
                            className="w-16 text-center h-8 text-sm flex-shrink-0" />
                     <span className="text-[10px] text-muted-foreground flex-shrink-0">dias</span>
-                    <Input type="number" min={0} step="0.01" placeholder={padraoPreco || "0,00"}
-                           value={v.price}
-                           onChange={(e) => setEmpresa(c.slug, "price", e.target.value)}
-                           className="w-24 text-center h-8 text-sm flex-shrink-0" />
-                    <span className="text-[10px] text-muted-foreground flex-shrink-0">R$</span>
                   </div>
                 );
               })}

@@ -31,7 +31,7 @@ interface Resposta {
 type Draft = Record<string, { deadlineDays: string; price: string }>;
 
 /**
- * Aba "Catálogo" dentro da empresa: prazo e preço de cada produto liberado
+ * Aba "Prazos" dentro da empresa: prazo de cada produto liberado
  * para ela. É o fluxo inverso da aba do produto — aqui se configura o contrato
  * de um cliente inteiro numa tela só, que é como a negociação acontece.
  */
@@ -73,8 +73,7 @@ export function CompanyCatalogTab({ slug }: { slug: string }) {
     ? dados.products.filter((p) => {
         const v = draft[p.id];
         if (!v) return false;
-        return v.deadlineDays !== (p.deadlineDays?.toString() ?? "")
-            || v.price !== (p.price?.toString() ?? "");
+        return v.deadlineDays !== (p.deadlineDays?.toString() ?? "");
       }).length
     : 0;
 
@@ -85,8 +84,9 @@ export function CompanyCatalogTab({ slug }: { slug: string }) {
       const res = await api.put<Resposta>(`/companies/${slug}/catalog`, {
         products: dados.products.map((p) => ({
           product_id: Number(p.id),
+          // Preco fora da interface por decisao do Victor: nao e enviado e o
+          // backend so mexe nele quando a chave vem na requisicao
           deadline_days: draft[p.id]?.deadlineDays ? Number(draft[p.id].deadlineDays) : null,
-          price: draft[p.id]?.price ? Number(draft[p.id].price) : null,
         })),
       });
       setDados(res);
@@ -110,8 +110,8 @@ export function CompanyCatalogTab({ slug }: { slug: string }) {
       <Card className="p-3 bg-primary/5 border-primary/20 flex gap-2.5 items-start">
         <Info className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
         <p className="text-xs text-muted-foreground leading-relaxed">
-          Prazo de entrega e preço que esta empresa pratica em cada produto. Em branco usa o
-          padrão do produto. Os valores são <strong className="text-foreground">congelados no
+          Prazo de entrega que esta empresa pratica em cada produto. Em branco usa o
+          padrão do produto. O prazo é <strong className="text-foreground">congelado no
           momento do pedido</strong> — mudar aqui só afeta os próximos.
         </p>
       </Card>
@@ -141,7 +141,7 @@ export function CompanyCatalogTab({ slug }: { slug: string }) {
           </p>
           {!busca && (
             <p className="text-xs text-muted-foreground mt-1">
-              Libere produtos na aba Produtos antes de definir prazo e preço.
+              Libere produtos na aba Produtos antes de definir o prazo.
             </p>
           )}
         </Card>
@@ -151,15 +151,12 @@ export function CompanyCatalogTab({ slug }: { slug: string }) {
             <span className="flex-1">Produto</span>
             <span className="w-16 text-center">Prazo</span>
             <span className="w-8" />
-            <span className="w-24 text-center">Preço</span>
-            <span className="w-6" />
           </div>
 
           <div className="space-y-1.5">
             {dados.products.map((p) => {
               const v = draft[p.id] ?? { deadlineDays: "", price: "" };
-              const mudou = v.deadlineDays !== (p.deadlineDays?.toString() ?? "")
-                         || v.price !== (p.price?.toString() ?? "");
+              const mudou = v.deadlineDays !== (p.deadlineDays?.toString() ?? "");
               return (
                 <Card key={p.id} className={`p-2.5 flex items-center gap-2 bg-gradient-card ${mudou ? "border-primary/40" : ""}`}>
                   <div className="flex-1 min-w-0">
@@ -175,12 +172,6 @@ export function CompanyCatalogTab({ slug }: { slug: string }) {
                          onChange={(e) => set(p.id, "deadlineDays", e.target.value)}
                          className="w-16 text-center h-9 flex-shrink-0" />
                   <span className="text-[10px] text-muted-foreground w-8 flex-shrink-0">dias</span>
-                  <Input type="number" min={0} step="0.01"
-                         placeholder={p.defaultPrice?.toFixed(2) ?? "0,00"}
-                         value={v.price}
-                         onChange={(e) => set(p.id, "price", e.target.value)}
-                         className="w-24 text-center h-9 flex-shrink-0" />
-                  <span className="text-[10px] text-muted-foreground w-6 flex-shrink-0">R$</span>
                 </Card>
               );
             })}

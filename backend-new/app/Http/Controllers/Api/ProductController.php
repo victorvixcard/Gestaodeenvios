@@ -212,10 +212,11 @@ class ProductController extends Controller
         ]);
 
         $product = Product::findOrFail($id);
-        $product->update([
-            'deadline_days' => $request->deadline_days,
-            'price'         => $request->price,
-        ]);
+        // Preco so muda se vier na requisicao (a aba de prazos nao envia)
+        $product->update(array_merge(
+            ['deadline_days' => $request->deadline_days],
+            $request->has('price') ? ['price' => $request->price] : []
+        ));
 
         // Confere so os slugs enviados, em vez de carregar todos os vinculos —
         // com milhares de empresas, puxar a lista inteira nao escala.
@@ -227,10 +228,10 @@ class ProductController extends Controller
         foreach ($request->companies ?? [] as $linha) {
             if (!in_array($linha['slug'], $validos)) continue;
 
-            $product->companies()->updateExistingPivot($linha['slug'], [
-                'deadline_days' => $linha['deadline_days'] ?? null,
-                'price'         => $linha['price'] ?? null,
-            ]);
+            $product->companies()->updateExistingPivot($linha['slug'], array_merge(
+                ['deadline_days' => $linha['deadline_days'] ?? null],
+                array_key_exists('price', $linha) ? ['price' => $linha['price']] : []
+            ));
         }
 
         AuditLog::record(

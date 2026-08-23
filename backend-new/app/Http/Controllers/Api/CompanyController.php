@@ -297,10 +297,12 @@ class CompanyController extends Controller
             // Produto não liberado para esta empresa é ignorado
             if (!in_array((int) $linha['product_id'], $validos)) continue;
 
-            $company->products()->updateExistingPivot($linha['product_id'], [
-                'deadline_days' => $linha['deadline_days'] ?? null,
-                'price'         => $linha['price'] ?? null,
-            ]);
+            // Preco so muda se a requisicao trouxer a chave — a tela de prazos
+            // nao envia preco e nao pode apagar o que ja esta gravado
+            $company->products()->updateExistingPivot($linha['product_id'], array_merge(
+                ['deadline_days' => $linha['deadline_days'] ?? null],
+                array_key_exists('price', $linha) ? ['price' => $linha['price']] : []
+            ));
         }
 
         AuditLog::record(
