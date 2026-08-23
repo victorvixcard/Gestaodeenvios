@@ -46,7 +46,7 @@
     /* ===== SEMÂNTICOS ===== */
     --destructive: 0 78% 55%;
     --destructive-foreground: 0 0% 100%;
-    --success: 152 62% 38%;
+    --success: 152 62% 27%;
     --success-foreground: 0 0% 100%;
     --warning: 38 95% 52%;
     --warning-foreground: 0 0% 100%;
@@ -69,7 +69,7 @@
     --status-production: 212 66% 33%;
     --status-finishing:  40 99% 57%;
     --status-shipped:    190 85% 40%;
-    --status-done:       152 62% 38%;
+    --status-done:       152 62% 27%;
     --status-cancelled:  0 78% 55%;
 
     /* ===== GRADIENTES ===== */
@@ -126,9 +126,10 @@
     --input: 213 38% 18%;
     --ring: 204 75% 55%;
 
-    /* Pendente (cinza) precisa clarear no escuro; os demais status ja
-       contrastam bem nos dois temas */
+    /* Pendente (cinza) e concluido (verde) precisam clarear no escuro —
+       no claro foram escurecidos para passar contraste AA */
     --status-pending: 212 18% 62%;
+    --status-done: 152 58% 44%;
 
     /* Sidebar dark — ainda mais profunda no dark mode */
     --sidebar-background: 214 62% 9%;

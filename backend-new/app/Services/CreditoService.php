@@ -57,11 +57,13 @@ class CreditoService
                 ->orderBy('validade')
                 ->get();
 
-            $consumo30 = -ProductMovement::where('tenant_slug', $company->slug)
+            // Liquido: saidas menos estornos do periodo — OS cancelada nao
+            // conta como consumo (saida -30 + estorno +30 = 0)
+            $consumo30 = max(0, -(int) ProductMovement::where('tenant_slug', $company->slug)
                 ->where('product_id', $p->id)
-                ->where('tipo', 'saida')
+                ->whereIn('tipo', ['saida', 'estorno'])
                 ->where('created_at', '>=', $hoje->copy()->subDays(30))
-                ->sum('quantidade');
+                ->sum('quantidade'));
 
             // Prazos vencidos: relatorio, nunca desconto. O que passou do
             // prazo continua no saldo e listado a parte para acompanhamento.
