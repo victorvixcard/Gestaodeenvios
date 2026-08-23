@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\CancellationRequest;
+use App\Services\CreditoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -76,6 +77,9 @@ class CancellationRequestController extends Controller
             'pedido_cancelamento_aprovado', 'Pedido', $order->id, $order->title,
             $user, $request->reason ?: 'Sem observação'
         );
+
+        // OS cancelada devolve os creditos que tinha descontado
+        app(CreditoService::class)->sincronizarOs($order->fresh('items'), $user, "Cancelamento aprovado da OS {$order->id}");
 
         return response()->json($pedido->fresh()->toPayload());
     }

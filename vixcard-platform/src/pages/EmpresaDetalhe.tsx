@@ -7,6 +7,7 @@ import {
   ChevronUp, ChevronDown, Trash2, Plus,
 } from "lucide-react";
 import { CompanyCatalogTab } from "../components/shared/CompanyCatalogTab";
+import { CreditosView } from "../components/shared/CreditosView";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 import { useData } from "../contexts/DataContext";
@@ -324,6 +325,7 @@ export function EmpresaDetalhe() {
               </span>
             </TabsTrigger>
             <TabsTrigger value="fluxo">Linha do tempo</TabsTrigger>
+            <TabsTrigger value="movimentacoes">Movimentações</TabsTrigger>
           </TabsList>
 
           {/* ── Dados Cadastrais ── */}
@@ -566,6 +568,11 @@ export function EmpresaDetalhe() {
           </TabsContent>
 
           {/* ── Atendentes ── */}
+          {/* ── Movimentacoes: creditos de produto da empresa ── */}
+          <TabsContent value="movimentacoes">
+            <CreditosView slug={company.slug} podeLancar />
+          </TabsContent>
+
           <TabsContent value="atendentes">
             <Card className="p-5 bg-gradient-card max-w-2xl">
               <div className="space-y-4">

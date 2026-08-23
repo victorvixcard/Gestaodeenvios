@@ -30,6 +30,7 @@ const MENUS: { key: MenuKey; label: string }[] = [
   { key: "pedidos",              label: "Pedidos" },
   { key: "kanban",               label: "Kanban" },
   { key: "relatorios",           label: "Relatórios" },
+  { key: "movimentacoes",        label: "Movimentações" },
   { key: "cadastros.empresas",   label: "Cadastros: Empresas" },
   { key: "cadastros.produtos",   label: "Cadastros: Produtos" },
   { key: "cadastros.categorias", label: "Cadastros: Categorias" },

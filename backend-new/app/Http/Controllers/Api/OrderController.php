@@ -9,6 +9,7 @@ use App\Models\Company;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Services\BusinessDayService;
+use App\Services\CreditoService;
 use App\Services\WhatsAppService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,6 +22,7 @@ class OrderController extends Controller
     public function __construct(
         private BusinessDayService $businessDayService,
         private WhatsAppService    $whatsApp,
+        private CreditoService     $creditos,
     ) {}
 
     // ── Helper: garante que o usuário tem acesso ao pedido ──────────────────
@@ -159,6 +161,10 @@ class OrderController extends Controller
             count($request->items) . ' item(s) — Prazo: ' . $order->deadline->format('d/m/Y')
         );
 
+        // Desconta os creditos da empresa (saida por produto). Sem saldo a OS
+        // segue normalmente — o saldo fica negativo e a VIXCard e avisada.
+        $this->creditos->sincronizarOs($order->fresh('items'), $user);
+
         // Aviso por e-mail aos atendentes da empresa. Falha de e-mail nunca
         // pode derrubar a criação da OS — só registra no log.
         try {
@@ -263,6 +269,8 @@ class OrderController extends Controller
             'pedido_cancelado', 'Pedido', $order->id, $order->title,
             $request->user(), "Motivo: {$request->reason}"
         );
+
+        $this->creditos->sincronizarOs($order->fresh('items'), $request->user(), "Cancelamento da OS {$order->id}");
 
         return response()->json($this->formatOrder($order->fresh(['items', 'notes', 'events'])));
     }
@@ -464,6 +472,9 @@ class OrderController extends Controller
             "De {$previousCount} item(s)/{$previousTotal} un. para {$newCount} item(s)/{$newTotal} un."
         );
 
+        // So a diferenca por produto vira saida ou estorno
+        $this->creditos->sincronizarOs($order->fresh('items'), $request->user(), "Edicao da OS {$order->id}");
+
         return response()->json($this->formatOrder($order->fresh(['items', 'notes', 'events'])));
     }
 
@@ -486,6 +497,9 @@ class OrderController extends Controller
             $request->user(), "Tenant: {$order->tenant_slug}"
         );
 
+        // Arquivada nao consome credito: estorna o que esta OS tinha descontado
+        $this->creditos->sincronizarOs($order->fresh('items'), $request->user(), "Arquivamento da OS {$order->id}");
+
         return response()->json(null, 204);
     }
 
@@ -501,6 +515,9 @@ class OrderController extends Controller
         AuditLog::record(
             'pedido_restaurado', 'Pedido', $order->id, $order->title, $request->user()
         );
+
+        // Volta a consumir (se nao estiver cancelada)
+        $this->creditos->sincronizarOs($order->fresh('items'), $request->user(), "Restauracao da OS {$order->id}");
 
         return response()->json($this->formatOrder($order->fresh(['items', 'notes', 'events', 'company', 'cancellationRequests'])));
     }

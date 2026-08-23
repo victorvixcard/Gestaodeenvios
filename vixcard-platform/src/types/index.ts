@@ -49,7 +49,7 @@ export interface Sector {
 
 /** Chaves de menu que um papel pode liberar/esconder. */
 export type MenuKey =
-  | "dashboard" | "pedidos" | "kanban" | "relatorios"
+  | "dashboard" | "pedidos" | "kanban" | "relatorios" | "movimentacoes"
   | "cadastros.empresas" | "cadastros.produtos" | "cadastros.categorias"
   | "cadastros.usuarios" | "cadastros.setores" | "cadastros.papeis"
   | "logs";
@@ -241,4 +241,45 @@ export interface Order {
   /** Preenchido quando a OS esta arquivada (soft delete). */
   archivedAt?: string | null;
   files?: OrderFile[];
+}
+
+// ── Creditos de produto (menu Movimentacoes) ────────────────────────────
+
+export type MovimentacaoTipo = "entrada" | "saida" | "estorno" | "expiracao";
+
+export interface LoteCredito {
+  id: number;
+  productId: number;
+  quantidade: number;
+  restante: number;
+  validade: string;          // yyyy-mm-dd
+  motivo: string | null;
+  expiredAt: string | null;
+  createdAt: string | null;
+}
+
+export interface SaldoProduto {
+  productId: number;
+  productName: string;
+  saldo: number;
+  consumo30Dias: number;
+  proximoVencimento: { validade: string; restante: number } | null;
+  lotes: LoteCredito[];
+}
+
+export interface Movimentacao {
+  id: number;
+  tenantSlug: string;
+  productId: number;
+  productName: string | null;
+  tipo: MovimentacaoTipo;
+  quantidade: number;        // com sinal
+  saldoAnterior: number;
+  saldoPosterior: number;
+  cobriuDescoberto: number;
+  lotId: number | null;
+  orderId: string | null;
+  motivo: string | null;
+  userName: string | null;
+  createdAt: string | null;
 }

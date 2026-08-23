@@ -30,6 +30,7 @@ const Categorias = pagina(() => import("./pages/Categorias"), "Categorias");
 const Setores = pagina(() => import("./pages/Setores"), "Setores");
 const Papeis = pagina(() => import("./pages/Papeis"), "Papeis");
 const CancelRequests = pagina(() => import("./pages/CancelRequests"), "CancelRequests");
+const Movimentacoes = pagina(() => import("./pages/Movimentacoes"), "Movimentacoes");
 const Users = pagina(() => import("./pages/Users"), "Users");
 const Empresas = pagina(() => import("./pages/Empresas"), "Empresas");
 const EmpresaDetalhe = pagina(() => import("./pages/EmpresaDetalhe"), "EmpresaDetalhe");
@@ -78,6 +79,7 @@ function TenantRoutes() {
           <Route path="papeis" element={<SoSuperAdmin><Papeis /></SoSuperAdmin>} />
           <Route path="usuarios" element={<Users />} />
           <Route path="relatorios" element={<Reports />} />
+          <Route path="movimentacoes" element={<Movimentacoes />} />
           <Route path="logs" element={<SoSuperAdmin><Logs /></SoSuperAdmin>} />
         </Route>
       </Routes>

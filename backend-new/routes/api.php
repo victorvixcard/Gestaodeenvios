@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\FileController;
+use App\Http\Controllers\Api\MovimentacaoController;
 use Illuminate\Support\Facades\Route;
 
 // ── Autenticação ───────────────────────────────────────────────────────────
@@ -126,7 +127,16 @@ Route::middleware(['auth:sanctum'])->group(function () {
         // Catálogo da empresa: prazo e preço de cada produto liberado
         Route::get('/{slug}/catalog', [CompanyController::class, 'catalog']);
         Route::put('/{slug}/catalog', [CompanyController::class, 'syncCatalog']);
+
+        // Creditos de produto: saldos, historico e lancamento manual
+        Route::get('/{slug}/creditos',       [MovimentacaoController::class, 'saldos']);
+        Route::get('/{slug}/movimentacoes',  [MovimentacaoController::class, 'index']);
+        Route::post('/{slug}/movimentacoes', [MovimentacaoController::class, 'store']);
     });
+
+    // ── Movimentacoes da PROPRIA empresa (somente leitura) ────────────────
+    Route::get('/movimentacoes/saldos', [MovimentacaoController::class, 'saldos']);
+    Route::get('/movimentacoes',        [MovimentacaoController::class, 'index']);
 
     // ── Usuários ───────────────────────────────────────────────────────────
     Route::prefix('users')->middleware('role:super_admin,tenant_admin')->group(function () {

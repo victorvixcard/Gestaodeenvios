@@ -19,7 +19,7 @@ class RoleController extends Controller
      * o que chega da tela.
      */
     public const MENUS = [
-        'dashboard', 'pedidos', 'kanban', 'relatorios',
+        'dashboard', 'pedidos', 'kanban', 'relatorios', 'movimentacoes',
         'cadastros.empresas', 'cadastros.produtos', 'cadastros.categorias',
         'cadastros.usuarios', 'cadastros.setores', 'cadastros.papeis',
         'logs',

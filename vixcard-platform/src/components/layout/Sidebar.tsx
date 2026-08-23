@@ -2,7 +2,7 @@ import { useState } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  LayoutDashboard, ShoppingCart, Package, Users,
+  LayoutDashboard, ShoppingCart, Package, Users, ArrowLeftRight,
   LogOut, ChevronRight, X, Shield, Building2,
   FolderOpen, ChevronDown, ClipboardList, BarChart3, KanbanSquare, Tags, Network, ShieldCheck,
 } from "lucide-react";
@@ -124,6 +124,18 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             <>
               <KanbanSquare className={cn("h-4 w-4 flex-shrink-0", isActive && "text-sidebar-primary")} />
               <span>Kanban</span>
+              {isActive && <ChevronRight className="ml-auto h-3.5 w-3.5 text-sidebar-primary/70" />}
+            </>
+          )}
+        </NavLink>
+        )}
+
+        {menuVisivel("movimentacoes") && (
+        <NavLink to={`/${tenant.slug}/movimentacoes`} onClick={onClose} className={navLinkClass}>
+          {({ isActive }) => (
+            <>
+              <ArrowLeftRight className={cn("h-4 w-4 flex-shrink-0", isActive && "text-sidebar-primary")} />
+              <span>Movimentações</span>
               {isActive && <ChevronRight className="ml-auto h-3.5 w-3.5 text-sidebar-primary/70" />}
             </>
           )}

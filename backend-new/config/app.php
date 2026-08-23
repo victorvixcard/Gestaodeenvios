@@ -95,6 +95,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Creditos de produto
+    |--------------------------------------------------------------------------
+    | credit_validity_months: cada entrada de credito vale por este prazo, a
+    | contar da data do lancamento (lotes independentes).
+    | credit_alert_email: quem recebe o aviso quando o saldo de um produto de
+    | uma empresa cruza para negativo.
+    */
+    'credit_validity_months' => (int) env('CREDIT_VALIDITY_MONTHS', 18),
+    'credit_alert_email'     => env('CREDIT_ALERT_EMAIL', 'felipegat@vixcard.com.br'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------
     |

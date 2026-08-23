@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -11,7 +11,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useOrders } from "../contexts/OrdersContext";
 import { useData } from "../contexts/DataContext";
 import { useLog } from "../contexts/LogsContext";
-import { ApiError } from "../lib/api";
+import { api, ApiError } from "../lib/api";
 import { StatusBadge } from "../components/shared/StatusBadge";
 import { OrderTimeline } from "../components/shared/OrderTimeline";
 import { ItemDeadlineStatus } from "../components/shared/ItemDeadlineBadge";
@@ -31,6 +31,7 @@ import {
 import { formatDate } from "../lib/utils";
 import { orderTimeline, STATUS_ICON } from "../lib/timeline";
 import { podeAcao } from "../lib/acoes";
+import type { Movimentacao } from "../types";
 import type { OrderItem } from "../types";
 
 
@@ -46,6 +47,20 @@ export function OrderDetail() {
   const [showCancelForm, setShowCancelForm] = useState(false);
   const [showRequestForm, setShowRequestForm] = useState(false);
   const [requestReason, setRequestReason] = useState("");
+
+  // Movimentos de credito desta OS (saidas e estornos). O endpoint ja e
+  // filtrado pelo tenant do token; o super admin consulta pela empresa da OS.
+  const [creditos, setCreditos] = useState<Movimentacao[]>([]);
+  useEffect(() => {
+    if (!id) return;
+    const isSuper = user?.role === "super_admin";
+    const slugOs = getOrder(id)?.tenantSlug;
+    const base = isSuper && slugOs ? `/companies/${slugOs}` : "";
+    api.get<{ movimentacoes: Movimentacao[] }>(`${base}/movimentacoes?order_id=${encodeURIComponent(id)}`)
+      .then((r) => setCreditos(r.movimentacoes))
+      .catch(() => setCreditos([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, user?.role]);
   const [requesting, setRequesting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -749,6 +764,26 @@ export function OrderDetail() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Creditos consumidos por esta OS */}
+          {creditos.length > 0 && (
+            <Card>
+              <CardHeader><CardTitle>Créditos</CardTitle></CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                {creditos.map((m) => (
+                  <div key={m.id} className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-muted-foreground truncate">
+                      {m.tipo === "saida" ? "Saída" : m.tipo === "estorno" ? "Estorno" : "Expiração"} — {m.productName}
+                    </span>
+                    <span className="text-xs font-semibold tabular-nums whitespace-nowrap">
+                      {m.quantidade > 0 ? `+${m.quantidade}` : m.quantidade}
+                      <span className="text-muted-foreground font-normal"> ({m.saldoAnterior} → {m.saldoPosterior})</span>
+                    </span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Timeline */}
           <Card>

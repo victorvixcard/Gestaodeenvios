@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Plus, Trash2, Upload, Send, Check, X, FileText, FileImage, File as FileIcon } from "lucide-react";
@@ -18,7 +18,8 @@ import {
   Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue,
 } from "../components/ui/select";
 import { cn } from "../lib/utils";
-import type { OrderFile, OrderItem, SelectedVariation } from "../types";
+import { api } from "../lib/api";
+import type { OrderFile, OrderItem, SelectedVariation, SaldoProduto } from "../types";
 
 export function NewOrder() {
   const { user } = useAuth();
@@ -45,6 +46,24 @@ export function NewOrder() {
   const [files, setFiles] = useState<OrderFile[]>([]);
   const [rawFiles, setRawFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Saldo de credito por produto (informativo — nunca bloqueia a OS).
+  // Falha silenciosa: sem saldo carregado, o aviso simplesmente nao aparece.
+  const [saldos, setSaldos] = useState<SaldoProduto[]>([]);
+  useEffect(() => {
+    api.get<{ saldos: SaldoProduto[] }>("/movimentacoes/saldos")
+      .then((r) => setSaldos(r.saldos))
+      .catch(() => {});
+  }, []);
+
+  const previsaoSaldo = useMemo(() => {
+    const porProduto = new Map<string, number>();
+    items.forEach((i) => porProduto.set(String(i.productId), (porProduto.get(String(i.productId)) ?? 0) + i.quantity));
+    return [...porProduto.entries()].flatMap(([pid, qtd]) => {
+      const s = saldos.find((x) => String(x.productId) === pid);
+      return s ? [{ nome: s.productName, saldo: s.saldo, depois: s.saldo - qtd }] : [];
+    });
+  }, [items, saldos]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const picked = Array.from(e.target.files ?? []);
@@ -287,6 +306,16 @@ export function NewOrder() {
                   </Button>
                 </motion.div>
               ))}
+              {previsaoSaldo.length > 0 && (
+                <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 space-y-0.5">
+                  {previsaoSaldo.map((s) => (
+                    <p key={s.nome} className={cn("text-[11px]", s.depois < 0 ? "text-warning font-semibold" : "text-muted-foreground")}>
+                      Crédito {s.nome}: {s.saldo.toLocaleString("pt-BR")} → ficará {s.depois.toLocaleString("pt-BR")}
+                      {s.depois < 0 && " (além do crédito — a OS segue normalmente)"}
+                    </p>
+                  ))}
+                </div>
+              )}
               <Separator />
             </div>
           )}

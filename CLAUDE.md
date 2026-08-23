@@ -283,6 +283,9 @@ users            id, email, password, role, tenant_slug → companies.slug, perm
 products         id, code, name, category, price, stock, variations(JSON), active
 orders           id, tenant_slug, title, status, items, notes, events, files
 audit_logs       action, entity_*, user_*, tenant_slug, details, created_at
+product_lots     creditos: cada entrada e um lote com validade (18 meses)
+product_movements  livro-razao de creditos (saldo = saldo_posterior do ultimo)
+product_movement_lots  alocacao de cada saida/estorno nos lotes
 personal_access_tokens   Sanctum (Bearer tokens)
 cache, cache_locks, sessions   Laravel framework tables
 ```
@@ -363,6 +366,25 @@ npx tsc -p tsconfig.app.json --noEmit    # ou npm run build, que roda tsc -b
 Antes, várias chamadas em `DataContext` eram `.then()` sem `.catch()`. Erros viravam toasts de sucesso enganosos. **Regra:** toda chamada de API que pode falhar deve usar `async/await` no caller com `try/catch`, exibindo o `ApiError.message` no toast. Veja `Users.tsx::handleSave` como referência.
 
 ---
+
+## 10b. Creditos de produto (menu Movimentacoes)
+
+Cada empresa tem saldo em unidades por produto. Regras (definidas em 2026-08-23):
+
+- **Entrada** = lote com validade de 18 meses (`CREDIT_VALIDITY_MONTHS`), lancada
+  pelo super admin em Empresas -> aba Movimentacoes ou no menu Movimentacoes.
+- **Saida** automatica a cada OS criada (FIFO: lote que vence primeiro paga
+  primeiro). Sem saldo a OS NAO e bloqueada — fica negativo ("descoberto") e
+  `CREDIT_ALERT_EMAIL` (felipegat@vixcard.com.br) recebe aviso no cruzamento.
+- **Estorno** ao cancelar/arquivar/reduzir OS; devolve ao lote de origem; se o
+  lote ja venceu, a devolucao expira junto. Restaurar OS volta a descontar.
+- **Expiracao** lancada de forma preguicosa (primeira leitura/lancamento apos o
+  vencimento) — nao depende de cron.
+- Movimento e imutavel; erro se corrige com outro lancamento.
+- Toda a logica fica em `app/Services/CreditoService.php` (lock por
+  empresa+produto + transacao). Invariante: saldo == soma(restante dos lotes
+  validos) - descoberto. OS anteriores ao recurso nao consumiram e nao estornam.
+- Testes: `tests/Feature/CreditosTest.php`.
 
 ## 11. Cliente HTTP (frontend)
 
