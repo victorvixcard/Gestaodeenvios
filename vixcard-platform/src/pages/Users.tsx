@@ -471,7 +471,7 @@ export function Users() {
               {isSuperAdmin && (
                 <div className="space-y-1.5">
                   <Label>Empresa</Label>
-                  <Select value={form.tenantSlug} onValueChange={(v) => setForm({ ...form, tenantSlug: v })}>
+                  <Select value={form.tenantSlug} onValueChange={(v) => setForm({ ...form, tenantSlug: v, sectorIds: v === "vixcard" ? form.sectorIds : [] })}>
                     <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
                       {companies.map((c) => <SelectItem key={c.slug} value={c.slug}>{c.name}</SelectItem>)}
@@ -497,8 +497,10 @@ export function Users() {
               )}
             </div>
 
-            {/* Setores — um usuário pode estar em mais de um */}
-            {sectors.length > 0 && (
+            {/* Setores sao da equipe interna da VIXCard: so o super admin ve,
+                e so em usuario do tenant vixcard. Usuario de empresa cliente
+                nao tem setor. */}
+            {isSuperAdmin && form.tenantSlug === "vixcard" && sectors.length > 0 && (
               <>
                 <Separator />
                 <div className="space-y-2">

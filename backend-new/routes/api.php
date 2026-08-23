@@ -79,10 +79,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
     });
 
     // ── Setores ────────────────────────────────────────────────────────────
-    // Organizam a equipe interna da VIXCard. Listar é liberado porque o
-    // cadastro de usuário precisa das opções; escrita é do super admin.
-    Route::get('/sectors', [SectorController::class, 'index']);
+    // Organizam a equipe interna da VIXCard. Empresa cliente não tem setor,
+    // então nem a listagem sai do super admin.
     Route::prefix('sectors')->middleware('role:super_admin')->group(function () {
+        Route::get('/',              [SectorController::class, 'index']);
         Route::post('/',             [SectorController::class, 'store']);
         Route::put('/{id}',          [SectorController::class, 'update']);
         Route::delete('/{id}',       [SectorController::class, 'destroy']);

@@ -131,8 +131,10 @@ class UserController extends Controller
             'active'          => true,
         ]);
 
-        // Um usuário pode estar em mais de um setor (ex.: Linha de impressão e Designer)
-        if ($request->has('sector_ids')) {
+        // Setor é coisa da equipe VIXCard: usuário de empresa cliente nunca
+        // recebe setor, mesmo que a tela mande. Um colaborador pode estar em
+        // mais de um (ex.: Linha de impressão e Designer).
+        if ($user->tenant_slug === 'vixcard' && $request->has('sector_ids')) {
             $user->sectors()->sync($request->sector_ids ?? []);
         }
 
@@ -184,8 +186,13 @@ class UserController extends Controller
             $target->update(['avatar_initials' => $this->initials($request->name)]);
         }
 
-        if ($request->has('sector_ids')) {
-            $target->sectors()->sync($request->sector_ids ?? []);
+        if ($target->tenant_slug === 'vixcard') {
+            if ($request->has('sector_ids')) {
+                $target->sectors()->sync($request->sector_ids ?? []);
+            }
+        } else {
+            // Usuário movido para empresa cliente perde qualquer setor
+            $target->sectors()->sync([]);
         }
 
         AuditLog::record(
