@@ -15,11 +15,12 @@ import { useData } from "../contexts/DataContext";
 import { StatusBadge } from "../components/shared/StatusBadge";
 import { StatusFilterChips, type StatusFilterValue } from "../components/shared/StatusFilterChips";
 import {
-  CollaboratorsPanel, tenantPassaNoFiltro, empresasDoUsuario, type SelecaoColab,
+  CollaboratorsPanel, tenantPassaNoFiltro, empresasDoUsuario, useSelecaoColab,
 } from "../components/shared/CollaboratorsPanel";
 import { ItemDeadlineBadge, OrderDeadlineSummary } from "../components/shared/ItemDeadlineBadge";
 import { orderIsOverdue } from "../lib/itemDeadline";
 import { orderTimeline, stepState, STATUS_ICON } from "../lib/timeline";
+import { podeAcao } from "../lib/acoes";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Card } from "../components/ui/card";
@@ -183,7 +184,7 @@ export function Orders() {
   // disponível no botão ao lado.
   const [view, setView] = useState<"list" | "timeline">("list");
   // Filtro do painel de colaboradores (só para admins da VIXCard)
-  const [colab, setColab] = useState<SelecaoColab>(null);
+  const [colab, setColab] = useSelecaoColab();
 
   const isSuperAdmin = user?.role === "super_admin";
   const mostraPainel = isSuperAdmin && user?.tenantSlug === "vixcard";
@@ -318,10 +319,12 @@ export function Orders() {
               )}
             </Button>
           )}
-          <Button variant="brand" onClick={() => navigate(`/${tenant.slug}/pedidos/novo`)}>
-            <Plus className="h-4 w-4" />
-            Nova OS
-          </Button>
+          {podeAcao(user, "criar_os") && (
+            <Button variant="brand" onClick={() => navigate(`/${tenant.slug}/pedidos/novo`)}>
+              <Plus className="h-4 w-4" />
+              Nova OS
+            </Button>
+          )}
         </div>
       </div>
 

@@ -15,7 +15,7 @@ import { useTenant } from "../contexts/TenantContext";
 import { useOrders } from "../contexts/OrdersContext";
 import { useData } from "../contexts/DataContext";
 import {
-  CollaboratorsPanel, tenantPassaNoFiltro, empresasDoUsuario, type SelecaoColab,
+  CollaboratorsPanel, tenantPassaNoFiltro, empresasDoUsuario, useSelecaoColab,
 } from "../components/shared/CollaboratorsPanel";
 import {
   StatusFilterChips, STATUS_FILTER_LABELS, type StatusFilterValue,
@@ -194,7 +194,7 @@ export function Kanban() {
   const mostraPainel = isSuperAdmin && user?.tenantSlug === "vixcard";
 
   const [busca, setBusca] = useState("");
-  const [colab, setColab] = useState<SelecaoColab>(null);
+  const [colab, setColab] = useSelecaoColab();
   // "all" mostra as 6 colunas. Um status especifico mostra so aquela coluna —
   // e o equivalente a filtrar num quadro. "overdue" mantem as colunas mas so
   // com os cards em atraso.

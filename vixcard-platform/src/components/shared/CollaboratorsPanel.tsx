@@ -1,5 +1,7 @@
-import { Users as UsersIcon, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Users as UsersIcon, X, UserCheck } from "lucide-react";
 import { useData } from "../../contexts/DataContext";
+import { useAuth } from "../../contexts/AuthContext";
 import { Card } from "../ui/card";
 import { cn } from "../../lib/utils";
 import type { Company, User } from "../../types";
@@ -24,6 +26,41 @@ export function empresasDoSetor(companies: Company[], users: User[], sectorId: s
   return new Set(
     companies.filter((c) => c.attendantIds.some((a) => ids.includes(a))).map((c) => c.slug)
   );
+}
+
+/**
+ * Seleção do painel com memória e "Minhas OS" por padrão: quem atende
+ * alguma empresa abre Pedidos/Kanban vendo só o que é seu (item 7 da
+ * avaliação). A última escolha fica no navegador, por usuário.
+ */
+export function useSelecaoColab(): [SelecaoColab, (s: SelecaoColab) => void] {
+  const { user } = useAuth();
+  const { companies } = useData();
+  const chave = `gestao_colab_filtro_${user?.id ?? "anon"}`;
+
+  const [selecao, setSelecaoState] = useState<SelecaoColab>(() => {
+    try {
+      const salvo = localStorage.getItem(chave);
+      if (salvo) return JSON.parse(salvo) as SelecaoColab;
+    } catch { /* ignora preferencia corrompida */ }
+    return null;
+  });
+
+  // Sem preferencia salva: se o usuario atende alguma empresa, comeca em
+  // "Minhas OS". Roda quando as empresas chegam do backend.
+  useEffect(() => {
+    if (!user || localStorage.getItem(chave) !== null) return;
+    if (companies.some((c) => c.attendantIds.includes(user.id))) {
+      setSelecaoState({ tipo: "user", id: user.id });
+    }
+  }, [user, companies, chave]);
+
+  const setSelecao = (s: SelecaoColab) => {
+    setSelecaoState(s);
+    localStorage.setItem(chave, JSON.stringify(s));
+  };
+
+  return [selecao, setSelecao];
 }
 
 /** Aplica a seleção do painel a uma lista de slugs de tenant. */
@@ -52,9 +89,12 @@ export function CollaboratorsPanel({ selecao, onChange, contadorOs }: {
   /** Quantas OS visíveis cada colaborador tem (por id). Opcional. */
   contadorOs?: (userId: string) => number;
 }) {
-  const { users, sectors } = useData();
+  const { users, sectors, companies } = useData();
+  const { user } = useAuth();
 
   const colaboradores = users.filter((u) => u.tenantSlug === "vixcard" && u.active);
+  const atendoAlguem  = !!user && companies.some((c) => c.attendantIds.includes(user.id));
+  const minhasAtivo   = !!user && selecao?.tipo === "user" && selecao.id === user.id;
 
   const grupos = sectors
     .filter((s) => s.active)
@@ -86,6 +126,21 @@ export function CollaboratorsPanel({ selecao, onChange, contadorOs }: {
             </button>
           )}
         </div>
+
+        {atendoAlguem && (
+          <button
+            onClick={() => onChange(minhasAtivo ? null : { tipo: "user", id: user!.id })}
+            className={cn(
+              "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-semibold mb-3 transition-all border",
+              minhasAtivo
+                ? "bg-primary text-primary-foreground border-primary"
+                : "border-border text-foreground/80 hover:bg-muted"
+            )}
+          >
+            <UserCheck className="h-3.5 w-3.5" />
+            Minhas OS
+          </button>
+        )}
 
         <div className="space-y-3">
           {grupos.map(({ setor, pessoas }) => {
