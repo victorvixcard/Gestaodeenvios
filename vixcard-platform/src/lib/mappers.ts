@@ -138,6 +138,8 @@ export function mapOrder(o: Record<string, unknown>): Order {
     notes: notes.map(mapOrderNote),
     events: events.map(mapOrderEvent),
     cancelReason: (o.cancelReason ?? o.cancel_reason) as string | undefined,
+    cancelRequest: (o.cancelRequest as Order['cancelRequest']) ?? null,
+    canCancelDirectly: Boolean(o.canCancelDirectly),
     requestedBy: String(o.requestedBy ?? o.requested_by ?? ''),
     assignedTo: (o.assignedTo ?? o.assigned_to) as string | undefined,
     createdAt: String(o.createdAt ?? o.created_at ?? ''),

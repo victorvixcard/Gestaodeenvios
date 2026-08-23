@@ -123,7 +123,6 @@ export function ProductDeadlineTab({ productId, draft, onChange }: Props) {
   }
 
   const padraoDias  = draft.deadlineDays || String(dados?.defaultDays ?? 7);
-  const padraoPreco = draft.price || (dados?.price?.toString() ?? "");
 
   return (
     <div className="space-y-4">

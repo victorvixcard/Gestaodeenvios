@@ -111,6 +111,20 @@ class Order extends Model
         return $this->hasMany(OrderEvent::class)->orderBy('created_at');
     }
 
+    public function cancellationRequests(): HasMany
+    {
+        return $this->hasMany(CancellationRequest::class)->orderBy('created_at', 'desc');
+    }
+
+    /** Janela em que a empresa cliente ainda cancela por conta própria. */
+    public const CANCEL_WINDOW_MINUTES = 15;
+
+    /** A empresa cliente ainda está dentro da janela de cancelamento direto? */
+    public function dentroDaJanelaDeCancelamento(): bool
+    {
+        return $this->created_at->gt(now()->subMinutes(self::CANCEL_WINDOW_MINUTES));
+    }
+
     public static function generateId(): string
     {
         // Lock de tabela para evitar race condition em operações concorrentes

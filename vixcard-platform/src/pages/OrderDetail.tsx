@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import {
   ArrowLeft, Play, CheckCircle2,
   XCircle, MessageSquarePlus, Send, Download, FileText, FileImage, File as FileIcon, Paperclip,
-  MessageCircle, AlertTriangle, Undo2, RotateCcw, Trash2, Pencil, Plus, X,
+  AlertTriangle, Undo2, RotateCcw, Trash2, Pencil, Plus, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
@@ -36,13 +36,16 @@ import type { OrderItem } from "../types";
 export function OrderDetail() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
-  const { getOrder, updateStatus, addNote, updateItems, deleteOrder } = useOrders();
+  const { getOrder, updateStatus, requestCancel, addNote, updateItems, deleteOrder } = useOrders();
   const { products } = useData();
   const { addLog } = useLog();
   const navigate = useNavigate();
   const [note, setNote] = useState("");
   const [cancelReason, setCancelReason] = useState("");
   const [showCancelForm, setShowCancelForm] = useState(false);
+  const [showRequestForm, setShowRequestForm] = useState(false);
+  const [requestReason, setRequestReason] = useState("");
+  const [requesting, setRequesting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Edicao de itens (super admin)
@@ -76,16 +79,13 @@ export function OrderDetail() {
   const isSuperAdmin = user?.role === "super_admin";
   const isCancelled = order.statusFase === "cancelled";
   const isDone = order.statusFase === "done";
-  const isPending = order.statusFase === "pending";
 
-  // Tenant user can cancel only while still pending
-  const canTenantCancel = !isSuperAdmin && isPending && !isCancelled;
-  // Tenant user sees WhatsApp contact when order already started
-  const tenantNeedsWhatsapp = !isSuperAdmin && !isPending && !isCancelled && !isDone;
-
-  const whatsappMsg = encodeURIComponent(
-    `Olá! Preciso solicitar o cancelamento da OS *${order.id}* — "${order.title}". Por favor, poderia verificar?`
-  );
+  // Empresa cliente: cancela direto so nos primeiros 15 min (canCancelDirectly
+  // vem do backend). Depois disso, SOLICITA e a VIXCard decide.
+  const encerrada = isCancelled || isDone;
+  const canTenantCancel  = !isSuperAdmin && !encerrada && order.canCancelDirectly;
+  const pedidoPendente   = order.cancelRequest?.status === "pending";
+  const canTenantRequest = !isSuperAdmin && !encerrada && !order.canCancelDirectly && !pedidoPendente;
 
   const actor = {
     userName: user?.name ?? "Usuário",
@@ -146,6 +146,21 @@ export function OrderDetail() {
       toast.success("Pedido cancelado.");
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Erro ao cancelar pedido.");
+    }
+  };
+
+  const handleRequestCancel = async () => {
+    if (requestReason.trim().length < 5) { toast.error("Descreva o motivo com pelo menos 5 caracteres."); return; }
+    setRequesting(true);
+    try {
+      await requestCancel(order.id, requestReason.trim());
+      setShowRequestForm(false);
+      setRequestReason("");
+      toast.success("Solicitação enviada. A VIXCard vai analisar e responder aqui na OS.");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Erro ao solicitar cancelamento.");
+    } finally {
+      setRequesting(false);
     }
   };
 
@@ -346,7 +361,7 @@ export function OrderDetail() {
                       {/* Prazo deste item — vem do backend, congelado na criação */}
                       {item.deadline && (
                         <div className="mt-2 flex items-center gap-2 flex-wrap">
-                          <ItemDeadlineStatus item={item} orderStatus={order.status} />
+                          <ItemDeadlineStatus item={item} orderStatus={order.statusFase} />
                           <span className="text-[11px] text-muted-foreground">
                             Prazo: {formatDeadline(item.deadline)}
                             {item.deadlineDays ? ` · ${item.deadlineDays} dias úteis` : ""}
@@ -576,14 +591,20 @@ export function OrderDetail() {
               <CardHeader><CardTitle>Ações</CardTitle></CardHeader>
               <CardContent className="space-y-2">
                 {!showCancelForm ? (
-                  <Button
-                    variant="outline"
-                    className="w-full border-destructive/30 text-destructive hover:bg-destructive/5"
-                    onClick={() => setShowCancelForm(true)}
-                  >
-                    <XCircle className="h-4 w-4" />
-                    Cancelar Solicitação
-                  </Button>
+                  <>
+                    <Button
+                      variant="outline"
+                      className="w-full border-destructive/30 text-destructive hover:bg-destructive/5"
+                      onClick={() => setShowCancelForm(true)}
+                    >
+                      <XCircle className="h-4 w-4" />
+                      Cancelar OS
+                    </Button>
+                    <p className="text-[11px] text-muted-foreground">
+                      Você pode cancelar por conta própria nos primeiros 15 minutos. Depois disso,
+                      é preciso solicitar o cancelamento à VIXCard.
+                    </p>
+                  </>
                 ) : (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
@@ -613,30 +634,81 @@ export function OrderDetail() {
             </Card>
           )}
 
-          {/* Info — tenant user: order already started, contact via WhatsApp */}
-          {tenantNeedsWhatsapp && (
-            <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800/40">
-              <CardContent className="pt-4 space-y-3">
+          {/* Empresa cliente fora da janela: solicita o cancelamento */}
+          {canTenantRequest && (
+            <Card>
+              <CardHeader><CardTitle>Ações</CardTitle></CardHeader>
+              <CardContent className="space-y-2">
+                {!showRequestForm ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      className="w-full border-amber-400/40 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                      onClick={() => setShowRequestForm(true)}
+                    >
+                      <AlertTriangle className="h-4 w-4" />
+                      Solicitar cancelamento
+                    </Button>
+                    <p className="text-[11px] text-muted-foreground">
+                      O prazo de 15 minutos para cancelar direto já passou. A solicitação vai
+                      para a VIXCard, que aprova ou rejeita com um motivo — a resposta aparece aqui.
+                    </p>
+                  </>
+                ) : (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="space-y-2">
+                    <p className="text-xs text-muted-foreground">Explique por que precisa cancelar esta OS.</p>
+                    <Textarea
+                      placeholder="Ex: campanha suspensa, quantidade errada..."
+                      value={requestReason}
+                      onChange={(e) => setRequestReason(e.target.value)}
+                      rows={3}
+                    />
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="destructive" onClick={handleRequestCancel} className="flex-1" disabled={requesting}>
+                        {requesting ? "Enviando..." : "Enviar solicitação"}
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setShowRequestForm(false)} disabled={requesting}>
+                        Voltar
+                      </Button>
+                    </div>
+                  </motion.div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Situacao da solicitacao de cancelamento (todos veem) */}
+          {order.cancelRequest && (order.cancelRequest.status === "pending" || (order.cancelRequest.status === "rejected" && !encerrada)) && (
+            <Card className={order.cancelRequest.status === "pending"
+              ? "border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800/40"
+              : "border-border"}>
+              <CardContent className="pt-4 space-y-2">
                 <div className="flex items-start gap-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">
-                      Produção já iniciada
+                  <AlertTriangle className={`h-4 w-4 flex-shrink-0 mt-0.5 ${order.cancelRequest.status === "pending" ? "text-amber-500" : "text-muted-foreground"}`} />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold">
+                      {order.cancelRequest.status === "pending"
+                        ? "Cancelamento solicitado — aguardando a VIXCard"
+                        : "Solicitação de cancelamento rejeitada"}
                     </p>
-                    <p className="text-xs text-amber-600/80 dark:text-amber-500/80 mt-1 leading-relaxed">
-                      Esta solicitação já foi iniciada pela equipe VIXCard. Para cancelar, entre em contato pelo WhatsApp.
+                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                      <span className="font-medium text-foreground">{order.cancelRequest.requestedBy}</span> pediu em{" "}
+                      {formatDate(order.cancelRequest.createdAt)}: "{order.cancelRequest.reason}"
                     </p>
+                    {order.cancelRequest.status === "rejected" && (
+                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                        <span className="font-medium text-foreground">{order.cancelRequest.decidedBy}</span> respondeu:{" "}
+                        "{order.cancelRequest.decisionReason}"
+                      </p>
+                    )}
                   </div>
                 </div>
-                <a
-                  href={`https://wa.me/5527999999999?text=${whatsappMsg}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 w-full rounded-lg bg-[#25D366] hover:bg-[#1da851] text-white text-sm font-semibold py-2 transition-colors"
-                >
-                  <MessageCircle className="h-4 w-4" />
-                  Falar com VIXCard
-                </a>
+                {isSuperAdmin && order.cancelRequest.status === "pending" && (
+                  <Button variant="outline" size="sm" className="w-full"
+                          onClick={() => navigate(`/vixcard/pedidos/cancelamentos`)}>
+                    Responder na fila de cancelamentos
+                  </Button>
+                )}
               </CardContent>
             </Card>
           )}

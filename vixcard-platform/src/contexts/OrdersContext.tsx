@@ -8,6 +8,8 @@ interface OrdersContextValue {
   orders: Order[];
   addOrder: (order: Omit<Order, "id" | "createdAt" | "updatedAt" | "events">, files?: File[]) => Promise<Order>;
   updateStatus: (id: string, status: string, reason?: string, author?: string) => Promise<void>;
+  requestCancel: (id: string, reason: string) => Promise<void>;
+  refresh: () => Promise<void>;
   addNote: (orderId: string, content: string, authorName?: string, authorRole?: UserRole) => void;
   updateItems: (id: string, items: OrderItem[]) => Promise<void>;
   deleteOrder: (id: string) => Promise<void>;
@@ -29,6 +31,13 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
       .then((data) => setOrders(data.map(mapOrder)))
       .catch(() => {});
   }, [isAuthenticated, authLoading]);
+
+  // Recarrega tudo — usado depois de decisoes tomadas fora do contexto
+  // (ex.: fila de cancelamentos aprova uma OS)
+  const refresh = async () => {
+    const data = await api.get<Record<string, unknown>[]>('/orders');
+    setOrders(data.map(mapOrder));
+  };
 
   const addOrder = async (
     order: Omit<Order, "id" | "createdAt" | "updatedAt" | "events">,
@@ -60,6 +69,13 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
 
     setOrders((prev) => [mapped, ...prev]);
     return mapped;
+  };
+
+  // Empresa cliente fora da janela de 15 min: pede o cancelamento e a VIXCard decide
+  const requestCancel = async (id: string, reason: string) => {
+    const data = await api.post<Record<string, unknown>>(`/orders/${id}/cancel-request`, { reason });
+    const mapped = mapOrder(data);
+    setOrders((prev) => prev.map((o) => (o.id === id ? mapped : o)));
   };
 
   const updateStatus = async (id: string, status: string, reason?: string) => {
@@ -100,7 +116,7 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
   const getOrder = (id: string) => orders.find((o) => o.id === id);
 
   return (
-    <OrdersContext.Provider value={{ orders, addOrder, updateStatus, addNote, updateItems, deleteOrder, getOrder }}>
+    <OrdersContext.Provider value={{ orders, addOrder, updateStatus, requestCancel, refresh, addNote, updateItems, deleteOrder, getOrder }}>
       {children}
     </OrdersContext.Provider>
   );

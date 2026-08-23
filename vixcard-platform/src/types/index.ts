@@ -192,6 +192,23 @@ export interface OrderFile {
   url: string; // object URL para download
 }
 
+/** Solicitação de cancelamento feita pela empresa cliente após a janela de 15 min. */
+export interface CancelRequest {
+  id: string;
+  orderId: string;
+  tenantSlug: string;
+  status: "pending" | "approved" | "rejected";
+  reason: string;
+  requestedBy: string;
+  createdAt: string;
+  decidedBy?: string | null;
+  decisionReason?: string | null;
+  decidedAt?: string | null;
+  /** Presentes só na listagem da fila. */
+  orderTitle?: string;
+  tenantName?: string;
+}
+
 export interface Order {
   id: string;
   tenantSlug: string;
@@ -209,6 +226,10 @@ export interface Order {
   notes: OrderNote[];
   events: OrderEvent[];
   cancelReason?: string;
+  /** Solicitação de cancelamento mais recente, se houver. */
+  cancelRequest?: CancelRequest | null;
+  /** Empresa cliente ainda pode cancelar direto (janela de 15 min)? */
+  canCancelDirectly: boolean;
   requestedBy: string;
   assignedTo?: string;
   createdAt: string;

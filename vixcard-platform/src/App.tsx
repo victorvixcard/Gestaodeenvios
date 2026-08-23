@@ -18,6 +18,7 @@ import { Products } from "./pages/Products";
 import { Categorias } from "./pages/Categorias";
 import { Setores } from "./pages/Setores";
 import { Papeis } from "./pages/Papeis";
+import { CancelRequests } from "./pages/CancelRequests";
 import { Users } from "./pages/Users";
 import { Empresas } from "./pages/Empresas";
 import { EmpresaDetalhe } from "./pages/EmpresaDetalhe";
@@ -35,6 +36,7 @@ function TenantRoutes() {
           <Route path="pedidos" element={<Orders />} />
           <Route path="kanban" element={<Kanban />} />
           <Route path="pedidos/novo" element={<NewOrder />} />
+          <Route path="pedidos/cancelamentos" element={<CancelRequests />} />
           <Route path="pedidos/:id" element={<OrderDetail />} />
           <Route path="empresas" element={<Empresas />} />
           <Route path="empresas/:slug" element={<EmpresaDetalhe />} />

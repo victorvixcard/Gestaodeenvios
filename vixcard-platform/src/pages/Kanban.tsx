@@ -49,7 +49,7 @@ function OrderCard({ order, isSuperAdmin, overlay }: {
 }) {
   const navigate = useNavigate();
   const tenant = useTenant();
-  const atrasado = orderIsOverdue(order.items, order.status);
+  const atrasado = orderIsOverdue(order.items, order.statusFase);
 
   // Data limite da OS = o item mais demorado (dd/mm)
   const prazoMax = order.items
@@ -59,9 +59,10 @@ function OrderCard({ order, isSuperAdmin, overlay }: {
     .at(-1)
     ?.split("-").reverse().slice(0, 2).join("/");
 
+  // So a VIXCard move OS entre etapas; empresa cliente ve o quadro, nao arrasta
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: order.id,
-    disabled: overlay,
+    disabled: overlay || !isSuperAdmin,
   });
 
   return (
@@ -77,14 +78,16 @@ function OrderCard({ order, isSuperAdmin, overlay }: {
       )}
     >
       <div className="flex items-start gap-2">
-        <button
-          {...attributes}
-          {...listeners}
-          className="mt-0.5 text-muted-foreground/40 hover:text-muted-foreground cursor-grab active:cursor-grabbing touch-none flex-shrink-0"
-          aria-label={`Arrastar ordem ${order.id}`}
-        >
-          <GripVertical className="h-4 w-4" />
-        </button>
+        {isSuperAdmin && (
+          <button
+            {...attributes}
+            {...listeners}
+            className="mt-0.5 text-muted-foreground/40 hover:text-muted-foreground cursor-grab active:cursor-grabbing touch-none flex-shrink-0"
+            aria-label={`Arrastar ordem ${order.id}`}
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+        )}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="font-mono text-[10px] font-bold text-primary bg-primary/8 border border-primary/20 px-1.5 py-0.5 rounded">
@@ -139,7 +142,7 @@ function Coluna({ col, orders, isSuperAdmin }: {
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: col.key });
   const Icon = col.Icon;
-  const atrasados = orders.filter((o) => orderIsOverdue(o.items, o.status)).length;
+  const atrasados = orders.filter((o) => orderIsOverdue(o.items, o.statusFase)).length;
 
   return (
     // flex-1 com mínimo: as colunas dividem a largura disponível e só entram em
@@ -244,7 +247,7 @@ export function Kanban() {
       .filter((o) => tenantPassaNoFiltro(colab, o.tenantSlug, companies, users));
     const c: Partial<Record<StatusFilterValue, number>> = {
       all: doTenant.length,
-      overdue: doTenant.filter((o) => orderIsOverdue(o.items, o.status)).length,
+      overdue: doTenant.filter((o) => orderIsOverdue(o.items, o.statusFase)).length,
     };
     doTenant.forEach((o) => { c[o.statusFase] = (c[o.statusFase] ?? 0) + 1; });
     return c;
@@ -310,7 +313,7 @@ export function Kanban() {
     }
   };
 
-  const totalAtraso = visiveis.filter((o) => orderIsOverdue(o.items, o.status)).length;
+  const totalAtraso = visiveis.filter((o) => orderIsOverdue(o.items, o.statusFase)).length;
 
   return (
     <div className="flex gap-4 items-start">
@@ -323,7 +326,9 @@ export function Kanban() {
           <p className="text-[11px] font-semibold tracking-wider text-primary uppercase">Operação</p>
           <h1 className="font-display text-2xl font-extrabold">Kanban</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Arraste os cards para mover a ordem de serviço entre as etapas.
+            {isSuperAdmin
+              ? "Arraste os cards para mover a ordem de serviço entre as etapas."
+              : "Acompanhe em que etapa está cada ordem de serviço."}
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">

@@ -348,6 +348,16 @@ Estes foram resolvidos em sessões anteriores. Documentando para evitar regress�
 | Login redirecionava para `/{tenant}/login` | Antes do login universal, URL exigia tenant | Endpoint `/api/login` agora aceita sem tenant_slug; rota `/login` no React |
 | **Tenant_admin podia editar e EXCLUIR produto de outra empresa** | Rota liberava `tenant_admin` e `update/toggle/destroy` faziam `findOrFail($id)` sem checar tenant. A listagem escondia os produtos dos outros, mas os IDs são sequenciais — bastava chamar `/products/1`, `/products/2`. O frontend já escondia os botões, então só era explorável via API direta. | `routes/api.php` (rota → `role:super_admin`) + `ProductController` (`denyIfNotSuperAdmin` como defesa em profundidade) |
 
+### Checagem de tipos — use o comando certo
+
+`npx tsc --noEmit` na pasta do frontend **não checa nada**: o `tsconfig.json` raiz tem
+`files: []` e só aponta para `tsconfig.app.json` via references. Esse comando sai com 0
+mesmo com erro de sintaxe. Use sempre:
+
+```powershell
+npx tsc -p tsconfig.app.json --noEmit    # ou npm run build, que roda tsc -b
+```
+
 ### Erros silenciosos — padrão a seguir
 
 Antes, várias chamadas em `DataContext` eram `.then()` sem `.catch()`. Erros viravam toasts de sucesso enganosos. **Regra:** toda chamada de API que pode falhar deve usar `async/await` no caller com `try/catch`, exibindo o `ApiError.message` no toast. Veja `Users.tsx::handleSave` como referência.

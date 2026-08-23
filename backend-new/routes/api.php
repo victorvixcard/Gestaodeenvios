@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\CancellationRequestController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\SectorController;
@@ -42,7 +43,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::put('/{id}/items',    [OrderController::class, 'updateItems'])
             ->middleware('role:super_admin');
         Route::post('/{id}/notes',   [OrderController::class, 'addNote']);
+        // Cancelar direto: VIXCard sempre; empresa cliente so nos primeiros 15 min
         Route::post('/{id}/cancel',  [OrderController::class, 'cancel']);
+        // Depois dos 15 min a empresa SOLICITA; a VIXCard decide em /cancel-requests
+        Route::post('/{id}/cancel-request', [OrderController::class, 'requestCancel']);
         Route::post('/{id}/files',   [OrderController::class, 'uploadFile']);
         Route::delete('/{id}/files/{fileIndex}', [OrderController::class, 'deleteFile']);
 
@@ -130,6 +134,14 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::patch('/{id}/toggle', [UserController::class, 'toggleActive']);
         Route::patch('/{id}/password', [UserController::class, 'changePassword']);
         Route::post('/{id}/send-credentials', [UserController::class, 'sendCredentials']);
+    });
+
+    // ── Solicitacoes de cancelamento (decisao e da VIXCard) ────────────────
+    Route::prefix('cancel-requests')->middleware('role:super_admin')->group(function () {
+        Route::get('/',               [CancellationRequestController::class, 'index']);
+        Route::get('/pending-count',  [CancellationRequestController::class, 'pendingCount']);
+        Route::post('/{id}/approve',  [CancellationRequestController::class, 'approve']);
+        Route::post('/{id}/reject',   [CancellationRequestController::class, 'reject']);
     });
 
     // ── Logs de auditoria (super admin only) ───────────────────────────────

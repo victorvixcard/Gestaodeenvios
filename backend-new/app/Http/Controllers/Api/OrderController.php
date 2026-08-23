@@ -35,7 +35,7 @@ class OrderController extends Controller
     {
         $user = $request->user();
 
-        $query = Order::with(['items', 'notes', 'events', 'company'])
+        $query = Order::with(['items', 'notes', 'events', 'company', 'cancellationRequests'])
             ->orderBy('created_at', 'desc');
 
         // Super admin vê todas; outros só veem a própria empresa
@@ -62,7 +62,7 @@ class OrderController extends Controller
 
     public function show(Request $request, string $id): JsonResponse
     {
-        $order = Order::with(['items', 'notes', 'events', 'company'])->findOrFail($id);
+        $order = Order::with(['items', 'notes', 'events', 'company', 'cancellationRequests'])->findOrFail($id);
 
         if (!$this->authorizeOrder($order, $request)) {
             return response()->json(['message' => 'Acesso não autorizado.'], 403);
@@ -172,12 +172,16 @@ class OrderController extends Controller
             return response()->json(['message' => 'Acesso não autorizado.'], 403);
         }
 
-        // Cada pedido só transita pelas etapas do PRÓPRIO fluxo (congelado na
-        // criação). Super admin também pode cancelar/reabrir livremente.
-        $allowed = $order->timelineStatuses();
-        if ($user->isSuperAdmin()) {
-            $allowed[] = 'cancelled';
+        // Quem avança etapas é a VIXCard. A empresa cliente acompanha, cancela
+        // (dentro da janela) ou solicita cancelamento — nunca move a OS.
+        if (!$user->isSuperAdmin()) {
+            return response()->json(['message' => 'Apenas a VIXCard pode mover a OS entre etapas.'], 403);
         }
+
+        // Cada pedido só transita pelas etapas do PRÓPRIO fluxo (congelado na
+        // criação). Cancelar/reabrir é livre para o super admin.
+        $allowed   = $order->timelineStatuses();
+        $allowed[] = 'cancelled';
 
         $request->validate([
             'status' => 'required|in:' . implode(',', $allowed),
@@ -213,6 +217,19 @@ class OrderController extends Controller
             return response()->json(['message' => 'Acesso não autorizado.'], 403);
         }
 
+        if (in_array($order->faseAtual(), ['done', 'cancelled'])) {
+            return response()->json(['message' => 'Esta OS já foi encerrada.'], 422);
+        }
+
+        // Empresa cliente cancela por conta própria só nos primeiros 15 min.
+        // Depois disso o caminho é a solicitação de cancelamento.
+        if (!$request->user()->isSuperAdmin() && !$order->dentroDaJanelaDeCancelamento()) {
+            return response()->json([
+                'message' => 'O prazo de ' . Order::CANCEL_WINDOW_MINUTES
+                    . ' minutos para cancelar direto já passou. Solicite o cancelamento à VIXCard.',
+            ], 422);
+        }
+
         $order->update(['status' => 'cancelled', 'cancel_reason' => $request->reason]);
 
         $order->events()->create([
@@ -228,6 +245,52 @@ class OrderController extends Controller
         );
 
         return response()->json($this->formatOrder($order->fresh(['items', 'notes', 'events'])));
+    }
+
+    /**
+     * Empresa cliente pede o cancelamento depois da janela de 15 min. Fica
+     * pendente até a VIXCard aprovar ou rejeitar (CancellationRequestController).
+     */
+    public function requestCancel(Request $request, string $id): JsonResponse
+    {
+        $request->validate(['reason' => 'required|string|min:5|max:1000']);
+
+        $order = Order::findOrFail($id);
+
+        if (!$this->authorizeOrder($order, $request)) {
+            return response()->json(['message' => 'Acesso não autorizado.'], 403);
+        }
+
+        if (in_array($order->faseAtual(), ['done', 'cancelled'])) {
+            return response()->json(['message' => 'Esta OS já foi encerrada.'], 422);
+        }
+
+        if ($order->cancellationRequests()->where('status', 'pending')->exists()) {
+            return response()->json(['message' => 'Já existe uma solicitação de cancelamento aguardando resposta.'], 422);
+        }
+
+        $user = $request->user();
+
+        $pedido = $order->cancellationRequests()->create([
+            'tenant_slug'     => $order->tenant_slug,
+            'requested_by_id' => $user->id,
+            'requested_by'    => $user->name,
+            'reason'          => $request->reason,
+            'status'          => 'pending',
+        ]);
+
+        $order->events()->create([
+            'type'        => 'note',
+            'description' => "Cancelamento solicitado por {$user->name}: {$request->reason}",
+            'author_name' => $user->name,
+        ]);
+
+        AuditLog::record(
+            'pedido_cancelamento_solicitado', 'Pedido', $order->id, $order->title,
+            $user, "Motivo: {$request->reason}"
+        );
+
+        return response()->json($this->formatOrder($order->fresh(['items', 'notes', 'events', 'cancellationRequests'])), 201);
     }
 
     public function addNote(Request $request, string $id): JsonResponse
@@ -450,6 +513,11 @@ class OrderController extends Controller
             'isOverdue'    => $order->isOverdue(),
             'overdueDays'  => $order->overdue_days,
             'cancelReason' => $order->cancel_reason,
+            // Solicitação de cancelamento mais recente (pendente ou decidida)
+            'cancelRequest' => $order->cancellationRequests->first()?->toPayload(),
+            // A empresa cliente ainda pode cancelar direto? (janela de 15 min)
+            'canCancelDirectly' => $order->dentroDaJanelaDeCancelamento()
+                && !in_array($fase, ['done', 'cancelled']),
             'requestedBy'  => $order->requested_by,
             'assignedTo'   => $order->assigned_to,
             'items'        => $order->items->map(fn($i) => [

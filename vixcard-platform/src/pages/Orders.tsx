@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   Plus, Search, ChevronRight, List, GitBranch,
-  XCircle, Calendar, User, Package,
+  XCircle, Calendar, User, Package, Ban,
 } from "lucide-react";
+import { api } from "../lib/api";
 import { useAuth } from "../contexts/AuthContext";
 import { useTenant } from "../contexts/TenantContext";
 import { useOrders } from "../contexts/OrdersContext";
@@ -105,7 +106,7 @@ function TimelineCard({ order, index, tenantSlug, isSuperAdmin }: {
       <Card
         className={cn(
           "p-4 cursor-pointer hover:-translate-y-0.5 transition-all duration-200 bg-gradient-card",
-          orderIsOverdue(order.items, order.status)
+          orderIsOverdue(order.items, order.statusFase)
             ? "border-red-400 border-2 hover:shadow-red-200 hover:shadow-md"
             : "hover:shadow-brand"
         )}
@@ -149,7 +150,7 @@ function TimelineCard({ order, index, tenantSlug, isSuperAdmin }: {
             </span>
             <span className="flex items-center gap-1.5 flex-wrap">
               {order.items.slice(0, 3).map((item, idx) => (
-                <ItemDeadlineBadge key={idx} item={item} orderStatus={order.status} />
+                <ItemDeadlineBadge key={idx} item={item} orderStatus={order.statusFase} />
               ))}
               {order.items.length > 3 && (
                 <span className="text-muted-foreground/60 text-[10px]">+{order.items.length - 3} mais</span>
@@ -158,7 +159,7 @@ function TimelineCard({ order, index, tenantSlug, isSuperAdmin }: {
           </span>
 
           <div className="ml-auto flex-shrink-0">
-            <OrderDeadlineSummary items={order.items} orderStatus={order.status} />
+            <OrderDeadlineSummary items={order.items} orderStatus={order.statusFase} />
           </div>
         </div>
       </Card>
@@ -185,6 +186,15 @@ export function Orders() {
   const isSuperAdmin = user?.role === "super_admin";
   const mostraPainel = isSuperAdmin && user?.tenantSlug === "vixcard";
 
+  // Solicitacoes de cancelamento aguardando a VIXCard (so super admin)
+  const [cancelPendentes, setCancelPendentes] = useState(0);
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    api.get<{ pending: number }>("/cancel-requests/pending-count")
+      .then((r) => setCancelPendentes(r.pending))
+      .catch(() => {});
+  }, [isSuperAdmin, orders]);
+
   const tenantOrders = isSuperAdmin ? orders : orders.filter((o) => o.tenantSlug === tenant.slug);
 
   // O painel de colaboradores corta antes dos chips, para as contagens
@@ -193,7 +203,7 @@ export function Orders() {
     tenantPassaNoFiltro(colab, o.tenantSlug, companies, users)
   );
 
-  const overdueCount = doColab.filter((o) => orderIsOverdue(o.items, o.status)).length;
+  const overdueCount = doColab.filter((o) => orderIsOverdue(o.items, o.statusFase)).length;
 
   // Contagem por status para os chips do filtro (ignora a busca de texto,
   // para os números não pularem enquanto o usuário digita)
@@ -261,6 +271,18 @@ export function Orders() {
               Linha do Tempo
             </button>
           </div>
+          {isSuperAdmin && (
+            <Button variant="outline" onClick={() => navigate(`/${tenant.slug}/pedidos/cancelamentos`)}
+                    className={cn(cancelPendentes > 0 && "border-amber-400/60 text-amber-600")}>
+              <Ban className="h-4 w-4" />
+              Cancelamentos
+              {cancelPendentes > 0 && (
+                <span className="ml-1 bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                  {cancelPendentes}
+                </span>
+              )}
+            </Button>
+          )}
           <Button variant="brand" onClick={() => navigate(`/${tenant.slug}/pedidos/novo`)}>
             <Plus className="h-4 w-4" />
             Nova OS
@@ -300,7 +322,7 @@ export function Orders() {
               <Card
                 className={cn(
                   "p-4 cursor-pointer hover:-translate-y-0.5 transition-all duration-200 bg-gradient-card",
-                  orderIsOverdue(order.items, order.status)
+                  orderIsOverdue(order.items, order.statusFase)
                     ? "border-red-400 border-2 hover:shadow-red-200 hover:shadow-md"
                     : "hover:shadow-brand"
                 )}
@@ -340,7 +362,7 @@ export function Orders() {
                       <span>{formatDateShort(order.updatedAt)}</span>
                     </div>
                     <div className="mt-2">
-                      <OrderDeadlineSummary items={order.items} orderStatus={order.status} />
+                      <OrderDeadlineSummary items={order.items} orderStatus={order.statusFase} />
                     </div>
                   </div>
                   <div className="flex items-center gap-3 flex-shrink-0">

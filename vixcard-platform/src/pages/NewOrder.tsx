@@ -162,6 +162,7 @@ export function NewOrder() {
         status: "pending",
         statusFase: "pending",
         statusLabel: "Recebido",
+        canCancelDirectly: true,
         items,
         notes: [],
         requestedBy: user?.name ?? "Usuário",
