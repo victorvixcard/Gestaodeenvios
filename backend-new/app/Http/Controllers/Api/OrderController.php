@@ -86,15 +86,19 @@ class OrderController extends Controller
         $user    = $request->user();
         $company = Company::with('products')->find($user->tenant_slug);
 
+        // Fluxo da empresa congelado aqui: mudar a linha do tempo dela depois
+        // so afeta OS futuras, mesma regra dos prazos e precos. A OS nasce na
+        // PRIMEIRA etapa do proprio fluxo (num fluxo custom a chave nao e
+        // 'pending' — e o slug do nome da etapa).
+        $timeline = $company?->timeline;
+
         $order = Order::create([
             'tenant_slug'  => $user->tenant_slug,
             'title'        => $request->title,
-            'status'       => 'pending',
+            'status'       => $timeline[0]['key'] ?? 'pending',
             'requested_by' => $user->name,
             'files'        => [],
-            // Fluxo da empresa congelado aqui: mudar a linha do tempo dela
-            // depois so afeta OS futuras, mesma regra dos prazos e precos
-            'timeline'     => $company?->timeline,
+            'timeline'     => $timeline,
         ]);
 
         // Prazo por item, congelado aqui — mudar o cadastro depois não altera
@@ -184,7 +188,9 @@ class OrderController extends Controller
 
         $order->events()->create([
             'type'        => 'status_change',
-            'description' => "Status alterado para {$request->status}",
+            // Rótulo da etapa, não a chave — "Aprovação da arte" em vez de
+            // "aprovacao-da-arte" no histórico
+            'description' => 'Status alterado para ' . $order->statusLabel(),
             'author_name' => $request->user()->name,
             'status'      => $request->status,
         ]);
@@ -425,14 +431,21 @@ class OrderController extends Controller
 
     private function formatOrder(Order $order): array
     {
+        // Fase e rótulo resolvidos aqui para a tela não precisar reimplementar
+        // a resolução chave -> etapa em todo lugar que exibe status
+        $fase = $order->faseAtual();
+
         return [
             'id'           => $order->id,
             'tenantSlug'   => $order->tenant_slug,
             'tenantName'   => $order->company?->name ?? $order->tenant_slug,
             'title'        => $order->title,
             'status'       => $order->status,
-            // Fluxo congelado na criação; null = padrão (a tela resolve)
-            'timeline'     => $order->timeline,
+            'statusFase'   => $fase,
+            'statusLabel'  => $order->statusLabel(),
+            // Fluxo congelado na criação, já normalizado {key,label,fase};
+            // null = padrão (a tela resolve)
+            'timeline'     => $order->timeline ? $order->timelineSteps() : null,
             'deadline'     => $order->deadline?->format('Y-m-d'),
             'isOverdue'    => $order->isOverdue(),
             'overdueDays'  => $order->overdue_days,
@@ -449,11 +462,12 @@ class OrderController extends Controller
                 // Preço praticado, congelado na criação
                 'unitPrice'          => $i->unit_price !== null ? (float) $i->unit_price : null,
                 'lineTotal'          => $i->lineTotal(),
-                // Prazo do item — a tela exibe estes valores, nunca recalcula
+                // Prazo do item — a tela exibe estes valores, nunca recalcula.
+                // Passa a FASE: etapa final personalizada também encerra atraso
                 'deadline'           => $i->deadline?->format('Y-m-d'),
                 'deadlineDays'       => $i->deadline_days,
-                'isOverdue'          => $i->isOverdue($order->status),
-                'overdueDays'        => $i->overdueDays($order->status),
+                'isOverdue'          => $i->isOverdue($fase),
+                'overdueDays'        => $i->overdueDays($fase),
             ]),
             'notes'        => $order->notes,
             'events'       => $order->events,

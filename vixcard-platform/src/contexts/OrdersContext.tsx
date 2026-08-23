@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
-import type { Order, OrderItem, OrderStatus, UserRole } from "../types";
+import type { Order, OrderItem, UserRole } from "../types";
 import { api } from "../lib/api";
 import { mapOrder } from "../lib/mappers";
 import { useAuth } from "./AuthContext";
@@ -7,7 +7,7 @@ import { useAuth } from "./AuthContext";
 interface OrdersContextValue {
   orders: Order[];
   addOrder: (order: Omit<Order, "id" | "createdAt" | "updatedAt" | "events">, files?: File[]) => Promise<Order>;
-  updateStatus: (id: string, status: OrderStatus, reason?: string, author?: string) => Promise<void>;
+  updateStatus: (id: string, status: string, reason?: string, author?: string) => Promise<void>;
   addNote: (orderId: string, content: string, authorName?: string, authorRole?: UserRole) => void;
   updateItems: (id: string, items: OrderItem[]) => Promise<void>;
   deleteOrder: (id: string) => Promise<void>;
@@ -62,7 +62,7 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
     return mapped;
   };
 
-  const updateStatus = async (id: string, status: OrderStatus, reason?: string) => {
+  const updateStatus = async (id: string, status: string, reason?: string) => {
     // Quando o admin fornece motivo, usa o endpoint /cancel (que persiste o cancel_reason).
     // Sem motivo, usa /status — permite reabrir um pedido cancelado para qualquer outro status.
     if (status === 'cancelled' && reason) {

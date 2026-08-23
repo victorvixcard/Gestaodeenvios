@@ -2,28 +2,30 @@ import type React from "react";
 import {
   ClipboardCheck, Play, Wrench, PackageCheck, Truck, CheckCircle2,
 } from "lucide-react";
-import type { Order, OrderStatus, TimelineStep } from "../types";
+import type { Order, Fase, TimelineStep } from "../types";
 
 /**
  * Fluxo padrão de etapas — o mesmo DEFAULT_TIMELINE do backend. Pedido sem
  * fluxo próprio (timeline null) usa este; pedido com fluxo congelado usa o
- * dele, sempre.
+ * dele, sempre. Etapas padrão têm key igual ao nome da fase, o que mantém
+ * compatível tudo que foi criado antes das etapas livres.
  */
 export const DEFAULT_TIMELINE: TimelineStep[] = [
-  { status: "pending",    label: "Recebido" },
-  { status: "started",    label: "Iniciado" },
-  { status: "production", label: "Produção" },
-  { status: "finishing",  label: "Acabamento" },
-  { status: "shipped",    label: "Envio ao cliente" },
-  { status: "done",       label: "Entregue" },
+  { key: "pending",    label: "Recebido",         fase: "pending" },
+  { key: "started",    label: "Iniciado",         fase: "started" },
+  { key: "production", label: "Produção",         fase: "production" },
+  { key: "finishing",  label: "Acabamento",       fase: "finishing" },
+  { key: "shipped",    label: "Envio ao cliente", fase: "shipped" },
+  { key: "done",       label: "Entregue",         fase: "done" },
 ];
 
-/** Ordem canônica dos status de produção (sem cancelled). */
-export const CANONICAL_ORDER: OrderStatus[] = [
+/** Ordem canônica das fases de produção (sem cancelled). */
+export const CANONICAL_ORDER: Fase[] = [
   "pending", "started", "production", "finishing", "shipped", "done",
 ];
 
-export const STATUS_ICON: Record<Exclude<OrderStatus, "cancelled">, React.ElementType> = {
+/** Ícone por FASE — etapas personalizadas herdam o ícone da fase delas. */
+export const STATUS_ICON: Record<Fase, React.ElementType> = {
   pending:    ClipboardCheck,
   started:    Play,
   production: Wrench,
@@ -38,14 +40,28 @@ export function orderTimeline(order: Pick<Order, "timeline">): TimelineStep[] {
 }
 
 /**
- * Posição de uma etapa em relação ao status atual do pedido, pela ordem
- * canônica — assim um status que não está no fluxo do pedido (ex.: OS antiga
- * num fluxo novo) ainda pinta as etapas anteriores como concluídas.
+ * Posição de uma etapa em relação ao ponto atual do pedido. Compara pela
+ * posição das CHAVES dentro do próprio fluxo; se a chave atual não estiver
+ * no fluxo (OS antiga, status canônico), cai na comparação por fase.
  */
-export function stepState(step: TimelineStep, status: OrderStatus): "done" | "current" | "pending" {
-  const atual = CANONICAL_ORDER.indexOf(status);
-  const daEtapa = CANONICAL_ORDER.indexOf(step.status);
-  if (daEtapa < atual) return "done";
-  if (daEtapa === atual) return "current";
+export function stepState(
+  step: TimelineStep,
+  order: Pick<Order, "status" | "statusFase" | "timeline">
+): "done" | "current" | "pending" {
+  const steps = orderTimeline(order);
+  const atualIdx = steps.findIndex((s) => s.key === order.status);
+  const etapaIdx = steps.findIndex((s) => s.key === step.key);
+
+  if (atualIdx >= 0 && etapaIdx >= 0) {
+    if (etapaIdx < atualIdx) return "done";
+    if (etapaIdx === atualIdx) return "current";
+    return "pending";
+  }
+
+  // Fallback por fase canônica (chave atual fora do fluxo)
+  const atualFase = CANONICAL_ORDER.indexOf(order.statusFase as Fase);
+  const etapaFase = CANONICAL_ORDER.indexOf(step.fase);
+  if (etapaFase < atualFase) return "done";
+  if (etapaFase === atualFase) return "current";
   return "pending";
 }

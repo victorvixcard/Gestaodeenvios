@@ -1,7 +1,12 @@
 import { cn } from "../../lib/utils";
 import type { OrderStatus } from "../../types";
 
-const STATUS_CONFIG: Record<OrderStatus, { label: string; active: boolean }> = {
+/**
+ * Badge de status. A COR vem da fase canônica (variáveis --status-*); o
+ * TEXTO vem do rótulo da etapa do pedido — que pode ser personalizado por
+ * empresa ("Aprovação da arte"). Sem label, usa o nome padrão da fase.
+ */
+const FASE_CONFIG: Record<OrderStatus, { label: string; active: boolean }> = {
   pending:    { label: "Pendente",     active: false },
   started:    { label: "Iniciado",     active: true  },
   production: { label: "Em Produção",  active: true  },
@@ -12,13 +17,14 @@ const STATUS_CONFIG: Record<OrderStatus, { label: string; active: boolean }> = {
 };
 
 interface StatusBadgeProps {
-  status: OrderStatus;
+  fase: OrderStatus;
+  label?: string;
   className?: string;
   size?: "sm" | "md";
 }
 
-export function StatusBadge({ status, className, size = "md" }: StatusBadgeProps) {
-  const config = STATUS_CONFIG[status];
+export function StatusBadge({ fase, label, className, size = "md" }: StatusBadgeProps) {
+  const config = FASE_CONFIG[fase] ?? FASE_CONFIG.pending;
   return (
     <div
       className={cn(
@@ -27,16 +33,16 @@ export function StatusBadge({ status, className, size = "md" }: StatusBadgeProps
         className
       )}
       style={{
-        background: `hsl(var(--status-${status}) / 0.1)`,
-        borderColor: `hsl(var(--status-${status}) / 0.3)`,
-        color: `hsl(var(--status-${status}))`,
+        background: `hsl(var(--status-${fase}) / 0.1)`,
+        borderColor: `hsl(var(--status-${fase}) / 0.3)`,
+        color: `hsl(var(--status-${fase}))`,
       }}
     >
       <span
         className={cn("h-1.5 w-1.5 rounded-full flex-shrink-0", config.active && "animate-pulse")}
-        style={{ background: `hsl(var(--status-${status}))` }}
+        style={{ background: `hsl(var(--status-${fase}))` }}
       />
-      {config.label}
+      {label || config.label}
     </div>
   );
 }

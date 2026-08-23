@@ -26,24 +26,69 @@ class Order extends Model
         'timeline' => 'array',
     ];
 
+    /** Fases canônicas, na ordem de produção. É nelas que Kanban, cores e
+     *  regra de atraso se apoiam — etapas personalizadas apontam para uma. */
+    public const FASES = ['pending', 'started', 'production', 'finishing', 'shipped', 'done'];
+
     /**
      * Fluxo padrão de etapas. Empresa sem fluxo próprio usa este; o fluxo
      * vigente é congelado em orders.timeline na criação do pedido.
+     * As chaves das etapas padrão são os próprios nomes canônicos, o que
+     * mantém compatível todo pedido criado antes das etapas livres.
      */
     public const DEFAULT_TIMELINE = [
-        ['status' => 'pending',    'label' => 'Recebido'],
-        ['status' => 'started',    'label' => 'Iniciado'],
-        ['status' => 'production', 'label' => 'Produção'],
-        ['status' => 'finishing',  'label' => 'Acabamento'],
-        ['status' => 'shipped',    'label' => 'Envio ao cliente'],
-        ['status' => 'done',       'label' => 'Entregue'],
+        ['key' => 'pending',    'label' => 'Recebido',         'fase' => 'pending'],
+        ['key' => 'started',    'label' => 'Iniciado',         'fase' => 'started'],
+        ['key' => 'production', 'label' => 'Produção',         'fase' => 'production'],
+        ['key' => 'finishing',  'label' => 'Acabamento',       'fase' => 'finishing'],
+        ['key' => 'shipped',    'label' => 'Envio ao cliente', 'fase' => 'shipped'],
+        ['key' => 'done',       'label' => 'Entregue',         'fase' => 'done'],
     ];
 
-    /** Statuses do fluxo deste pedido, na ordem (sem cancelled). */
-    public function timelineStatuses(): array
+    /** Etapas do fluxo deste pedido, sempre no formato {key,label,fase}. */
+    public function timelineSteps(): array
     {
         $steps = $this->timeline ?: self::DEFAULT_TIMELINE;
-        return array_column($steps, 'status');
+        return array_map(fn($s) => [
+            'key'   => $s['key'] ?? $s['status'] ?? 'pending',
+            'label' => $s['label'] ?? '',
+            'fase'  => $s['fase'] ?? $s['status'] ?? 'pending',
+        ], $steps);
+    }
+
+    /** Chaves das etapas do fluxo, na ordem (sem cancelled). */
+    public function timelineStatuses(): array
+    {
+        return array_column($this->timelineSteps(), 'key');
+    }
+
+    /**
+     * Fase canônica do status atual. Etapa personalizada resolve pela chave
+     * no fluxo congelado; status canônico responde por si; desconhecido cai
+     * em pending (o mais conservador para regra de atraso).
+     */
+    public function faseAtual(): string
+    {
+        if ($this->status === 'cancelled') return 'cancelled';
+
+        foreach ($this->timelineSteps() as $s) {
+            if ($s['key'] === $this->status) return $s['fase'];
+        }
+        return in_array($this->status, self::FASES) ? $this->status : 'pending';
+    }
+
+    /** Rótulo exibido do status atual. */
+    public function statusLabel(): string
+    {
+        if ($this->status === 'cancelled') return 'Cancelado';
+
+        foreach ($this->timelineSteps() as $s) {
+            if ($s['key'] === $this->status) return $s['label'];
+        }
+        foreach (self::DEFAULT_TIMELINE as $s) {
+            if ($s['key'] === $this->status) return $s['label'];
+        }
+        return $this->status;
     }
 
     public function company(): BelongsTo
@@ -88,7 +133,9 @@ class Order extends Model
 
     public function isOverdue(): bool
     {
-        if (in_array($this->status, ['done', 'cancelled'])) return false;
+        // Pela FASE, não pela chave: uma etapa final personalizada
+        // ("Concluído") também encerra a contagem de atraso
+        if (in_array($this->faseAtual(), ['done', 'cancelled'])) return false;
 
         // Data com data, no fuso do negócio: isPast() marcaria como atrasado
         // quem vence hoje, e now() em UTC já viraria o dia às 21h de Brasília.

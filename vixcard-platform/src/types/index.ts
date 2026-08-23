@@ -18,10 +18,18 @@ export type OrderStatus =
   | "done"
   | "cancelled";
 
-/** Uma etapa da linha do tempo: status canônico + rótulo exibido. */
+/** Fase canônica de produção — dá coluna no Kanban, cor e regra de atraso. */
+export type Fase = Exclude<OrderStatus, "cancelled">;
+
+/**
+ * Uma etapa da linha do tempo. `key` identifica a etapa dentro do fluxo (é o
+ * que Order.status guarda); `label` é o nome exibido; `fase` ancora a etapa
+ * numa das 6 fases canônicas. Etapas padrão têm key igual ao nome da fase.
+ */
 export interface TimelineStep {
-  status: Exclude<OrderStatus, "cancelled">;
+  key: string;
   label: string;
+  fase: Fase;
 }
 
 export interface Tenant {
@@ -172,7 +180,8 @@ export interface OrderEvent {
   type: "status_change" | "note" | "file_upload" | "created" | "cancel";
   description: string;
   authorName: string;
-  status?: OrderStatus;
+  /** Chave da etapa (pode ser personalizada) ou "cancelled". */
+  status?: string;
   createdAt: string;
 }
 
@@ -188,7 +197,12 @@ export interface Order {
   tenantSlug: string;
   tenantName: string;
   title: string;
-  status: OrderStatus;
+  /** Chave da etapa atual no fluxo do pedido (ou "cancelled"). */
+  status: string;
+  /** Fase canônica resolvida pelo backend — use para cores, colunas e filtros. */
+  statusFase: OrderStatus;
+  /** Rótulo exibido da etapa atual, resolvido pelo backend. */
+  statusLabel: string;
   /** Fluxo congelado na criacao; null = padrao. */
   timeline?: TimelineStep[] | null;
   items: OrderItem[];

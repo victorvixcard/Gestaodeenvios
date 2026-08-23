@@ -27,10 +27,10 @@ export function Dashboard() {
     ? orders
     : orders.filter((o) => o.tenantSlug === tenant.slug);
 
-  const pending    = tenantOrders.filter((o) => o.status === "pending").length;
-  const inProgress = tenantOrders.filter((o) => ["started", "production", "finishing", "shipped"].includes(o.status)).length;
-  const done       = tenantOrders.filter((o) => o.status === "done").length;
-  const cancelled  = tenantOrders.filter((o) => o.status === "cancelled").length;
+  const pending    = tenantOrders.filter((o) => o.statusFase === "pending").length;
+  const inProgress = tenantOrders.filter((o) => ["started", "production", "finishing", "shipped"].includes(o.statusFase)).length;
+  const done       = tenantOrders.filter((o) => o.statusFase === "done").length;
+  const cancelled  = tenantOrders.filter((o) => o.statusFase === "cancelled").length;
   const total      = tenantOrders.length;
 
   const recent = [...tenantOrders]
@@ -68,7 +68,7 @@ export function Dashboard() {
   const topProdutos = useMemo(() => {
     const mapa: Record<string, number> = {};
     tenantOrders.forEach((o) => {
-      if (o.status === "cancelled") return;
+      if (o.statusFase === "cancelled") return;
       o.items.forEach((it) => { mapa[it.productName] = (mapa[it.productName] ?? 0) + it.quantity; });
     });
     return Object.entries(mapa)
@@ -252,7 +252,7 @@ export function Dashboard() {
                       {order.id} · {formatDateShort(order.updatedAt)}
                     </p>
                   </div>
-                  <StatusBadge status={order.status} size="sm" />
+                  <StatusBadge fase={order.statusFase} label={order.statusLabel} size="sm" />
                 </motion.div>
               ))}
             </div>

@@ -25,16 +25,6 @@ import type { Order, OrderStatus } from "../types";
 import { cn } from "../lib/utils";
 import { horasAteEntrega, horasEnvioAteEntrega, media, formatDuracao } from "../lib/metrics";
 
-const STATUS_LABEL: Record<OrderStatus, string> = {
-  pending:    "Pendente",
-  started:    "Iniciado",
-  production: "Em Produção",
-  finishing:  "Acabamento",
-  shipped:    "Enviado",
-  done:       "Finalizado",
-  cancelled:  "Cancelado",
-};
-
 const STATUS_VARIANT: Record<OrderStatus, string> = {
   pending:    "bg-warning/15 text-warning",
   started:    "bg-primary/15 text-primary",
@@ -88,7 +78,7 @@ async function downloadExcel(
         "Título": order.title,
         ...(isSuperAdmin ? { "Empresa": order.tenantName } : {}),
         "Data": format(parseISO(order.createdAt), "dd/MM/yyyy", { locale: ptBR }),
-        "Status": STATUS_LABEL[order.status],
+        "Status": order.statusLabel,
         "Produto": item.productName,
         "Código": product?.code ?? "",
         "Qtd": item.quantity,
@@ -175,9 +165,9 @@ function OrderConsumptionRow({
             {/* Status */}
             <span className={cn(
               "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold",
-              STATUS_VARIANT[order.status]
+              STATUS_VARIANT[order.statusFase]
             )}>
-              {STATUS_LABEL[order.status]}
+              {order.statusLabel}
             </span>
 
             {/* Summary */}
@@ -271,8 +261,8 @@ export function Reports() {
       if (!isWithinInterval(date, { start: from, end: to })) return false;
       if (companyFilter !== "all" && o.tenantSlug !== companyFilter) return false;
       if (!isSuperAdmin && o.tenantSlug !== user?.tenantSlug) return false;
-      if (statusFilter === "active" && o.status === "cancelled") return false;
-      if (statusFilter === "done"   && o.status !== "done") return false;
+      if (statusFilter === "active" && o.statusFase === "cancelled") return false;
+      if (statusFilter === "done"   && o.statusFase !== "done") return false;
       return true;
     });
   }, [orders, from, to, companyFilter, statusFilter, isSuperAdmin, user]);

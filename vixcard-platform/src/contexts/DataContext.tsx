@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
-import type { Product, Company, User, Sector, Papel, Permission, UserRole, TimelineStep } from "../types";
+import type { Product, Company, User, Sector, Papel, Permission, UserRole, Fase } from "../types";
 import { api } from "../lib/api";
 import { mapProduct, mapCompany, mapUser } from "../lib/mappers";
 import { useAuth } from "./AuthContext";
@@ -31,7 +31,7 @@ interface DataContextValue {
   companies: Company[];
   addCompany: (data: Omit<Company, "slug" | "createdAt" | "attendantIds" | "timeline">) => Promise<void>;
   updateCompany: (slug: string, updates: Partial<Company>) => Promise<void>;
-  setCompanyTimeline: (slug: string, steps: TimelineStep[] | null) => Promise<void>;
+  setCompanyTimeline: (slug: string, steps: { label: string; fase: Fase }[] | null) => Promise<void>;
 
   users: User[];
   addUser: (data: Omit<User, "id" | "avatarInitials" | "sectors"> & { password?: string; sectorIds?: string[]; roleId?: string }) => Promise<Record<string, unknown>>;
@@ -187,7 +187,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   // Linha do tempo da empresa: null volta ao fluxo padrao. So afeta OS
   // futuras — o pedido congela o fluxo vigente na criacao.
-  const setCompanyTimeline = async (slug: string, steps: TimelineStep[] | null): Promise<void> => {
+  const setCompanyTimeline = async (slug: string, steps: { label: string; fase: Fase }[] | null): Promise<void> => {
     const fresh = await api.put<Record<string, unknown>>(`/companies/${slug}/timeline`, { timeline: steps });
     setCompanies((prev) => prev.map((x) => (x.slug === slug ? mapCompany(fresh) : x)));
   };

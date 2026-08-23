@@ -30,7 +30,7 @@ import {
 } from "../components/ui/select";
 import { formatDate } from "../lib/utils";
 import { orderTimeline, STATUS_ICON } from "../lib/timeline";
-import type { OrderItem, OrderStatus } from "../types";
+import type { OrderItem } from "../types";
 
 
 export function OrderDetail() {
@@ -68,15 +68,15 @@ export function OrderDetail() {
   // Fluxo do PROPRIO pedido, congelado na criacao. Avancar/voltar percorre
   // essas etapas — pedido de fluxo curto pula direto o que nao tem.
   const steps = orderTimeline(order);
-  const stageOrder: OrderStatus[] = steps.map((s) => s.status);
-  const rotulo = (status: string) =>
-    steps.find((s) => s.status === status)?.label ?? status;
+  const stageOrder: string[] = steps.map((s) => s.key);
+  const rotulo = (key: string) =>
+    steps.find((s) => s.key === key)?.label ?? key;
 
   const currentStageIndex = stageOrder.indexOf(order.status);
   const isSuperAdmin = user?.role === "super_admin";
-  const isCancelled = order.status === "cancelled";
-  const isDone = order.status === "done";
-  const isPending = order.status === "pending";
+  const isCancelled = order.statusFase === "cancelled";
+  const isDone = order.statusFase === "done";
+  const isPending = order.statusFase === "pending";
 
   // Tenant user can cancel only while still pending
   const canTenantCancel = !isSuperAdmin && isPending && !isCancelled;
@@ -97,7 +97,7 @@ export function OrderDetail() {
   const handleAdvance = async () => {
     const nextIndex = stageOrder.indexOf(order.status) + 1;
     if (nextIndex >= stageOrder.length || nextIndex === 0) return;
-    const nextStatus = stageOrder[nextIndex] as OrderStatus;
+    const nextStatus = stageOrder[nextIndex];
     const prevLabel = rotulo(order.status);
     const nextLabel = rotulo(nextStatus);
     try {
@@ -113,7 +113,7 @@ export function OrderDetail() {
   const handleGoBack = async () => {
     const prevIndex = stageOrder.indexOf(order.status) - 1;
     if (prevIndex < 0) return;
-    const prevStatus = stageOrder[prevIndex] as OrderStatus;
+    const prevStatus = stageOrder[prevIndex];
     const currentLabel = rotulo(order.status);
     const prevLabel = rotulo(prevStatus);
     try {
@@ -128,7 +128,7 @@ export function OrderDetail() {
   // Super admin: reabre pedido cancelado/concluido voltando para o início do fluxo
   const handleReopen = async () => {
     try {
-      await updateStatus(order.id, "pending", undefined, user?.name);
+      await updateStatus(order.id, stageOrder[0], undefined, user?.name);
       addLog({ ...actor, action: "pedido_status", entityType: "Pedido", entityId: order.id, entityName: order.title, details: `Pedido reaberto (status anterior: ${order.status})` });
       toast.success("Pedido reaberto.");
     } catch (err) {
@@ -245,7 +245,7 @@ export function OrderDetail() {
             <span className="font-mono text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
               {order.id}
             </span>
-            <StatusBadge status={order.status} />
+            <StatusBadge fase={order.statusFase} label={order.statusLabel} />
           </div>
           <h1 className="font-display text-xl lg:text-2xl font-extrabold truncate">{order.title}</h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -261,9 +261,9 @@ export function OrderDetail() {
             {steps.map((stage, i) => {
               const done = currentStageIndex > i;
               const active = currentStageIndex === i;
-              const StageIcon = STATUS_ICON[stage.status];
+              const StageIcon = STATUS_ICON[stage.fase];
               return (
-                <div key={stage.status} className="flex items-center gap-1 min-w-0">
+                <div key={stage.key} className="flex items-center gap-1 min-w-0">
                   <div className="flex flex-col items-center gap-1 flex-shrink-0">
                     <div
                       className={[

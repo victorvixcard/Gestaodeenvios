@@ -160,6 +160,8 @@ export function NewOrder() {
         tenantName: tenant.name,
         title,
         status: "pending",
+        statusFase: "pending",
+        statusLabel: "Recebido",
         items,
         notes: [],
         requestedBy: user?.name ?? "Usuário",

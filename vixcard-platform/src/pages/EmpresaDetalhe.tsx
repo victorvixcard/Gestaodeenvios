@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import {
   ArrowLeft, Save, MessageCircle, KeyRound, Package, Timer,
   User as UserIcon, Eye, EyeOff, Check, Link2,
+  ChevronUp, ChevronDown, Trash2, Plus,
 } from "lucide-react";
 import { CompanyCatalogTab } from "../components/shared/CompanyCatalogTab";
 import { toast } from "sonner";
@@ -76,18 +77,14 @@ export function EmpresaDetalhe() {
   );
   const [savingAttendants, setSavingAttendants] = useState(false);
 
-  // Editor da linha do tempo: todas as etapas do padrao, marcando quais o
-  // cliente usa e com o rotulo dele. Recebido e Entregue sao obrigatorias.
+  // Editor da linha do tempo: lista LIVRE de etapas. Cada etapa tem nome
+  // proprio e aponta para uma fase canonica (que da coluna no Kanban, cor e
+  // regra de atraso). Primeira e ultima sao fixas nas fases Recebido/Entregue.
   const montarFluxo = (timeline: TimelineStep[] | null) =>
-    DEFAULT_TIMELINE.map((padrao) => {
-      const proprio = timeline?.find((s) => s.status === padrao.status);
-      return {
-        status: padrao.status,
-        label: proprio?.label ?? padrao.label,
-        ativo: timeline ? !!proprio : true,
-        obrigatorio: padrao.status === "pending" || padrao.status === "done",
-      };
-    });
+    (timeline?.length ? timeline : DEFAULT_TIMELINE).map((s) => ({
+      label: s.label,
+      fase: s.fase,
+    }));
   const [fluxo, setFluxo] = useState(() => montarFluxo(company?.timeline ?? null));
   const [savingFluxo, setSavingFluxo] = useState(false);
 
@@ -140,16 +137,15 @@ export function EmpresaDetalhe() {
   };
 
   const handleSaveFluxo = async () => {
-    const ativos = fluxo.filter((s) => s.ativo);
-    if (ativos.some((s) => !s.label.trim())) {
-      toast.error("Toda etapa ativa precisa de um nome.");
+    if (fluxo.some((s) => !s.label.trim())) {
+      toast.error("Toda etapa precisa de um nome.");
       return;
     }
     setSavingFluxo(true);
     try {
       await setCompanyTimeline(
         company!.slug,
-        ativos.map((s) => ({ status: s.status, label: s.label.trim() }))
+        fluxo.map((s) => ({ label: s.label.trim(), fase: s.fase }))
       );
       toast.success("Linha do tempo atualizada! Vale para as próximas OS.");
     } catch (err) {
@@ -158,6 +154,26 @@ export function EmpresaDetalhe() {
       setSavingFluxo(false);
     }
   };
+
+  const adicionarEtapa = () => {
+    setFluxo((f) => {
+      // Entra antes de Entregue, herdando a fase da etapa anterior
+      const nova = { label: "", fase: f[f.length - 2]?.fase ?? "production" };
+      return [...f.slice(0, -1), nova, f[f.length - 1]];
+    });
+  };
+
+  const removerEtapa = (i: number) =>
+    setFluxo((f) => f.filter((_, j) => j !== i));
+
+  const moverEtapa = (i: number, delta: number) =>
+    setFluxo((f) => {
+      const j = i + delta;
+      if (j <= 0 || j >= f.length - 1) return f; // primeira e ultima nao saem do lugar
+      const copia = [...f];
+      [copia[i], copia[j]] = [copia[j], copia[i]];
+      return copia;
+    });
 
   const handleRestaurarFluxo = async () => {
     setSavingFluxo(true);
@@ -603,54 +619,89 @@ export function EmpresaDetalhe() {
                 <div>
                   <h3 className="text-sm font-semibold">Fluxo de etapas da {company.name}</h3>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Marque as etapas que fazem parte do fluxo deste cliente e renomeie como
-                    preferir. Recebido e Entregue são obrigatórias. <strong className="text-foreground">Vale
-                    só para OS novas</strong> — pedido já aberto mantém a linha do tempo com que nasceu.
+                    Crie, remova e renomeie as etapas do fluxo deste cliente. Cada etapa
+                    aponta para uma <strong className="text-foreground">fase</strong> — é a fase que
+                    define a coluna no Kanban e a regra de atraso. A primeira e a última
+                    etapa são fixas nas fases Recebido e Entregue.{" "}
+                    <strong className="text-foreground">Vale só para OS novas</strong> — pedido já
+                    aberto mantém a linha do tempo com que nasceu.
                   </p>
                 </div>
 
                 <div className="space-y-1.5">
-                  {fluxo.map((etapa, i) => (
-                    <div
-                      key={etapa.status}
-                      className={`flex items-center gap-3 px-3 py-2 rounded-lg border transition-all ${
-                        etapa.ativo ? "bg-primary/5 border-primary/25" : "border-border opacity-60"
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        disabled={etapa.obrigatorio}
-                        onClick={() =>
-                          setFluxo((f) => f.map((s, j) => (j === i ? { ...s, ativo: !s.ativo } : s)))
-                        }
-                        className={`h-4 w-4 rounded flex items-center justify-center flex-shrink-0 border-2 ${
-                          etapa.ativo ? "bg-primary border-primary" : "border-border"
-                        } ${etapa.obrigatorio ? "cursor-not-allowed opacity-70" : ""}`}
-                        title={etapa.obrigatorio ? "Etapa obrigatória" : undefined}
+                  {fluxo.map((etapa, i) => {
+                    const primeira = i === 0;
+                    const ultima   = i === fluxo.length - 1;
+                    const fixa     = primeira || ultima;
+                    return (
+                      <div
+                        key={i}
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-primary/5 border-primary/25"
                       >
-                        {etapa.ativo && <Check className="h-2.5 w-2.5 text-white" />}
-                      </button>
+                        <span className="text-[10px] font-mono text-muted-foreground w-6 flex-shrink-0">
+                          {i + 1}º
+                        </span>
 
-                      <span className="text-[10px] font-mono text-muted-foreground w-6 flex-shrink-0">
-                        {i + 1}º
-                      </span>
+                        <Input
+                          value={etapa.label}
+                          maxLength={40}
+                          placeholder="Nome da etapa"
+                          onChange={(e) =>
+                            setFluxo((f) => f.map((s, j) => (j === i ? { ...s, label: e.target.value } : s)))
+                          }
+                          className="h-8 text-xs flex-1"
+                        />
 
-                      <Input
-                        value={etapa.label}
-                        disabled={!etapa.ativo}
-                        maxLength={40}
-                        onChange={(e) =>
-                          setFluxo((f) => f.map((s, j) => (j === i ? { ...s, label: e.target.value } : s)))
-                        }
-                        className="h-8 text-xs"
-                      />
+                        {fixa ? (
+                          <Badge variant="muted" className="text-[9px] flex-shrink-0 w-[110px] justify-center">
+                            fase {primeira ? "Recebido" : "Entregue"}
+                          </Badge>
+                        ) : (
+                          <select
+                            value={etapa.fase}
+                            onChange={(e) =>
+                              setFluxo((f) => f.map((s, j) => (j === i ? { ...s, fase: e.target.value as typeof s.fase } : s)))
+                            }
+                            className="h-8 w-[110px] flex-shrink-0 rounded-md border border-border bg-background px-2 text-[11px]"
+                            title="Fase no Kanban"
+                          >
+                            <option value="started">Iniciado</option>
+                            <option value="production">Produção</option>
+                            <option value="finishing">Acabamento</option>
+                            <option value="shipped">Envio</option>
+                          </select>
+                        )}
 
-                      {etapa.obrigatorio && (
-                        <Badge variant="muted" className="text-[9px] flex-shrink-0">obrigatória</Badge>
-                      )}
-                    </div>
-                  ))}
+                        <div className="flex flex-shrink-0">
+                          <button type="button" onClick={() => moverEtapa(i, -1)} disabled={fixa || i === 1}
+                                  className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-20"
+                                  title="Mover para cima">
+                            <ChevronUp className="h-3.5 w-3.5" />
+                          </button>
+                          <button type="button" onClick={() => moverEtapa(i, 1)} disabled={fixa || i === fluxo.length - 2}
+                                  className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-20"
+                                  title="Mover para baixo">
+                            <ChevronDown className="h-3.5 w-3.5" />
+                          </button>
+                          <button type="button" onClick={() => removerEtapa(i)} disabled={fixa}
+                                  className="p-1 text-destructive/70 hover:text-destructive disabled:opacity-20"
+                                  title={fixa ? "Etapa obrigatória" : "Remover etapa"}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
+
+                <button
+                  type="button"
+                  onClick={adicionarEtapa}
+                  className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-2 text-xs text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Adicionar etapa
+                </button>
 
                 <div className="flex gap-2">
                   <Button variant="brand" onClick={handleSaveFluxo} className="flex-1" disabled={savingFluxo}>

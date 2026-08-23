@@ -21,6 +21,7 @@ import {
   StatusFilterChips, STATUS_FILTER_LABELS, type StatusFilterValue,
 } from "../components/shared/StatusFilterChips";
 import { orderIsOverdue } from "../lib/itemDeadline";
+import { orderTimeline } from "../lib/timeline";
 import { ApiError } from "../lib/api";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
@@ -213,7 +214,7 @@ export function Kanban() {
 
     return doTenant.filter((o) => {
       if (!tenantPassaNoFiltro(colab, o.tenantSlug, companies, users)) return false;
-      if (statusFilter === "overdue" && !orderIsOverdue(o.items, o.status)) return false;
+      if (statusFilter === "overdue" && !orderIsOverdue(o.items, o.statusFase)) return false;
       if (!t) return true;
       return o.id.toLowerCase().includes(t) ||
              o.title.toLowerCase().includes(t) ||
@@ -228,10 +229,11 @@ export function Kanban() {
     return COLUNAS.filter((c) => c.key === statusFilter);
   }, [statusFilter]);
 
+  // Agrupa pela FASE: etapas personalizadas caem na coluna da fase delas
   const porStatus = useMemo(() => {
     const m = {} as Record<OrderStatus, Order[]>;
     COLUNAS.forEach((c) => { m[c.key] = []; });
-    visiveis.forEach((o) => { m[o.status]?.push(o); });
+    visiveis.forEach((o) => { m[o.statusFase]?.push(o); });
     return m;
   }, [visiveis]);
 
@@ -244,7 +246,7 @@ export function Kanban() {
       all: doTenant.length,
       overdue: doTenant.filter((o) => orderIsOverdue(o.items, o.status)).length,
     };
-    doTenant.forEach((o) => { c[o.status] = (c[o.status] ?? 0) + 1; });
+    doTenant.forEach((o) => { c[o.statusFase] = (c[o.statusFase] ?? 0) + 1; });
     return c;
   }, [orders, isSuperAdmin, tenant.slug, colab, companies, users]);
 
@@ -262,7 +264,7 @@ export function Kanban() {
     setArrastando(null);
     const destino = e.over?.id as OrderStatus | undefined;
     const ordem = orders.find((o) => o.id === e.active.id);
-    if (!destino || !ordem || ordem.status === destino) return;
+    if (!destino || !ordem || ordem.statusFase === destino) return;
 
     if (destino === "cancelled") {
       if (!isSuperAdmin) {
@@ -274,9 +276,17 @@ export function Kanban() {
       return;
     }
 
+    // A coluna e uma FASE; a OS transita por CHAVES do proprio fluxo.
+    // Solta na coluna X -> primeira etapa do fluxo da OS cuja fase e X.
+    const etapa = orderTimeline(ordem).find((s) => s.fase === destino);
+    if (!etapa) {
+      toast.error(`O fluxo da ${ordem.id} não tem etapa na fase "${COLUNAS.find((c) => c.key === destino)?.label}".`);
+      return;
+    }
+
     try {
-      await updateStatus(ordem.id, destino);
-      toast.success(`${ordem.id} → ${COLUNAS.find((c) => c.key === destino)?.label}`);
+      await updateStatus(ordem.id, etapa.key);
+      toast.success(`${ordem.id} → ${etapa.label}`);
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Não foi possível mover a OS.");
     }

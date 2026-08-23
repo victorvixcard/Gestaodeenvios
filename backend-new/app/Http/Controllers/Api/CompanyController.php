@@ -39,30 +39,47 @@ class CompanyController extends Controller
     {
         $company = Company::findOrFail($slug);
 
+        // Etapas LIVRES: cada uma tem nome próprio e aponta para uma fase
+        // canônica (que dá coluna no Kanban, cor e regra de atraso). A chave
+        // é gerada aqui a partir do nome — o fluxo da empresa só vale para OS
+        // novas, então regenerar chaves a cada salvamento é seguro.
         $request->validate([
-            'timeline'          => 'nullable|array|min:2',
-            'timeline.*.status' => 'required_with:timeline|in:pending,started,production,finishing,shipped,done',
-            'timeline.*.label'  => 'required_with:timeline|string|max:40',
+            'timeline'         => 'nullable|array|min:2|max:12',
+            'timeline.*.label' => 'required_with:timeline|string|max:40',
+            'timeline.*.fase'  => 'required_with:timeline|in:pending,started,production,finishing,shipped,done',
         ]);
 
-        $steps = $request->timeline;
+        $steps = null;
 
-        if ($steps !== null) {
-            $statuses = array_column($steps, 'status');
-            if (count($statuses) !== count(array_unique($statuses))) {
-                return response()->json(['message' => 'Cada etapa só pode aparecer uma vez.'], 422);
+        if ($request->timeline !== null) {
+            $fases = array_column($request->timeline, 'fase');
+
+            if ($fases[0] !== 'pending' || end($fases) !== 'done') {
+                return response()->json(['message' => 'O fluxo precisa começar na fase Recebido e terminar na fase Entregue.'], 422);
             }
-            if ($statuses[0] !== 'pending' || end($statuses) !== 'done') {
-                return response()->json(['message' => 'O fluxo precisa começar em Recebido e terminar em Entregue.'], 422);
-            }
-            // Mantém a ordem canônica das etapas intermediárias — o Kanban
-            // depende dela para as colunas fazerem sentido
             $canonica  = ['pending', 'started', 'production', 'finishing', 'shipped', 'done'];
-            $posicoes  = array_map(fn($s) => array_search($s, $canonica), $statuses);
+            $posicoes  = array_map(fn($f) => array_search($f, $canonica), $fases);
             $ordenadas = $posicoes;
             sort($ordenadas);
             if ($posicoes !== $ordenadas) {
-                return response()->json(['message' => 'As etapas devem seguir a ordem do fluxo de produção.'], 422);
+                return response()->json(['message' => 'As etapas devem seguir a ordem das fases de produção.'], 422);
+            }
+
+            $steps  = [];
+            $usadas = ['cancelled' => true]; // chave reservada
+            foreach ($request->timeline as $linha) {
+                $base = \Illuminate\Support\Str::slug(trim($linha['label']));
+                if ($base === '') $base = $linha['fase'];
+                $key = $base;
+                for ($n = 2; isset($usadas[$key]); $n++) {
+                    $key = "{$base}-{$n}";
+                }
+                $usadas[$key] = true;
+                $steps[] = [
+                    'key'   => $key,
+                    'label' => trim($linha['label']),
+                    'fase'  => $linha['fase'],
+                ];
             }
         }
 

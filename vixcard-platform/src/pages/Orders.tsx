@@ -46,14 +46,14 @@ function OrderProgressBar({ order }: { order: Order }) {
   return (
     <div className="flex items-center gap-0 w-full">
       {steps.map((stage, i) => {
-        const estado = stepState(stage, order.status);
+        const estado = stepState(stage, order);
         const isCompleted = estado === "done";
         const isCurrent = estado === "current";
         const isPending = estado === "pending";
-        const Icon = STATUS_ICON[stage.status];
+        const Icon = STATUS_ICON[stage.fase];
 
         return (
-          <div key={stage.status} className="flex items-center flex-1 min-w-0">
+          <div key={stage.key} className="flex items-center flex-1 min-w-0">
             {/* Stage node */}
             <div className="flex flex-col items-center gap-1 flex-shrink-0">
               <div
@@ -120,7 +120,7 @@ function TimelineCard({ order, index, tenantSlug, isSuperAdmin }: {
             {isSuperAdmin && (
               <Badge variant="outline" className="text-[11px]">{order.tenantName}</Badge>
             )}
-            <StatusBadge status={order.status} size="sm" />
+            <StatusBadge fase={order.statusFase} label={order.statusLabel} size="sm" />
           </div>
           <div className="flex items-center gap-1 text-[11px] text-muted-foreground flex-shrink-0">
             <Calendar className="h-3 w-3" />
@@ -198,12 +198,12 @@ export function Orders() {
   // Contagem por status para os chips do filtro (ignora a busca de texto,
   // para os números não pularem enquanto o usuário digita)
   const statusCounts: Partial<Record<StatusFilterValue, number>> = { all: doColab.length, overdue: overdueCount };
-  doColab.forEach((o) => { statusCounts[o.status] = (statusCounts[o.status] ?? 0) + 1; });
+  doColab.forEach((o) => { statusCounts[o.statusFase] = (statusCounts[o.statusFase] ?? 0) + 1; });
 
   const filtered = doColab.filter((o) => {
     const matchStatus =
       statusFilter === "all" ||
-      (statusFilter === "overdue" ? orderIsOverdue(o.items, o.status) : o.status === statusFilter);
+      (statusFilter === "overdue" ? orderIsOverdue(o.items, o.statusFase) : o.statusFase === statusFilter);
     const matchSearch =
       !search ||
       o.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -344,7 +344,7 @@ export function Orders() {
                     </div>
                   </div>
                   <div className="flex items-center gap-3 flex-shrink-0">
-                    <StatusBadge status={order.status} size="sm" />
+                    <StatusBadge fase={order.statusFase} label={order.statusLabel} size="sm" />
                     <ChevronRight className="h-4 w-4 text-muted-foreground/40" />
                   </div>
                 </div>

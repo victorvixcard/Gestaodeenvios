@@ -2,6 +2,16 @@ import type { User, Product, Company, Order, OrderItem, OrderNote, OrderEvent, P
 import type { LogEntry, LogAction, LogEntityType } from '../contexts/LogsContext'
 import type { UserRole } from '../types'
 
+/** Normaliza etapas gravadas no formato antigo ({status,label}) para {key,label,fase}. */
+function mapTimeline(raw: unknown): TimelineStep[] | null {
+  if (!Array.isArray(raw) || raw.length === 0) return null
+  return raw.map((s: Record<string, unknown>) => ({
+    key: String(s.key ?? s.status ?? 'pending'),
+    label: String(s.label ?? ''),
+    fase: (s.fase ?? s.status ?? 'pending') as TimelineStep['fase'],
+  }))
+}
+
 export function mapUser(u: Record<string, unknown>): User {
   const name = String(u.name ?? '')
   const initials = name
@@ -69,7 +79,7 @@ export function mapCompany(c: Record<string, unknown>): Company {
     active: Boolean(c.active),
     allowedProductIds,
     attendantIds: ((c.attendantIds as Array<string | number> | null) ?? []).map(String),
-    timeline: (c.timeline as TimelineStep[] | null) ?? null,
+    timeline: mapTimeline(c.timeline),
     createdAt: String(c.createdAt ?? c.created_at ?? new Date().toISOString()),
   }
 }
@@ -120,8 +130,10 @@ export function mapOrder(o: Record<string, unknown>): Order {
     tenantSlug: String(o.tenantSlug ?? o.tenant_slug ?? ''),
     tenantName: String(o.tenantName ?? o.tenant_name ?? o.tenantSlug ?? ''),
     title: String(o.title ?? ''),
-    status: o.status as Order['status'],
-    timeline: (o.timeline as TimelineStep[] | null) ?? null,
+    status: String(o.status ?? 'pending'),
+    statusFase: (o.statusFase as Order['statusFase']) ?? (o.status as Order['statusFase']) ?? 'pending',
+    statusLabel: String(o.statusLabel ?? o.status ?? ''),
+    timeline: mapTimeline(o.timeline),
     items: items.map(mapOrderItem),
     notes: notes.map(mapOrderNote),
     events: events.map(mapOrderEvent),
