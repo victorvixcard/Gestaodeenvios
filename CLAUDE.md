@@ -450,7 +450,6 @@ Victor (`victoruli@gmail.com`) é o dono e prefere:
 - Não há testes automatizados — adicionar PHPUnit no backend e Vitest no frontend
 - Workers/queue ainda em `database` driver — migrar para Redis quando o volume aumentar
 - Servidor tem upgrade de kernel pendente aguardando reboot — agendar janela de manutenção
-- Nunca foi feito um teste de restauração real do backup — vale testar num banco descartável antes de precisar de verdade
 
 ---
 
@@ -511,6 +510,18 @@ zcat /var/backups/gestaodeenvios/ARQUIVO.sql.gz | grep "CREATE TABLE"
 Deve listar 14 tabelas: `audit_logs`, `cache`, `cache_locks`, `companies`, `company_products`,
 `migrations`, `order_events`, `order_items`, `order_notes`, `orders`, `personal_access_tokens`,
 `products`, `sessions`, `users`.
+
+### Teste de restauração
+
+**Último teste: 2026-08-23**, com o dump `gestaodeenvios_2026-08-23_06-00-01.sql.gz`
+(1,6 MB; 3,3 MB descomprimido) baixado do Google Drive e restaurado num banco
+descartável no MySQL local. Resultado: 14 tabelas, 3 empresas, 15 usuários, 176 OS,
+770 itens, 2.053 eventos, 3.173 logs; zero registros órfãos; a OS mais recente do dump
+(ORD-195, 21/08) abriu com itens e eventos. Banco de teste apagado ao final.
+
+Repetir a cada trimestre ou depois de mudar o script de backup. Roteiro: baixar o dump
+mais recente do Drive, `gzip -t` para integridade, `CREATE DATABASE vixcard_restore_teste`,
+`zcat ARQUIVO | mysql vixcard_restore_teste`, conferir contagens e órfãos, `DROP DATABASE`.
 
 ### Restaurar (CUIDADO — sobrescreve o banco)
 ```bash
