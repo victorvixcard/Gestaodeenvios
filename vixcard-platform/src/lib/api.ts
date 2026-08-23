@@ -52,6 +52,13 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 
     if (res.status === 204) return undefined as T
     const data = await res.json()
+    // Token expirado ou revogado: volta para o login em vez de espalhar
+    // erros 401 pelas telas. O proprio /login devolve 401 para senha errada,
+    // entao fica de fora.
+    if (res.status === 401 && !path.startsWith('/login')) {
+      clearToken()
+      window.location.href = '/login?expirado=1'
+    }
     if (!res.ok) throw new ApiError(res.status, data.message ?? 'Erro na requisição')
     return data as T
   } catch (err) {

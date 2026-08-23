@@ -1,4 +1,4 @@
-import { Menu, Bell, Sun, Moon } from "lucide-react";
+import { Menu, Sun, Moon } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "../ui/button";
 import { AvatarUpload } from "../shared/AvatarUpload";
@@ -41,11 +41,6 @@ export function Topbar({ onMenuClick, title }: TopbarProps) {
           aria-label="Alternar tema"
         >
           {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-        </Button>
-
-        <Button variant="ghost" size="icon-sm" aria-label="Notificações" className="relative">
-          <Bell className="h-4 w-4" />
-          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-accent" />
         </Button>
 
         <div className="flex items-center gap-2 ml-1">
