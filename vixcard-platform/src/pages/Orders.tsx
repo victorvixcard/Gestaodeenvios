@@ -3,9 +3,11 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   Plus, Search, ChevronRight, List, GitBranch,
-  XCircle, Calendar, User, Package, Ban,
+  XCircle, Calendar, User, Package, Ban, Archive, RotateCcw,
 } from "lucide-react";
-import { api } from "../lib/api";
+import { toast } from "sonner";
+import { api, ApiError } from "../lib/api";
+import { mapOrder } from "../lib/mappers";
 import { useAuth } from "../contexts/AuthContext";
 import { useTenant } from "../contexts/TenantContext";
 import { useOrders } from "../contexts/OrdersContext";
@@ -170,7 +172,7 @@ function TimelineCard({ order, index, tenantSlug, isSuperAdmin }: {
 export function Orders() {
   const { user } = useAuth();
   const tenant = useTenant();
-  const { orders } = useOrders();
+  const { orders, refresh } = useOrders();
   const { companies, users } = useData();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -185,6 +187,32 @@ export function Orders() {
 
   const isSuperAdmin = user?.role === "super_admin";
   const mostraPainel = isSuperAdmin && user?.tenantSlug === "vixcard";
+
+  // Arquivadas (soft delete): lista separada, carregada so quando pedida
+  const [verArquivadas, setVerArquivadas] = useState(false);
+  const [arquivadas, setArquivadas] = useState<Order[]>([]);
+  const [carregandoArq, setCarregandoArq] = useState(false);
+  const carregarArquivadas = async () => {
+    setCarregandoArq(true);
+    try {
+      const data = await api.get<Record<string, unknown>[]>("/orders?archived=1");
+      setArquivadas(data.map(mapOrder));
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Erro ao carregar arquivadas.");
+    } finally {
+      setCarregandoArq(false);
+    }
+  };
+  const restaurar = async (id: string) => {
+    try {
+      await api.post(`/orders/${id}/restore`, {});
+      setArquivadas((prev) => prev.filter((o) => o.id !== id));
+      await refresh();
+      toast.success(`${id} restaurada.`);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Erro ao restaurar.");
+    }
+  };
 
   // Solicitacoes de cancelamento aguardando a VIXCard (so super admin)
   const [cancelPendentes, setCancelPendentes] = useState(0);
@@ -272,6 +300,13 @@ export function Orders() {
             </button>
           </div>
           {isSuperAdmin && (
+            <Button variant={verArquivadas ? "brand" : "outline"}
+                    onClick={() => { const v = !verArquivadas; setVerArquivadas(v); if (v) carregarArquivadas(); }}>
+              <Archive className="h-4 w-4" />
+              Arquivadas
+            </Button>
+          )}
+          {isSuperAdmin && (
             <Button variant="outline" onClick={() => navigate(`/${tenant.slug}/pedidos/cancelamentos`)}
                     className={cn(cancelPendentes > 0 && "border-amber-400/60 text-amber-600")}>
               <Ban className="h-4 w-4" />
@@ -290,6 +325,42 @@ export function Orders() {
         </div>
       </div>
 
+      {verArquivadas && (
+        <div className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            OS arquivadas ficam fora das listagens e do Kanban, com histórico e anexos preservados.
+            Restaurar devolve a OS ao lugar de onde saiu.
+          </p>
+          {carregandoArq ? (
+            <div className="flex justify-center py-10">
+              <div className="h-7 w-7 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+            </div>
+          ) : arquivadas.length === 0 ? (
+            <Card className="p-12 text-center"><p className="text-sm text-muted-foreground">Nenhuma OS arquivada.</p></Card>
+          ) : arquivadas.map((order) => (
+            <Card key={order.id} className="p-4 bg-gradient-card opacity-80">
+              <div className="flex items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <span className="font-mono text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">OS {order.id}</span>
+                    <Badge variant="outline" className="text-[11px]">{order.tenantName}</Badge>
+                    <StatusBadge fase={order.statusFase} label={order.statusLabel} size="sm" />
+                  </div>
+                  <p className="font-semibold text-sm truncate">{order.title}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Arquivada em {order.archivedAt ? formatDateShort(order.archivedAt) : "—"} · por {order.requestedBy}
+                  </p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => restaurar(order.id)}>
+                  <RotateCcw className="h-3.5 w-3.5" />Restaurar
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {!verArquivadas && (<>
       {/* Filters */}
       <div className="space-y-3">
         <div className="relative">
@@ -395,6 +466,7 @@ export function Orders() {
           ))}
         </div>
       )}
+      </>)}
       </div>
     </div>
   );

@@ -50,8 +50,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/{id}/files',   [OrderController::class, 'uploadFile']);
         Route::delete('/{id}/files/{fileIndex}', [OrderController::class, 'deleteFile']);
 
-        // Exclusão definitiva — somente super admin
+        // Arquivar (soft delete) e restaurar — somente super admin
         Route::delete('/{id}', [OrderController::class, 'destroy'])
+            ->middleware('role:super_admin');
+        Route::post('/{id}/restore', [OrderController::class, 'restore'])
             ->middleware('role:super_admin');
     });
 

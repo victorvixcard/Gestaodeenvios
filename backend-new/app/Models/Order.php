@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\DB;
@@ -10,6 +11,8 @@ use App\Services\BusinessDayService;
 
 class Order extends Model
 {
+    use SoftDeletes;
+
     protected $primaryKey = 'id';
     protected $keyType    = 'string';
     public $incrementing  = false;
@@ -127,9 +130,11 @@ class Order extends Model
 
     public static function generateId(): string
     {
-        // Lock de tabela para evitar race condition em operações concorrentes
+        // Lock de tabela para evitar race condition em operações concorrentes.
+        // withTrashed: OS arquivada continua ocupando o numero dela — sem isso
+        // uma OS nova repetiria o numero da ultima arquivada.
         return DB::transaction(function () {
-            $max = static::lockForUpdate()->max(
+            $max = static::withTrashed()->lockForUpdate()->max(
                 DB::raw("CAST(REPLACE(id, 'ORD-', '') AS UNSIGNED)")
             );
             $next = ($max ?? 0) + 1;

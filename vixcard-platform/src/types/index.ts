@@ -234,5 +234,7 @@ export interface Order {
   assignedTo?: string;
   createdAt: string;
   updatedAt: string;
+  /** Preenchido quando a OS esta arquivada (soft delete). */
+  archivedAt?: string | null;
   files?: OrderFile[];
 }

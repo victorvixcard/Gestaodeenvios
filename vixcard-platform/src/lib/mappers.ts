@@ -144,6 +144,7 @@ export function mapOrder(o: Record<string, unknown>): Order {
     assignedTo: (o.assignedTo ?? o.assigned_to) as string | undefined,
     createdAt: String(o.createdAt ?? o.created_at ?? ''),
     updatedAt: String(o.updatedAt ?? o.updated_at ?? ''),
+    archivedAt: (o.archivedAt as string | null) ?? null,
     files: (o.files as Order['files']) ?? [],
   }
 }

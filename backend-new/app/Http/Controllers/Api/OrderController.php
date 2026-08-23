@@ -43,6 +43,11 @@ class OrderController extends Controller
             $query->where('tenant_slug', $user->tenant_slug);
         }
 
+        // Arquivadas ficam fora por padrão; super admin pede com ?archived=1
+        if ($user->isSuperAdmin() && $request->boolean('archived')) {
+            $query->onlyTrashed();
+        }
+
         if ($request->status && $request->status !== 'all') {
             $query->where('status', $request->status);
         }
@@ -443,34 +448,42 @@ class OrderController extends Controller
         return response()->json($this->formatOrder($order->fresh(['items', 'notes', 'events'])));
     }
 
+    /**
+     * "Excluir" é arquivar: a OS some das listagens mas fica no banco com
+     * itens, eventos e arquivos, e pode ser restaurada. Exclusão física não
+     * existe mais pela API — um clique errado não apaga histórico.
+     */
     public function destroy(Request $request, string $id): JsonResponse
     {
-        // Rota já está protegida por role:super_admin, mas mantemos a checagem
-        // como defesa em profundidade.
         if (!$request->user()->isSuperAdmin()) {
-            return response()->json(['message' => 'Apenas super admin pode excluir pedidos.'], 403);
+            return response()->json(['message' => 'Apenas super admin pode arquivar pedidos.'], 403);
         }
 
         $order = Order::findOrFail($id);
-        $title = $order->title;
-        $tenant = $order->tenant_slug;
-
-        // Remove arquivos do storage para não deixar lixo
-        foreach (($order->files ?? []) as $file) {
-            if (!empty($file['path'])) {
-                Storage::disk('public')->delete($file['path']);
-            }
-        }
-
-        // Cascade: items, notes e events devem ter onDelete('cascade') na migration.
-        $order->delete();
+        $order->delete();   // soft delete
 
         AuditLog::record(
-            'pedido_removido', 'Pedido', $id, $title,
-            $request->user(), "Tenant: {$tenant}"
+            'pedido_arquivado', 'Pedido', $order->id, $order->title,
+            $request->user(), "Tenant: {$order->tenant_slug}"
         );
 
         return response()->json(null, 204);
+    }
+
+    public function restore(Request $request, string $id): JsonResponse
+    {
+        if (!$request->user()->isSuperAdmin()) {
+            return response()->json(['message' => 'Apenas super admin pode restaurar pedidos.'], 403);
+        }
+
+        $order = Order::onlyTrashed()->findOrFail($id);
+        $order->restore();
+
+        AuditLog::record(
+            'pedido_restaurado', 'Pedido', $order->id, $order->title, $request->user()
+        );
+
+        return response()->json($this->formatOrder($order->fresh(['items', 'notes', 'events', 'company', 'cancellationRequests'])));
     }
 
     public function deleteFile(Request $request, string $id, int $fileIndex): JsonResponse
@@ -542,6 +555,7 @@ class OrderController extends Controller
             'files'        => $order->files ?? [],
             'createdAt'    => $order->created_at,
             'updatedAt'    => $order->updated_at,
+            'archivedAt'   => $order->deleted_at,
         ];
     }
 }

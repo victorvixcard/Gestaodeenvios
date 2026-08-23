@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import {
   ArrowLeft, Play, CheckCircle2,
   XCircle, MessageSquarePlus, Send, Download, FileText, FileImage, File as FileIcon, Paperclip,
-  AlertTriangle, Undo2, RotateCcw, Trash2, Pencil, Plus, X,
+  AlertTriangle, Undo2, RotateCcw, Archive, Pencil, Plus, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
@@ -168,11 +168,10 @@ export function OrderDetail() {
   const handleDelete = async () => {
     try {
       await deleteOrder(order.id);
-      addLog({ ...actor, action: "pedido_status", entityType: "Pedido", entityId: order.id, entityName: order.title, details: "Pedido EXCLUÍDO definitivamente" });
-      toast.success("Pedido excluído.");
+      toast.success("Pedido arquivado. Você pode restaurá-lo em Pedidos > Arquivadas.");
       navigate(-1);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Erro ao excluir pedido.");
+      toast.error(err instanceof ApiError ? err.message : "Erro ao arquivar pedido.");
     }
   };
 
@@ -548,7 +547,7 @@ export function OrderDetail() {
                   </>
                 )}
 
-                {/* Excluir definitivamente — sempre disponível para super admin, com confirmação dupla */}
+                {/* Arquivar: some das listagens mas fica no banco e pode ser restaurado */}
                 <Separator />
                 {!showDeleteConfirm ? (
                   <Button
@@ -556,8 +555,8 @@ export function OrderDetail() {
                     className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive"
                     onClick={() => setShowDeleteConfirm(true)}
                   >
-                    <Trash2 className="h-4 w-4" />
-                    Excluir Pedido
+                    <Archive className="h-4 w-4" />
+                    Arquivar Pedido
                   </Button>
                 ) : (
                   <motion.div
@@ -566,14 +565,15 @@ export function OrderDetail() {
                     className="space-y-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3"
                   >
                     <p className="text-xs text-destructive font-semibold">
-                      Esta ação é irreversível.
+                      Arquivar o pedido {order.id}?
                     </p>
                     <p className="text-[11px] text-muted-foreground">
-                      O pedido <span className="font-mono">{order.id}</span> e todos os anexos serão apagados permanentemente.
+                      Ele sai das listagens e do Kanban, mas itens, histórico e anexos ficam guardados.
+                      Dá para restaurar em Pedidos &gt; Arquivadas.
                     </p>
                     <div className="flex gap-2">
                       <Button size="sm" variant="destructive" onClick={handleDelete} className="flex-1">
-                        Sim, excluir
+                        Sim, arquivar
                       </Button>
                       <Button size="sm" variant="ghost" onClick={() => setShowDeleteConfirm(false)}>
                         Cancelar
