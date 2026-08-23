@@ -7,14 +7,13 @@ import {
 } from "@dnd-kit/core";
 import {
   ClipboardCheck, Play, Wrench, PackageCheck, Truck, CheckCircle2, XCircle,
-  Search, User, GripVertical, Building2,
+  Search, User, GripVertical, Building2, AlarmClock, Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 import { useTenant } from "../contexts/TenantContext";
 import { useOrders } from "../contexts/OrdersContext";
 import { useData } from "../contexts/DataContext";
-import { ItemDeadlineBadge, OrderDeadlineSummary } from "../components/shared/ItemDeadlineBadge";
 import {
   CollaboratorsPanel, tenantPassaNoFiltro, empresasDoUsuario, type SelecaoColab,
 } from "../components/shared/CollaboratorsPanel";
@@ -50,6 +49,14 @@ function OrderCard({ order, isSuperAdmin, overlay }: {
   const navigate = useNavigate();
   const tenant = useTenant();
   const atrasado = orderIsOverdue(order.items, order.status);
+
+  // Data limite da OS = o item mais demorado (dd/mm)
+  const prazoMax = order.items
+    .map((i) => i.deadline)
+    .filter(Boolean)
+    .sort()
+    .at(-1)
+    ?.split("-").reverse().slice(0, 2).join("/");
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: order.id,
@@ -97,18 +104,25 @@ function OrderCard({ order, isSuperAdmin, overlay }: {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-1 min-w-0">
-        {order.items.slice(0, 2).map((item, i) => (
-          <ItemDeadlineBadge key={i} item={item} orderStatus={order.status} />
-        ))}
-        {order.items.length > 2 && (
-          <span className="text-[10px] text-muted-foreground self-center">
-            +{order.items.length - 2}
-          </span>
-        )}
-      </div>
-
-      <OrderDeadlineSummary items={order.items} orderStatus={order.status} />
+      {/* Coluna estreita não comporta o detalhamento por item — em atraso vira
+          um botão único que leva à OS; no prazo, só a data limite. O detalhe
+          completo continua na tela do pedido. */}
+      {atrasado ? (
+        <button
+          onClick={() => navigate(`/${tenant.slug}/pedidos/${order.id}`)}
+          className="w-full flex items-center justify-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold uppercase tracking-wider py-1.5 transition-colors"
+        >
+          <AlarmClock className="h-3.5 w-3.5" />
+          Atraso
+        </button>
+      ) : (
+        prazoMax && (
+          <p className="flex items-center gap-1 text-[10px] text-muted-foreground min-w-0">
+            <Clock className="h-2.5 w-2.5 flex-shrink-0" />
+            <span className="truncate">até {prazoMax}</span>
+          </p>
+        )
+      )}
 
       <div className="flex items-center gap-1 text-[10px] text-muted-foreground pt-1 border-t border-border/50">
         <User className="h-2.5 w-2.5" />
