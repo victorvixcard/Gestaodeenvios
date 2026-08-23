@@ -1,0 +1,85 @@
+# Roda a cada push/PR: testes do backend contra um MySQL real e, no frontend,
+# a checagem de tipos de verdade (tsconfig.app.json) + build de producao.
+# Commit fica verde ou vermelho antes de qualquer deploy.
+name: Testes
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+    branches: [dev, main]
+
+jobs:
+  backend:
+    name: Backend (PHPUnit)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend-new
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: vixcard_gestaodeenvios_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mbstring, pdo_mysql, bcmath, gd, zip
+          coverage: none
+
+      - name: Dependencias
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Ambiente de teste
+        run: |
+          cp .env.example .env
+          php artisan key:generate --force
+
+      - name: Testes
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: vixcard_gestaodeenvios_test
+          DB_USERNAME: root
+          DB_PASSWORD: root
+        run: php artisan test
+
+  frontend:
+    name: Frontend (tipos + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vixcard-platform
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: vixcard-platform/package-lock.json
+
+      - name: Dependencias
+        run: npm ci --no-audit --no-fund
+
+      # tsc --noEmit na raiz nao checa nada (tsconfig com files: []) — ver CLAUDE.md
+      - name: Checagem de tipos
+        run: npx tsc -p tsconfig.app.json --noEmit
+
+      - name: Build de producao
+        run: npm run build
