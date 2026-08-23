@@ -1,3 +1,5 @@
+import { lazy, Suspense } from "react";
+import type React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "sonner";
@@ -9,25 +11,39 @@ import { LogsProvider } from "./contexts/LogsContext";
 import { AppShell } from "./components/layout/AppShell";
 import { Login } from "./pages/Login";
 import { LoginUniversal } from "./pages/LoginUniversal";
-import { Dashboard } from "./pages/Dashboard";
-import { Orders } from "./pages/Orders";
-import { OrderDetail } from "./pages/OrderDetail";
-import { NewOrder } from "./pages/NewOrder";
-import { Kanban } from "./pages/Kanban";
-import { Products } from "./pages/Products";
-import { Categorias } from "./pages/Categorias";
-import { Setores } from "./pages/Setores";
-import { Papeis } from "./pages/Papeis";
-import { CancelRequests } from "./pages/CancelRequests";
-import { Users } from "./pages/Users";
-import { Empresas } from "./pages/Empresas";
-import { EmpresaDetalhe } from "./pages/EmpresaDetalhe";
-import { Logs } from "./pages/Logs";
-import { Reports } from "./pages/Reports";
+
+// Cada tela vira um pedaco separado do bundle, baixado so quando aberta.
+// O bundle unico passava de 2,7 MB e tudo era carregado no primeiro acesso;
+// agora o login e o shell chegam primeiro e o resto vem por demanda.
+const pagina = <T extends Record<string, unknown>>(carregar: () => Promise<T>, nome: keyof T) =>
+  lazy(async () => ({ default: (await carregar())[nome] as React.ComponentType }));
+
+const Dashboard = pagina(() => import("./pages/Dashboard"), "Dashboard");
+const Orders = pagina(() => import("./pages/Orders"), "Orders");
+const OrderDetail = pagina(() => import("./pages/OrderDetail"), "OrderDetail");
+const NewOrder = pagina(() => import("./pages/NewOrder"), "NewOrder");
+const Kanban = pagina(() => import("./pages/Kanban"), "Kanban");
+const Products = pagina(() => import("./pages/Products"), "Products");
+const Categorias = pagina(() => import("./pages/Categorias"), "Categorias");
+const Setores = pagina(() => import("./pages/Setores"), "Setores");
+const Papeis = pagina(() => import("./pages/Papeis"), "Papeis");
+const CancelRequests = pagina(() => import("./pages/CancelRequests"), "CancelRequests");
+const Users = pagina(() => import("./pages/Users"), "Users");
+const Empresas = pagina(() => import("./pages/Empresas"), "Empresas");
+const EmpresaDetalhe = pagina(() => import("./pages/EmpresaDetalhe"), "EmpresaDetalhe");
+const Logs = pagina(() => import("./pages/Logs"), "Logs");
+const Reports = pagina(() => import("./pages/Reports"), "Reports");
+
+const Carregando = () => (
+  <div className="flex justify-center py-20">
+    <div className="h-7 w-7 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+  </div>
+);
 
 function TenantRoutes() {
   return (
     <TenantProvider>
+      <Suspense fallback={<Carregando />}>
       <Routes>
         <Route path="login" element={<Login />} />
         <Route element={<AppShell />}>
@@ -49,6 +65,7 @@ function TenantRoutes() {
           <Route path="logs" element={<Logs />} />
         </Route>
       </Routes>
+      </Suspense>
     </TenantProvider>
   );
 }
