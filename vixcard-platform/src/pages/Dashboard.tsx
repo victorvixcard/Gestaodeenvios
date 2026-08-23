@@ -14,6 +14,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/card"
 import { Button } from "../components/ui/button";
 import { formatDateShort } from "../lib/utils";
 import { horasAteEntrega, horasEnvioAteEntrega, media, formatDuracao } from "../lib/metrics";
+import { podeAcao } from "../lib/acoes";
 import { useNavigate } from "react-router-dom";
 
 
@@ -100,14 +101,16 @@ export function Dashboard() {
             {tenant.name} · {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}
           </p>
         </div>
-        <Button
-          variant="brand"
-          onClick={() => navigate(`/${tenant.slug}/pedidos/novo`)}
-          className="sm:self-start"
-        >
-          <Zap className="h-4 w-4" />
-          Novo Pedido
-        </Button>
+        {podeAcao(user, "criar_os") && (
+          <Button
+            variant="brand"
+            onClick={() => navigate(`/${tenant.slug}/pedidos/novo`)}
+            className="sm:self-start"
+          >
+            <Zap className="h-4 w-4" />
+            Novo Pedido
+          </Button>
+        )}
       </motion.div>
 
       {/* KPI Grid */}

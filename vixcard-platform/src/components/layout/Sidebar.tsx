@@ -10,6 +10,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useTenant } from "../../contexts/TenantContext";
 import { cn } from "../../lib/utils";
 import type { MenuKey } from "../../types";
+import { podeAcao } from "../../lib/acoes";
 
 interface SidebarProps {
   open: boolean;
@@ -129,7 +130,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         </NavLink>
         )}
 
-        {(user?.permissions.includes("view_reports") || isSuperAdmin) && menuVisivel("relatorios") && (
+        {podeAcao(user, "ver_relatorios") && menuVisivel("relatorios") && (
           <NavLink to={`/${tenant.slug}/relatorios`} onClick={onClose} className={navLinkClass}>
             {({ isActive }) => (
               <>
@@ -201,7 +202,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                       )}
                     </NavLink>
                   )}
-                  {menuVisivel("cadastros.usuarios") && (
+                  {menuVisivel("cadastros.usuarios") && podeAcao(user, "gerenciar_usuarios") && (
                   <NavLink to={`/${tenant.slug}/usuarios`} onClick={onClose} className={subNavLinkClass}>
                     {({ isActive }) => (
                       <>

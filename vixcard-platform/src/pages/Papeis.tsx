@@ -16,7 +16,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "../components/ui/select";
 import { cn } from "../lib/utils";
-import type { Papel, MenuKey, UserRole } from "../types";
+import type { Papel, MenuKey, UserRole, AcaoKey } from "../types";
+import { ACOES, ACOES_PADRAO } from "../lib/acoes";
 
 const NIVEIS: { value: UserRole; label: string; hint: string }[] = [
   { value: "super_admin",  label: "Super Admin",           hint: "Vê e gerencia todas as empresas" },
@@ -43,6 +44,8 @@ const FORM_VAZIO = {
   baseRole: "operator" as UserRole,
   todosMenus: true,
   menus: [] as MenuKey[],
+  acoesPadrao: true,
+  acoes: [] as AcaoKey[],
 };
 
 /**
@@ -66,9 +69,18 @@ export function Papeis() {
       baseRole: p.baseRole,
       todosMenus: p.menus === null,
       menus: p.menus ?? [],
+      acoesPadrao: p.acoes === null,
+      acoes: p.acoes ?? ACOES_PADRAO[p.baseRole],
     });
     setEditId(p.id);
     setDialog("edit");
+  };
+
+  const toggleAcao = (key: AcaoKey) => {
+    setForm((f) => ({
+      ...f,
+      acoes: f.acoes.includes(key) ? f.acoes.filter((a) => a !== key) : [...f.acoes, key],
+    }));
   };
 
   const toggleMenu = (key: MenuKey) => {
@@ -89,6 +101,7 @@ export function Papeis() {
       name: form.name.trim(),
       base_role: form.baseRole,
       menus: form.todosMenus ? null : form.menus,
+      acoes: form.acoesPadrao ? null : form.acoes,
     };
     try {
       if (dialog === "create") {
@@ -191,6 +204,11 @@ export function Papeis() {
                       ? "Todos os menus do nível"
                       : `${p.menus.length} menu${p.menus.length > 1 ? "s" : ""} visíve${p.menus.length > 1 ? "is" : "l"}`}
                   </p>
+                  <p className="text-muted-foreground/80">
+                    {p.acoes === null
+                      ? "Ações: padrão do nível"
+                      : `Ações: ${p.acoes.map((a) => ACOES.find((x) => x.key === a)?.label).join(", ") || "nenhuma"}`}
+                  </p>
                 </div>
 
                 <div className="flex gap-1.5 mt-4 pt-3 border-t border-border/50">
@@ -246,6 +264,12 @@ export function Papeis() {
                 {NIVEIS.find((n) => n.value === form.baseRole)?.hint}. É o nível que define
                 o que o backend autoriza — o papel só ajusta a navegação.
               </p>
+              {form.baseRole !== "super_admin" && (
+                <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                  Para um colaborador da <strong>equipe VIXCard</strong> (que atende as empresas), use o nível
+                  Super Admin — os outros níveis só enxergam a própria empresa, e as OS são dos clientes.
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -293,6 +317,61 @@ export function Papeis() {
                           {marcado && <Check className="h-2.5 w-2.5 text-white" />}
                         </div>
                         <span className="text-xs">{m.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Ações permitidas</Label>
+              <button
+                type="button"
+                onClick={() => setForm((f) => ({ ...f, acoesPadrao: !f.acoesPadrao, acoes: ACOES_PADRAO[f.baseRole] }))}
+                className={cn(
+                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all border",
+                  form.acoesPadrao ? "bg-primary/8 border-primary/30" : "border-border hover:bg-muted/60"
+                )}
+              >
+                <div className={cn(
+                  "h-4 w-4 rounded flex items-center justify-center flex-shrink-0 border-2",
+                  form.acoesPadrao ? "bg-primary border-primary" : "border-border"
+                )}>
+                  {form.acoesPadrao && <Check className="h-2.5 w-2.5 text-white" />}
+                </div>
+                <div>
+                  <p className="text-xs font-medium">Padrão do nível</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {ACOES_PADRAO[form.baseRole].map((a) => ACOES.find((x) => x.key === a)?.label).join(", ")}
+                  </p>
+                </div>
+              </button>
+
+              {!form.acoesPadrao && (
+                <div className="grid grid-cols-2 gap-1.5">
+                  {ACOES.map((a) => {
+                    const marcado = form.acoes.includes(a.key);
+                    return (
+                      <button
+                        key={a.key}
+                        type="button"
+                        onClick={() => toggleAcao(a.key)}
+                        className={cn(
+                          "flex items-start gap-2 px-2.5 py-2 rounded-lg text-left transition-all border",
+                          marcado ? "bg-primary/8 border-primary/30" : "border-border hover:bg-muted/60"
+                        )}
+                      >
+                        <div className={cn(
+                          "h-3.5 w-3.5 mt-0.5 rounded flex items-center justify-center flex-shrink-0 border-2",
+                          marcado ? "bg-primary border-primary" : "border-border"
+                        )}>
+                          {marcado && <Check className="h-2.5 w-2.5 text-white" />}
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium">{a.label}</p>
+                          <p className="text-[10px] text-muted-foreground">{a.hint}</p>
+                        </div>
                       </button>
                     );
                   })}

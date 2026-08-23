@@ -22,6 +22,9 @@ class UserController extends Controller
         // Super admin pode tudo
         if ($actor->isSuperAdmin()) return true;
 
+        // Papel sem a acao "gerenciar usuarios" nao edita ninguem
+        if (!$actor->podeAcao('gerenciar_usuarios')) return false;
+
         // Tenant admin só pode gerenciar usuários do próprio tenant
         return $actor->tenant_slug === $target->tenant_slug;
     }
@@ -80,7 +83,7 @@ class UserController extends Controller
         }
 
         return response()->json(
-            $query->with(['sectors:id,name', 'papel:id,name,base_role,menus'])
+            $query->with(['sectors:id,name', 'papel:id,name,base_role,menus,acoes'])
                   ->orderBy('name')->get()->makeHidden('password')
         );
     }
@@ -144,7 +147,7 @@ class UserController extends Controller
         );
 
         return response()->json(array_merge(
-            $user->load(['sectors:id,name', 'papel:id,name,base_role,menus'])
+            $user->load(['sectors:id,name', 'papel:id,name,base_role,menus,acoes'])
                  ->makeHidden('password')->toArray(),
             ['plain_password' => $password]
         ), 201);
@@ -200,7 +203,7 @@ class UserController extends Controller
         );
 
         return response()->json(
-            $target->fresh()->load(['sectors:id,name', 'papel:id,name,base_role,menus'])->makeHidden('password')
+            $target->fresh()->load(['sectors:id,name', 'papel:id,name,base_role,menus,acoes'])->makeHidden('password')
         );
     }
 

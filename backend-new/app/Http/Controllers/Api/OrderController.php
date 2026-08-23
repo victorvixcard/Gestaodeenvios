@@ -88,7 +88,10 @@ class OrderController extends Controller
             'items.*.selected_variations' => 'nullable|array',
         ]);
 
-        $user    = $request->user();
+        $user = $request->user();
+        if (!$user->podeAcao('criar_os')) {
+            return response()->json(['message' => 'Seu papel não permite criar OS.'], 403);
+        }
         $company = Company::with('products')->find($user->tenant_slug);
 
         // Fluxo da empresa congelado aqui: mudar a linha do tempo dela depois
@@ -222,6 +225,10 @@ class OrderController extends Controller
             return response()->json(['message' => 'Acesso não autorizado.'], 403);
         }
 
+        if (!$request->user()->podeAcao('cancelar_os')) {
+            return response()->json(['message' => 'Seu papel não permite cancelar OS.'], 403);
+        }
+
         if (in_array($order->faseAtual(), ['done', 'cancelled'])) {
             return response()->json(['message' => 'Esta OS já foi encerrada.'], 422);
         }
@@ -264,6 +271,10 @@ class OrderController extends Controller
 
         if (!$this->authorizeOrder($order, $request)) {
             return response()->json(['message' => 'Acesso não autorizado.'], 403);
+        }
+
+        if (!$request->user()->podeAcao('cancelar_os')) {
+            return response()->json(['message' => 'Seu papel não permite cancelar OS.'], 403);
         }
 
         if (in_array($order->faseAtual(), ['done', 'cancelled'])) {

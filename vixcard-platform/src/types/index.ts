@@ -59,11 +59,15 @@ export type MenuKey =
  * backend); menus restringe o que aparece na navegação — null = tudo que o
  * nível já permite.
  */
+export type AcaoKey = "criar_os" | "cancelar_os" | "gerenciar_usuarios" | "ver_relatorios";
+
 export interface Papel {
   id: string;
   name: string;
   baseRole: UserRole;
   menus: MenuKey[] | null;
+  /** Acoes liberadas; null = padrao do nivel. */
+  acoes: AcaoKey[] | null;
   active: boolean;
   usersCount: number;
 }
@@ -83,7 +87,7 @@ export interface User {
   /** Um usuário pode estar em mais de um setor. */
   sectors: { id: string; name: string }[];
   /** Papel dinâmico (nome exibido + menus visíveis). */
-  papel?: { id: string; name: string; baseRole: UserRole; menus: MenuKey[] | null };
+  papel?: { id: string; name: string; baseRole: UserRole; menus: MenuKey[] | null; acoes: AcaoKey[] | null };
 }
 
 export interface VariationOption {

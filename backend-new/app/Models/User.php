@@ -60,4 +60,17 @@ class User extends Authenticatable
         if ($this->isSuperAdmin()) return true;
         return in_array($permission, $this->permissions ?? []);
     }
+
+    /**
+     * O usuario pode executar a acao? Vem do papel (roles.acoes); papel sem
+     * acoes definidas usa o padrao do nivel. Super admin sempre pode.
+     */
+    public function podeAcao(string $acao): bool
+    {
+        if ($this->isSuperAdmin()) return true;
+
+        $acoes = $this->papel?->acoes ?? Role::ACOES_PADRAO[$this->role] ?? [];
+
+        return in_array($acao, $acoes);
+    }
 }

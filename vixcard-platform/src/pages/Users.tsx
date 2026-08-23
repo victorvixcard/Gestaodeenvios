@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 import { useLog } from "../contexts/LogsContext";
 import { useTenant } from "../contexts/TenantContext";
-import { useData, ALL_PERMISSIONS, DEFAULT_PERMISSIONS } from "../contexts/DataContext";
+import { useData, DEFAULT_PERMISSIONS } from "../contexts/DataContext";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -204,14 +204,6 @@ export function Users() {
     }));
   };
 
-  const togglePermission = (perm: Permission) => {
-    setForm((f) => ({
-      ...f,
-      permissions: f.permissions.includes(perm)
-        ? f.permissions.filter((p) => p !== perm)
-        : [...f.permissions, perm],
-    }));
-  };
 
   const handleSave = async () => {
     if (!form.name.trim()) { toast.error("Informe o nome."); return; }
@@ -362,7 +354,7 @@ export function Users() {
 
                       <div className="flex items-center justify-between mb-3">
                         <Badge variant={roleConfig.variant} className="text-[11px]">{u.papel?.name ?? roleConfig.label}</Badge>
-                        <span className="text-[10px] text-muted-foreground">{u.permissions.length} permissões</span>
+                        <span className="text-[10px] text-muted-foreground">{ROLE_LABELS[u.role].label}</span>
                       </div>
 
                       {u.sectors.length > 0 && (
@@ -541,56 +533,6 @@ export function Users() {
                 </div>
               </>
             )}
-
-            <Separator />
-
-            {/* Permissions */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label>Permissões</Label>
-                <div className="flex gap-2">
-                  <button
-                    className="text-[10px] text-primary hover:underline"
-                    onClick={() => setForm((f) => ({ ...f, permissions: ALL_PERMISSIONS.map((p) => p.key) }))}
-                  >
-                    Todas
-                  </button>
-                  <span className="text-muted-foreground/40 text-[10px]">|</span>
-                  <button
-                    className="text-[10px] text-muted-foreground hover:underline"
-                    onClick={() => setForm((f) => ({ ...f, permissions: [] }))}
-                  >
-                    Nenhuma
-                  </button>
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                {ALL_PERMISSIONS.map((perm) => {
-                  const active = form.permissions.includes(perm.key);
-                  return (
-                    <button
-                      key={perm.key}
-                      onClick={() => togglePermission(perm.key)}
-                      className={cn(
-                        "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all border",
-                        active ? "bg-primary/8 border-primary/30" : "border-border hover:bg-muted/60"
-                      )}
-                    >
-                      <div className={cn(
-                        "h-4 w-4 rounded flex items-center justify-center flex-shrink-0 border-2 transition-all",
-                        active ? "bg-primary border-primary" : "border-border"
-                      )}>
-                        {active && <Check className="h-2.5 w-2.5 text-white" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium">{perm.label}</p>
-                        <p className="text-[10px] text-muted-foreground">{perm.description}</p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
           </div>
 
           <DialogFooter className="gap-2">

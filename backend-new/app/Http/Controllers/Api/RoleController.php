@@ -64,12 +64,15 @@ class RoleController extends Controller
             'base_role' => 'required|in:super_admin,tenant_admin,operator',
             'menus'     => 'nullable|array',
             'menus.*'   => 'in:' . implode(',', self::MENUS),
+            'acoes'     => 'nullable|array',
+            'acoes.*'   => 'in:' . implode(',', Role::ACOES),
         ]);
 
         $role = Role::create([
             'name'      => $request->name,
             'base_role' => $request->base_role,
             'menus'     => $request->menus,
+            'acoes'     => $request->acoes,
             'active'    => true,
         ]);
 
@@ -92,12 +95,15 @@ class RoleController extends Controller
             'base_role' => 'sometimes|in:super_admin,tenant_admin,operator',
             'menus'     => 'nullable|array',
             'menus.*'   => 'in:' . implode(',', self::MENUS),
+            'acoes'     => 'nullable|array',
+            'acoes.*'   => 'in:' . implode(',', Role::ACOES),
         ]);
 
         DB::transaction(function () use ($request, $role) {
             $role->update(array_merge(
                 $request->only(['name', 'base_role']),
-                $request->has('menus') ? ['menus' => $request->menus] : []
+                $request->has('menus') ? ['menus' => $request->menus] : [],
+                $request->has('acoes') ? ['acoes' => $request->acoes] : []
             ));
 
             // users.role e quem manda na autorizacao — se o nivel do papel
@@ -158,6 +164,7 @@ class RoleController extends Controller
             'name'       => $r->name,
             'baseRole'   => $r->base_role,
             'menus'      => $r->menus,
+            'acoes'      => $r->acoes,
             'active'     => (bool) $r->active,
             'usersCount' => $r->users_count ?? 0,
         ];

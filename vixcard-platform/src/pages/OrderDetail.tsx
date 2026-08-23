@@ -30,6 +30,7 @@ import {
 } from "../components/ui/select";
 import { formatDate } from "../lib/utils";
 import { orderTimeline, STATUS_ICON } from "../lib/timeline";
+import { podeAcao } from "../lib/acoes";
 import type { OrderItem } from "../types";
 
 
@@ -83,9 +84,10 @@ export function OrderDetail() {
   // Empresa cliente: cancela direto so nos primeiros 15 min (canCancelDirectly
   // vem do backend). Depois disso, SOLICITA e a VIXCard decide.
   const encerrada = isCancelled || isDone;
-  const canTenantCancel  = !isSuperAdmin && !encerrada && order.canCancelDirectly;
+  const podeCancelar     = podeAcao(user, "cancelar_os");
+  const canTenantCancel  = !isSuperAdmin && !encerrada && order.canCancelDirectly && podeCancelar;
   const pedidoPendente   = order.cancelRequest?.status === "pending";
-  const canTenantRequest = !isSuperAdmin && !encerrada && !order.canCancelDirectly && !pedidoPendente;
+  const canTenantRequest = !isSuperAdmin && !encerrada && !order.canCancelDirectly && !pedidoPendente && podeCancelar;
 
   const actor = {
     userName: user?.name ?? "Usuário",
