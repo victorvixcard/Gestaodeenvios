@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -21,8 +21,11 @@ import { useNavigate } from "react-router-dom";
 export function Dashboard() {
   const { user } = useAuth();
   const tenant = useTenant();
-  const { orders } = useOrders();
+  const { orders, carregarTodas } = useOrders();
   const navigate = useNavigate();
+
+  // O grafico de 7 meses e os tempos medios olham alem da janela de 90 dias
+  useEffect(() => { carregarTodas(); }, [carregarTodas]);
 
   const tenantOrders = user?.role === "super_admin"
     ? orders

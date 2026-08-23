@@ -46,6 +46,14 @@ class OrderController extends Controller
         // Arquivadas ficam fora por padrão; super admin pede com ?archived=1
         if ($user->isSuperAdmin() && $request->boolean('archived')) {
             $query->onlyTrashed();
+        } elseif (!$request->boolean('all')) {
+            // Janela padrão: OS abertas + criadas nos últimos 90 dias. A tela
+            // pede ?all=1 quando precisa do histórico completo (relatórios,
+            // "ver mais antigas"). Com 50 OS/dia isso mantém a resposta pequena.
+            $query->where(function ($q) {
+                $q->whereNull('closed_at')
+                  ->orWhere('created_at', '>=', now()->subDays(Order::JANELA_DIAS));
+            });
         }
 
         if ($request->status && $request->status !== 'all') {

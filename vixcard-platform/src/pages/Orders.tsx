@@ -173,7 +173,7 @@ function TimelineCard({ order, index, tenantSlug, isSuperAdmin }: {
 export function Orders() {
   const { user } = useAuth();
   const tenant = useTenant();
-  const { orders, refresh } = useOrders();
+  const { orders, refresh, todasCarregadas, carregarTodas } = useOrders();
   const { companies, users } = useData();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -364,6 +364,14 @@ export function Orders() {
       )}
 
       {!verArquivadas && (<>
+      {!todasCarregadas && (
+        <p className="text-[11px] text-muted-foreground flex items-center gap-2 flex-wrap">
+          Mostrando OS abertas e as criadas nos últimos 90 dias.
+          <button onClick={() => carregarTodas()} className="text-primary font-semibold hover:underline">
+            Ver todo o histórico
+          </button>
+        </p>
+      )}
       {/* Filters */}
       <div className="space-y-3">
         <div className="relative">

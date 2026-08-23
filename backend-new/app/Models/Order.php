@@ -20,14 +20,18 @@ class Order extends Model
     protected $fillable = [
         'id', 'tenant_slug', 'title', 'status',
         'requested_by', 'assigned_to', 'cancel_reason',
-        'deadline', 'files', 'timeline',
+        'deadline', 'files', 'timeline', 'closed_at',
     ];
 
     protected $casts = [
-        'deadline' => 'date',
-        'files'    => 'array',
-        'timeline' => 'array',
+        'deadline'  => 'date',
+        'files'     => 'array',
+        'timeline'  => 'array',
+        'closed_at' => 'datetime',
     ];
+
+    /** Janela padrao da listagem: OS abertas + criadas nos ultimos N dias. */
+    public const JANELA_DIAS = 90;
 
     /** Fases canônicas, na ordem de produção. É nelas que Kanban, cores e
      *  regra de atraso se apoiam — etapas personalizadas apontam para uma. */
@@ -187,6 +191,15 @@ class Order extends Model
 
     protected static function booted(): void
     {
+        // closed_at acompanha o status: entra em Entregue/Cancelado -> marca;
+        // reabre -> limpa. Fica no modelo para nenhum controller esquecer.
+        static::saving(function (Order $order) {
+            if ($order->isDirty('status')) {
+                $fechada = in_array($order->faseAtual(), ['done', 'cancelled']);
+                $order->closed_at = $fechada ? ($order->closed_at ?? now()) : null;
+            }
+        });
+
         static::creating(function (Order $order) {
             if (empty($order->id)) {
                 $order->id = static::generateId();

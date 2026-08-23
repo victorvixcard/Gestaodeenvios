@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   BarChart3, Package, ShoppingCart,
@@ -220,7 +220,10 @@ function OrderConsumptionRow({
 export function Reports() {
   const { user } = useAuth();
   const { products, companies } = useData();
-  const { orders } = useOrders();
+  const { orders, carregarTodas } = useOrders();
+
+  // Relatorio por periodo precisa do historico inteiro, nao so da janela
+  useEffect(() => { carregarTodas(); }, [carregarTodas]);
 
   const isSuperAdmin = user?.role === "super_admin";
 
