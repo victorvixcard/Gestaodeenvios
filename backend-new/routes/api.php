@@ -49,6 +49,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         // Depois dos 15 min a empresa SOLICITA; a VIXCard decide em /cancel-requests
         Route::post('/{id}/cancel-request', [OrderController::class, 'requestCancel']);
         Route::post('/{id}/files',   [OrderController::class, 'uploadFile']);
+        Route::get('/{id}/files/zip', [OrderController::class, 'downloadFilesZip']);
         Route::delete('/{id}/files/{fileIndex}', [OrderController::class, 'deleteFile']);
 
         // Arquivar (soft delete) e restaurar — somente super admin

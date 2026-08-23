@@ -11,7 +11,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useOrders } from "../contexts/OrdersContext";
 import { useData } from "../contexts/DataContext";
 import { useLog } from "../contexts/LogsContext";
-import { api, ApiError } from "../lib/api";
+import { api, ApiError, getToken } from "../lib/api";
 import { StatusBadge } from "../components/shared/StatusBadge";
 import { OrderTimeline } from "../components/shared/OrderTimeline";
 import { ItemDeadlineStatus } from "../components/shared/ItemDeadlineBadge";
@@ -62,6 +62,45 @@ export function OrderDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, user?.role]);
   const [requesting, setRequesting] = useState(false);
+
+  // Selecao de anexos para baixar de uma vez (zip gerado no servidor)
+  const [arquivosSel, setArquivosSel] = useState<Set<number>>(new Set());
+  const [baixandoZip, setBaixandoZip] = useState(false);
+  const alternarArquivo = (i: number) => {
+    setArquivosSel((prev) => {
+      const s = new Set(prev);
+      if (s.has(i)) s.delete(i); else s.add(i);
+      return s;
+    });
+  };
+  const baixarSelecionados = async () => {
+    if (!id || arquivosSel.size === 0) return;
+    setBaixandoZip(true);
+    try {
+      const idx = [...arquivosSel].sort((a, b) => a - b).join(",");
+      const resp = await fetch(`/api/orders/${encodeURIComponent(id)}/files/zip?i=${idx}`, {
+        headers: { Authorization: `Bearer ${getToken() ?? ""}` },
+      });
+      if (!resp.ok) {
+        const corpo = await resp.json().catch(() => null);
+        throw new ApiError(resp.status, corpo?.message ?? "Não foi possível gerar o zip.");
+      }
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${id}-arquivos.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      toast.success(`${arquivosSel.size} arquivo(s) no zip.`);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Erro ao baixar os arquivos.");
+    } finally {
+      setBaixandoZip(false);
+    }
+  };
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Edicao de itens (super admin)
@@ -397,9 +436,29 @@ export function OrderDetail() {
           {/* Arquivos para Produção */}
           <Card>
             <CardHeader>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Paperclip className="h-4 w-4 text-primary" />
                 <CardTitle>Arquivos para Produção ({order.files?.length ?? 0})</CardTitle>
+                {(order.files?.length ?? 0) > 1 && (
+                  <div className="ml-auto flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setArquivosSel(
+                        arquivosSel.size === (order.files?.length ?? 0)
+                          ? new Set()
+                          : new Set((order.files ?? []).map((_, i) => i))
+                      )}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      {arquivosSel.size === (order.files?.length ?? 0) ? "Desmarcar todos" : "Selecionar todos"}
+                    </button>
+                    <Button size="sm" variant="outline" disabled={arquivosSel.size === 0 || baixandoZip}
+                            onClick={baixarSelecionados}>
+                      <Download className="h-3.5 w-3.5 mr-1.5" />
+                      {baixandoZip ? "Gerando zip..." : `Baixar selecionados (${arquivosSel.size})`}
+                    </Button>
+                  </div>
+                )}
               </div>
             </CardHeader>
             <CardContent>
@@ -420,6 +479,15 @@ export function OrderDetail() {
                       : `${(f.size / (1024 * 1024)).toFixed(1)} MB`;
                     return (
                       <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg border border-border bg-muted/30">
+                        {(order.files?.length ?? 0) > 1 && (
+                          <input
+                            type="checkbox"
+                            checked={arquivosSel.has(i)}
+                            onChange={() => alternarArquivo(i)}
+                            aria-label={`Selecionar ${f.name}`}
+                            className="h-4 w-4 rounded border-border accent-[hsl(var(--primary))] cursor-pointer flex-shrink-0"
+                          />
+                        )}
                         {icon}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{f.name}</p>

@@ -522,6 +522,60 @@ class OrderController extends Controller
         return response()->json($this->formatOrder($order->fresh(['items', 'notes', 'events', 'company', 'cancellationRequests'])));
     }
 
+    /**
+     * Baixa varios anexos de uma vez num .zip. ?i=0,2,5 escolhe os indices;
+     * sem ?i vai tudo. Nomes duplicados ganham prefixo do indice para nao
+     * se sobrescreverem dentro do zip.
+     */
+    public function downloadFilesZip(Request $request, string $id)
+    {
+        $order = Order::findOrFail($id);
+
+        if (!$this->authorizeOrder($order, $request)) {
+            return response()->json(['message' => 'Acesso não autorizado.'], 403);
+        }
+
+        if (!extension_loaded('zip')) {
+            return response()->json(['message' => 'Extensão zip do PHP não está habilitada no servidor.'], 501);
+        }
+
+        $files = $order->files ?? [];
+        $indices = $request->filled('i')
+            ? array_values(array_filter(array_map('intval', explode(',', $request->query('i'))), fn ($n) => isset($files[$n])))
+            : array_keys($files);
+
+        if (empty($indices)) {
+            return response()->json(['message' => 'Nenhum arquivo válido selecionado.'], 422);
+        }
+
+        $tmp = tempnam(sys_get_temp_dir(), 'oszip');
+        $zip = new \ZipArchive();
+        $zip->open($tmp, \ZipArchive::OVERWRITE);
+
+        $usados = [];
+        $adicionados = 0;
+        foreach ($indices as $n) {
+            $f = $files[$n];
+            $caminho = Storage::disk('public')->path($f['path'] ?? '');
+            if (!($f['path'] ?? null) || !is_file($caminho)) continue;
+            $nome = $f['name'] ?? basename($caminho);
+            if (isset($usados[$nome])) $nome = ($n + 1) . '_' . $nome;
+            $usados[$nome] = true;
+            $zip->addFile($caminho, $nome);
+            $adicionados++;
+        }
+        $zip->close();
+
+        if ($adicionados === 0) {
+            @unlink($tmp);
+            return response()->json(['message' => 'Os arquivos selecionados não foram encontrados no disco.'], 404);
+        }
+
+        return response()->download($tmp, "{$order->id}-arquivos.zip", [
+            'Content-Type' => 'application/zip',
+        ])->deleteFileAfterSend(true);
+    }
+
     public function deleteFile(Request $request, string $id, int $fileIndex): JsonResponse
     {
         $order = Order::findOrFail($id);

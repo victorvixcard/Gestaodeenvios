@@ -201,6 +201,11 @@ Banco de ensaio apagado ao final. Antes do deploy real, repetir o ensaio se nova
 migrations tiverem surgido. Producao tambem precisa de MAIL_* no .env para os
 e-mails (nova OS, saldo negativo) sairem.
 
+**Extensao zip:** o download em lote de anexos (`GET /orders/{id}/files/zip`)
+precisa da extensao zip do PHP. No deploy, confira com `php -m | grep zip`;
+faltando, `apt install php8.3-zip && systemctl reload php8.3-fpm`. Sem ela o
+endpoint responde 501 e o resto do sistema segue normal.
+
 **Cuidado com migrations:** o servidor já tem MySQL com tabelas `cache` e `sessions` (driver = database). Antes de aplicar qualquer migration nova que crie tabela, sempre rode `php artisan migrate --pretend` e confira se ela não vai colidir com algo que já existe.
 
 ---
