@@ -35,9 +35,12 @@ class ProductController extends Controller
         $user  = $request->user();
         $query = Product::query();
 
-        // Non-super-admins see only products linked to their company
+        // Quem não é super admin vê apenas os produtos VINCULADOS à sua
+        // empresa e ATIVOS. Produto fora do vínculo ou desativado simplesmente
+        // não existe para a empresa — o catálogo completo é só da VIXCard.
         if (!$user->isSuperAdmin()) {
-            $query->whereHas('companies', fn($q) => $q->where('companies.slug', $user->tenant_slug));
+            $query->where('active', true)
+                  ->whereHas('companies', fn($q) => $q->where('companies.slug', $user->tenant_slug));
         }
 
         if ($request->search) {
