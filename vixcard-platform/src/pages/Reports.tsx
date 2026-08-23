@@ -231,6 +231,21 @@ export function Reports() {
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo]     = useState("");
   const [companyFilter, setCompanyFilter] = useState("all");
+  // Busca por nome no lugar de um dropdown: com milhares de empresas a
+  // lista nao cabe num select. Mostra ate 8 resultados enquanto digita.
+  const [buscaEmpresa, setBuscaEmpresa] = useState("");
+  const empresasEncontradas = useMemo(() => {
+    const q = buscaEmpresa.trim().toLowerCase();
+    if (q.length < 2) return [];
+    return companies
+      .filter((c) => c.name.toLowerCase().includes(q) || c.slug.includes(q))
+      .slice(0, 8);
+  }, [buscaEmpresa, companies]);
+
+  // Quadro "Por empresa" limitado as 10 com mais pedidos — o resto se acha
+  // pela busca. Com centenas de empresas a tabela completa viraria uma
+  // pagina inteira de rolagem.
+  const TOP_EMPRESAS = 10;
   const [statusFilter, setStatusFilter]   = useState("active");
 
   const { from, to } = getPeriodRange(period, customFrom, customTo);
@@ -365,17 +380,47 @@ export function Reports() {
 
         <div className="flex flex-col sm:flex-row gap-3">
           {isSuperAdmin && (
-            <div className="space-y-1 flex-1">
+            <div className="space-y-1 flex-1 relative">
               <Label className="text-xs">Empresa</Label>
-              <Select value={companyFilter} onValueChange={setCompanyFilter}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas as empresas</SelectItem>
-                  {companies.map((c) => (
-                    <SelectItem key={c.slug} value={c.slug}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {companyFilter === "all" ? (
+                <>
+                  <Input
+                    placeholder="Buscar empresa pelo nome... (todas, se vazio)"
+                    value={buscaEmpresa}
+                    onChange={(e) => setBuscaEmpresa(e.target.value)}
+                  />
+                  {empresasEncontradas.length > 0 && (
+                    <div className="absolute z-20 left-0 right-0 top-full mt-1 rounded-lg border border-border bg-card shadow-lg overflow-hidden">
+                      {empresasEncontradas.map((c) => (
+                        <button
+                          key={c.slug}
+                          type="button"
+                          onClick={() => { setCompanyFilter(c.slug); setBuscaEmpresa(""); }}
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2"
+                        >
+                          <span className="h-5 w-5 rounded text-[9px] font-bold text-white flex items-center justify-center flex-shrink-0"
+                                style={{ background: c.logoColor }}>
+                            {c.logoInitials}
+                          </span>
+                          {c.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {buscaEmpresa.trim().length >= 2 && empresasEncontradas.length === 0 && (
+                    <p className="text-[11px] text-muted-foreground">Nenhuma empresa com esse nome.</p>
+                  )}
+                </>
+              ) : (
+                <div className="flex items-center gap-2 h-9">
+                  <Badge variant="outline" className="py-1.5 px-3">
+                    {companies.find((c) => c.slug === companyFilter)?.name ?? companyFilter}
+                  </Badge>
+                  <button onClick={() => setCompanyFilter("all")} className="text-xs text-primary font-semibold hover:underline">
+                    Trocar
+                  </button>
+                </div>
+              )}
             </div>
           )}
           <div className="space-y-1 flex-1">
@@ -426,7 +471,9 @@ export function Reports() {
           <h2 className="text-sm font-semibold flex items-center gap-2">
             <BarChart3 className="h-4 w-4 text-primary" />
             Por empresa
-            <span className="text-xs text-muted-foreground font-normal">— clique numa linha para ver só aquela empresa</span>
+            <span className="text-xs text-muted-foreground font-normal">
+              — as {Math.min(TOP_EMPRESAS, companySummary.length)} com mais pedidos no período; clique numa linha para ver só aquela
+            </span>
           </h2>
           <Card className="overflow-hidden">
             <div className="overflow-x-auto">
@@ -439,7 +486,7 @@ export function Reports() {
                   </tr>
                 </thead>
                 <tbody>
-                  {companySummary.map((row) => (
+                  {[...companySummary].sort((a, b) => b.orders - a.orders).slice(0, TOP_EMPRESAS).map((row) => (
                     <tr
                       key={row.slug}
                       className="border-b border-border/50 hover:bg-muted/40 transition-colors cursor-pointer"
@@ -455,6 +502,13 @@ export function Reports() {
             </div>
           </Card>
         </div>
+      )}
+
+      {isSuperAdmin && companyFilter === "all" && companySummary.length > TOP_EMPRESAS && (
+        <p className="text-[11px] text-muted-foreground -mt-2">
+          Outras {companySummary.length - TOP_EMPRESAS} empresas tiveram pedidos no período. Use a busca
+          acima para ver uma delas.
+        </p>
       )}
 
       {/* Aviso de foco em uma empresa, com volta rápida */}

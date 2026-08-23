@@ -182,7 +182,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                       )}
                     </NavLink>
                   )}
-                  {menuVisivel("cadastros.produtos") && (
+                  {/* Catalogo e da VIXCard: empresa cliente escolhe produtos ao abrir a OS,
+                      nao precisa de tela de cadastro. Em Cadastros ela ve so Usuarios. */}
+                  {isSuperAdmin && menuVisivel("cadastros.produtos") && (
                   <NavLink to={`/${tenant.slug}/produtos`} onClick={onClose} className={subNavLinkClass}>
                     {({ isActive }) => (
                       <>
