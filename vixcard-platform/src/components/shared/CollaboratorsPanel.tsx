@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Users as UsersIcon, X, UserCheck } from "lucide-react";
+import { Users as UsersIcon, X, UserCheck, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useData } from "../../contexts/DataContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { Card } from "../ui/card";
@@ -92,6 +92,13 @@ export function CollaboratorsPanel({ selecao, onChange, contadorOs }: {
   const { users, sectors, companies } = useData();
   const { user } = useAuth();
 
+  // Recolhido, o painel vira um botao estreito — em telas ate 1280px ele
+  // espremia as 7 colunas do Kanban. A escolha fica salva no navegador.
+  const [aberto, setAberto] = useState(() => localStorage.getItem("gestao_painel_equipe") !== "fechado");
+  const alternar = () => {
+    setAberto((v) => { localStorage.setItem("gestao_painel_equipe", v ? "fechado" : "aberto"); return !v; });
+  };
+
   const colaboradores = users.filter((u) => u.tenantSlug === "vixcard" && u.active);
   const atendoAlguem  = !!user && companies.some((c) => c.attendantIds.includes(user.id));
   const minhasAtivo   = !!user && selecao?.tipo === "user" && selecao.id === user.id;
@@ -108,6 +115,26 @@ export function CollaboratorsPanel({ selecao, onChange, contadorOs }: {
 
   if (colaboradores.length === 0) return null;
 
+  if (!aberto) {
+    return (
+      <aside className="hidden lg:block flex-shrink-0">
+        <button
+          onClick={alternar}
+          title="Mostrar painel da equipe"
+          aria-label="Mostrar painel da equipe"
+          className={cn(
+            "sticky top-4 flex flex-col items-center gap-2 rounded-xl border border-border bg-card px-2 py-3 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors",
+            selecao && "border-primary/50 text-primary"
+          )}
+        >
+          <PanelLeftOpen className="h-4 w-4" />
+          <UsersIcon className="h-4 w-4" />
+          {selecao && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
+        </button>
+      </aside>
+    );
+  }
+
   return (
     <aside className="hidden lg:block w-[200px] flex-shrink-0">
       <Card className="p-3 sticky top-4 max-h-[calc(100vh-6rem)] overflow-y-auto">
@@ -116,15 +143,21 @@ export function CollaboratorsPanel({ selecao, onChange, contadorOs }: {
             <UsersIcon className="h-3 w-3" />
             Equipe
           </p>
-          {selecao && (
-            <button
-              onClick={() => onChange(null)}
-              className="text-[10px] text-primary hover:underline flex items-center gap-0.5"
-            >
-              <X className="h-2.5 w-2.5" />
-              Limpar
+          <div className="flex items-center gap-2">
+            {selecao && (
+              <button
+                onClick={() => onChange(null)}
+                className="text-[10px] text-primary hover:underline flex items-center gap-0.5"
+              >
+                <X className="h-2.5 w-2.5" />
+                Limpar
+              </button>
+            )}
+            <button onClick={alternar} title="Recolher painel" aria-label="Recolher painel da equipe"
+                    className="text-muted-foreground hover:text-foreground">
+              <PanelLeftClose className="h-3.5 w-3.5" />
             </button>
-          )}
+          </div>
         </div>
 
         {atendoAlguem && (

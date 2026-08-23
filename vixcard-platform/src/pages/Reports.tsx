@@ -21,19 +21,9 @@ import {
 import { useAuth } from "../contexts/AuthContext";
 import { useData } from "../contexts/DataContext";
 import { useOrders } from "../contexts/OrdersContext";
-import type { Order, OrderStatus } from "../types";
-import { cn } from "../lib/utils";
+import type { Order } from "../types";
+import { StatusBadge } from "../components/shared/StatusBadge";
 import { horasAteEntrega, horasEnvioAteEntrega, media, formatDuracao } from "../lib/metrics";
-
-const STATUS_VARIANT: Record<OrderStatus, string> = {
-  pending:    "bg-warning/15 text-warning",
-  started:    "bg-primary/15 text-primary",
-  production: "bg-accent/15 text-accent",
-  finishing:  "bg-indigo-500/15 text-indigo-600",
-  shipped:    "bg-cyan-500/15 text-cyan-600",
-  done:       "bg-success/15 text-success",
-  cancelled:  "bg-destructive/15 text-destructive",
-};
 
 type Period = "today" | "week" | "month" | "last30" | "custom";
 
@@ -141,7 +131,7 @@ function OrderConsumptionRow({
             </span>
 
             {/* Title */}
-            <span className="text-sm font-semibold text-foreground truncate max-w-[180px]">{order.title}</span>
+            <span className="text-sm font-semibold text-foreground truncate max-w-[420px]">{order.title}</span>
 
             {/* Company (super admin) */}
             {isSuperAdmin && (
@@ -151,13 +141,8 @@ function OrderConsumptionRow({
             {/* Date */}
             <span className="text-xs text-muted-foreground">{date}</span>
 
-            {/* Status */}
-            <span className={cn(
-              "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold",
-              STATUS_VARIANT[order.statusFase]
-            )}>
-              {order.statusLabel}
-            </span>
+            {/* Status — mesmo badge das outras telas (cores por fase, legiveis nos dois temas) */}
+            <StatusBadge fase={order.statusFase} label={order.statusLabel} size="sm" />
 
             {/* Summary */}
             <span className="ml-auto text-xs text-muted-foreground hidden sm:block">

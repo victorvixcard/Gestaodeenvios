@@ -9,6 +9,8 @@ import { OrdersProvider } from "./contexts/OrdersContext";
 import { DataProvider } from "./contexts/DataContext";
 import { LogsProvider } from "./contexts/LogsContext";
 import { AppShell } from "./components/layout/AppShell";
+import { useAuth } from "./contexts/AuthContext";
+import { useTenant } from "./contexts/TenantContext";
 import { Login } from "./pages/Login";
 import { LoginUniversal } from "./pages/LoginUniversal";
 
@@ -34,6 +36,20 @@ const EmpresaDetalhe = pagina(() => import("./pages/EmpresaDetalhe"), "EmpresaDe
 const Logs = pagina(() => import("./pages/Logs"), "Logs");
 const Reports = pagina(() => import("./pages/Reports"), "Reports");
 
+/**
+ * Telas exclusivas da VIXCard. A API ja recusa os dados (403) para quem nao
+ * e super admin, mas sem isto a casca da tela abria por URL — vazia e
+ * confusa. Quem nao pode, volta ao dashboard da propria empresa.
+ */
+function SoSuperAdmin({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  const tenant = useTenant();
+  if (user && user.role !== "super_admin") {
+    return <Navigate to={`/${tenant.slug}/dashboard`} replace />;
+  }
+  return <>{children}</>;
+}
+
 const Carregando = () => (
   <div className="flex justify-center py-20">
     <div className="h-7 w-7 rounded-full border-2 border-primary border-t-transparent animate-spin" />
@@ -52,17 +68,17 @@ function TenantRoutes() {
           <Route path="pedidos" element={<Orders />} />
           <Route path="kanban" element={<Kanban />} />
           <Route path="pedidos/novo" element={<NewOrder />} />
-          <Route path="pedidos/cancelamentos" element={<CancelRequests />} />
+          <Route path="pedidos/cancelamentos" element={<SoSuperAdmin><CancelRequests /></SoSuperAdmin>} />
           <Route path="pedidos/:id" element={<OrderDetail />} />
-          <Route path="empresas" element={<Empresas />} />
-          <Route path="empresas/:slug" element={<EmpresaDetalhe />} />
-          <Route path="produtos" element={<Products />} />
-          <Route path="categorias" element={<Categorias />} />
-          <Route path="setores" element={<Setores />} />
-          <Route path="papeis" element={<Papeis />} />
+          <Route path="empresas" element={<SoSuperAdmin><Empresas /></SoSuperAdmin>} />
+          <Route path="empresas/:slug" element={<SoSuperAdmin><EmpresaDetalhe /></SoSuperAdmin>} />
+          <Route path="produtos" element={<SoSuperAdmin><Products /></SoSuperAdmin>} />
+          <Route path="categorias" element={<SoSuperAdmin><Categorias /></SoSuperAdmin>} />
+          <Route path="setores" element={<SoSuperAdmin><Setores /></SoSuperAdmin>} />
+          <Route path="papeis" element={<SoSuperAdmin><Papeis /></SoSuperAdmin>} />
           <Route path="usuarios" element={<Users />} />
           <Route path="relatorios" element={<Reports />} />
-          <Route path="logs" element={<Logs />} />
+          <Route path="logs" element={<SoSuperAdmin><Logs /></SoSuperAdmin>} />
         </Route>
       </Routes>
       </Suspense>

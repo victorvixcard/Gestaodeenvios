@@ -55,7 +55,7 @@ export function StatusFilterChips({ value, onChange, counts }: {
             {n > 0 && (
               <span className={cn(
                 "text-[10px] font-bold px-1.5 py-px rounded-full tabular-nums",
-                selecionado ? "bg-white/20" : "bg-muted text-muted-foreground"
+                selecionado ? "bg-white/20" : "bg-foreground/10 text-foreground"
               )}>
                 {n}
               </span>

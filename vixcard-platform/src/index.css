@@ -64,7 +64,7 @@
     --sidebar-border: 212 45% 20%;
 
     /* ===== STATUS WORKFLOW ===== */
-    --status-pending:    212 18% 52%;
+    --status-pending:    212 18% 42%;
     --status-started:    204 99% 32%;
     --status-production: 212 66% 33%;
     --status-finishing:  40 99% 57%;
@@ -125,6 +125,10 @@
     --border: 213 38% 18%;
     --input: 213 38% 18%;
     --ring: 204 75% 55%;
+
+    /* Pendente (cinza) precisa clarear no escuro; os demais status ja
+       contrastam bem nos dois temas */
+    --status-pending: 212 18% 62%;
 
     /* Sidebar dark — ainda mais profunda no dark mode */
     --sidebar-background: 214 62% 9%;

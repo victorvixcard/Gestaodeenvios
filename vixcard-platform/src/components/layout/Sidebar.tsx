@@ -84,7 +84,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       {isSuperAdmin && (
         <div className="mx-4 mt-3 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-accent/15 border border-accent/25">
           <Shield className="h-3.5 w-3.5 text-accent flex-shrink-0" />
-          <span className="text-xs font-semibold text-accent">Super Admin</span>
+          <span className="text-xs font-semibold text-accent">{user?.papel?.name ?? "Super Admin"}</span>
         </div>
       )}
 
