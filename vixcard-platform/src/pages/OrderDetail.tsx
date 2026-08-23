@@ -773,7 +773,7 @@ export function OrderDetail() {
                 {creditos.map((m) => (
                   <div key={m.id} className="flex items-center justify-between gap-2">
                     <span className="text-xs text-muted-foreground truncate">
-                      {m.tipo === "saida" ? "Saída" : m.tipo === "estorno" ? "Estorno" : "Expiração"} — {m.productName}
+                      {m.tipo === "saida" ? "Saída" : "Estorno"} — {m.productName}
                     </span>
                     <span className="text-xs font-semibold tabular-nums whitespace-nowrap">
                       {m.quantidade > 0 ? `+${m.quantidade}` : m.quantidade}

@@ -14,9 +14,11 @@ use Tests\TestCase;
 
 /**
  * Creditos de produto por empresa (regras do Victor, 2026-08-23):
- * entrada e um lote com 18 meses; saida a cada OS, FIFO por vencimento;
+ * entrada e um lote com prazo de 18 meses; saida a cada OS, FIFO;
  * saldo pode ficar negativo; estorno ao cancelar/arquivar/reduzir;
- * aviso por e-mail quando cruza para negativo.
+ * aviso por e-mail quando cruza para negativo. O PRAZO NAO MEXE NO
+ * SALDO — lote vencido vira relatorio, nunca desconto. Todo movimento
+ * registra origem (manual/automatico), usuario, data e hora.
  */
 class CreditosTest extends TestCase
 {
@@ -68,9 +70,16 @@ class CreditosTest extends TestCase
 
         $mov = ProductMovement::where('order_id', $os->id)->first();
         $this->assertSame('saida', $mov->tipo);
+        $this->assertSame('automatico', $mov->origem);
         $this->assertSame(100, $mov->saldo_anterior);
         $this->assertSame(50, $mov->saldo_posterior);
         $this->assertSame('Ana', $mov->user_name);
+        $this->assertSame($this->ana->id, (int) $mov->user_id);
+        $this->assertNotNull($mov->created_at);
+
+        $entrada = ProductMovement::where('tipo', 'entrada')->first();
+        $this->assertSame('manual', $entrada->origem);
+        $this->assertSame('Victor Admin', $entrada->user_name);
     }
 
     public function test_saida_usa_o_lote_que_vence_primeiro(): void
@@ -157,19 +166,24 @@ class CreditosTest extends TestCase
         $this->assertSame(60, ProductMovement::orderByDesc('id')->first()->quantidade);
     }
 
-    public function test_lote_vencido_expira_o_que_restava(): void
+    public function test_prazo_vencido_e_relatorio_e_nao_mexe_no_saldo(): void
     {
         $this->entrada(100);
         $this->criarOsCom(30);
         ProductLot::first()->forceFill(['validade' => now()->subDay()])->save();
 
-        $this->assertSame(0, $this->saldo());
-        $exp = ProductMovement::where('tipo', 'expiracao')->first();
-        $this->assertSame(-70, $exp->quantidade);
-        $this->assertNotNull(ProductLot::first()->expired_at);
+        // O saldo continua 70 — vencimento nunca desconta nada
+        $this->assertSame(70, $this->saldo());
+        $this->assertSame(0, ProductMovement::whereNotIn('tipo', ['entrada', 'saida', 'estorno'])->count());
+
+        // Mas o relatorio aponta as 70 un com prazo vencido
+        $res = $this->como($this->admin)->getJson('/api/companies/medsenior/creditos')->assertOk();
+        $item = collect($res->json('saldos'))->firstWhere('productId', $this->cartao->id);
+        $this->assertSame(70, $item['restanteVencido']);
+        $this->assertTrue($item['lotesVencidos'][0]['vencido']);
     }
 
-    public function test_estorno_em_lote_vencido_expira_junto(): void
+    public function test_estorno_em_lote_vencido_devolve_normal(): void
     {
         $this->entrada(100);
         $os = $this->criarOsCom(100);
@@ -179,9 +193,9 @@ class CreditosTest extends TestCase
             ->postJson("/api/orders/{$os->id}/cancel", ['reason' => 'Cancelado tarde'])
             ->assertOk();
 
-        $this->assertSame(0, $this->saldo());
-        $this->assertSame(['saida', 'estorno', 'expiracao'],
-            ProductMovement::orderBy('id')->pluck('tipo')->skip(1)->values()->all());
+        // Devolucao integral: prazo vencido nao engole o estorno
+        $this->assertSame(100, $this->saldo());
+        $this->assertSame(100, ProductLot::first()->restante);
     }
 
     public function test_os_anterior_ao_recurso_nao_estorna_nada(): void
@@ -219,10 +233,10 @@ class CreditosTest extends TestCase
         }
         $this->como($this->ana)->getJson('/api/companies/technip/movimentacoes')->assertForbidden();
 
-        // Super admin lanca saida manual com observacao
+        // Super admin lanca saida manual com observacao — origem 'manual'
         $this->como($this->admin)->postJson('/api/companies/medsenior/movimentacoes', [
             'product_id' => $this->cartao->id, 'tipo' => 'saida', 'quantidade' => 15, 'motivo' => 'Reimpressao por erro da grafica',
-        ])->assertCreated()->assertJsonPath('saldoPosterior', 75);
+        ])->assertCreated()->assertJsonPath('saldoPosterior', 75)->assertJsonPath('origem', 'manual');
 
         // Produto nao vinculado e recusado
         $this->como($this->admin)->postJson('/api/companies/vixcard/movimentacoes', [

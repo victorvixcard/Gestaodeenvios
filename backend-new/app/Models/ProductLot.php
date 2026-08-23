@@ -10,14 +10,13 @@ class ProductLot extends Model
 {
     protected $fillable = [
         'tenant_slug', 'product_id', 'quantidade', 'restante', 'validade',
-        'motivo', 'user_id', 'expired_at',
+        'motivo', 'user_id',
     ];
 
     protected $casts = [
         'quantidade' => 'integer',
         'restante'   => 'integer',
         'validade'   => 'date',
-        'expired_at' => 'datetime',
     ];
 
     public function product(): BelongsTo
@@ -34,7 +33,8 @@ class ProductLot extends Model
             'restante'   => $this->restante,
             'validade'   => $this->validade->toDateString(),
             'motivo'     => $this->motivo,
-            'expiredAt'  => $this->expired_at?->toIso8601String(),
+            // Prazo vencido e RELATORIO, nunca desconto: o saldo nao muda
+            'vencido'    => $this->validade->lt(now(config('app.business_timezone', 'America/Sao_Paulo'))->startOfDay()),
             'createdAt'  => $this->created_at?->toIso8601String(),
         ];
     }

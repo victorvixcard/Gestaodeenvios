@@ -26,7 +26,6 @@ return new class extends Migration
             $table->date('validade');
             $table->string('motivo', 255)->nullable();
             $table->unsignedBigInteger('user_id')->nullable();
-            $table->timestamp('expired_at')->nullable();
             $table->timestamps();
 
             $table->foreign('tenant_slug')->references('slug')->on('companies')->onDelete('cascade');
@@ -38,7 +37,8 @@ return new class extends Migration
             $table->id();
             $table->string('tenant_slug', 50);
             $table->unsignedBigInteger('product_id');
-            $table->string('tipo', 20);                    // entrada | saida | estorno | expiracao
+            $table->string('tipo', 20);                    // entrada | saida | estorno
+            $table->string('origem', 10);                  // manual | automatico (OS)
             $table->integer('quantidade');                 // com sinal: + soma, - subtrai
             $table->integer('saldo_anterior');
             $table->integer('saldo_posterior');

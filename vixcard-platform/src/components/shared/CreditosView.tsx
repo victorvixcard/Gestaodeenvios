@@ -35,10 +35,9 @@ interface Props {
 }
 
 const TIPO_INFO: Record<MovimentacaoTipo, { label: string; classe: string; Icon: typeof ArrowUpCircle }> = {
-  entrada:   { label: "Entrada",   classe: "bg-success/15 text-success",         Icon: ArrowUpCircle },
-  saida:     { label: "Saída",     classe: "bg-primary/15 text-primary",         Icon: ArrowDownCircle },
-  estorno:   { label: "Estorno",   classe: "bg-accent/20 text-accent-foreground dark:text-accent", Icon: RotateCcw },
-  expiracao: { label: "Expiração", classe: "bg-destructive/15 text-destructive", Icon: TimerOff },
+  entrada: { label: "Entrada", classe: "bg-success/15 text-success", Icon: ArrowUpCircle },
+  saida:   { label: "Saída",   classe: "bg-primary/15 text-primary", Icon: ArrowDownCircle },
+  estorno: { label: "Estorno", classe: "bg-accent/20 text-accent-foreground dark:text-accent", Icon: RotateCcw },
 };
 
 export function CreditosView({ slug, podeLancar = false }: Props) {
@@ -112,6 +111,7 @@ export function CreditosView({ slug, podeLancar = false }: Props) {
     const linhas = movs.map((m) => ({
       "Data":           m.createdAt ? format(parseISO(m.createdAt), "dd/MM/yyyy HH:mm") : "",
       "Tipo":           TIPO_INFO[m.tipo].label,
+      "Origem":         m.origem === "manual" ? "Manual" : "Automática",
       "Produto":        m.productName ?? m.productId,
       "Quantidade":     m.quantidade,
       "Saldo anterior": m.saldoAnterior,
@@ -121,7 +121,7 @@ export function CreditosView({ slug, podeLancar = false }: Props) {
       "Motivo":         m.motivo ?? "",
     }));
     const ws = XLSX.utils.json_to_sheet(linhas);
-    ws["!cols"] = [{ wch: 16 }, { wch: 10 }, { wch: 28 }, { wch: 11 }, { wch: 13 }, { wch: 11 }, { wch: 10 }, { wch: 18 }, { wch: 40 }];
+    ws["!cols"] = [{ wch: 16 }, { wch: 10 }, { wch: 11 }, { wch: 28 }, { wch: 11 }, { wch: 13 }, { wch: 11 }, { wch: 10 }, { wch: 18 }, { wch: 40 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Movimentações");
     XLSX.writeFile(wb, `movimentacoes_${slug ?? tenant.slug}_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
@@ -160,8 +160,14 @@ export function CreditosView({ slug, podeLancar = false }: Props) {
                   {s.proximoVencimento && (
                     <p className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
-                      {s.proximoVencimento.restante.toLocaleString("pt-BR")} un vencem em{" "}
+                      {s.proximoVencimento.restante.toLocaleString("pt-BR")} un com prazo até{" "}
                       {format(parseISO(s.proximoVencimento.validade), "dd/MM/yyyy")}
+                    </p>
+                  )}
+                  {s.restanteVencido > 0 && (
+                    <p className="flex items-center gap-1 text-warning font-semibold">
+                      <TimerOff className="h-3 w-3" />
+                      {s.restanteVencido.toLocaleString("pt-BR")} un com prazo vencido
                     </p>
                   )}
                   {s.saldo < 0 && <p className="text-destructive font-semibold">Consumo além do crédito</p>}
@@ -170,6 +176,33 @@ export function CreditosView({ slug, podeLancar = false }: Props) {
             </motion.div>
           ))}
         </div>
+      )}
+
+      {/* Relatorio de prazos vencidos: acompanhamento — o saldo NAO muda */}
+      {saldos.some((s) => s.restanteVencido > 0) && (
+        <Card className="p-4 border-warning/50">
+          <p className="text-xs font-semibold flex items-center gap-1.5 text-warning">
+            <TimerOff className="h-3.5 w-3.5" />
+            Prazos de uso vencidos
+          </p>
+          <p className="text-[11px] text-muted-foreground mt-0.5 mb-2">
+            Créditos comprados há mais de 18 meses e ainda não usados. O saldo continua valendo — este quadro é só acompanhamento.
+          </p>
+          <div className="space-y-1">
+            {saldos.flatMap((s) =>
+              s.lotesVencidos.map((l) => (
+                <p key={l.id} className="text-xs flex flex-wrap items-center gap-x-2">
+                  <span className="font-semibold">{s.productName}</span>
+                  <span>{l.restante.toLocaleString("pt-BR")} un restantes</span>
+                  <span className="text-muted-foreground">
+                    prazo venceu em {format(parseISO(l.validade), "dd/MM/yyyy")}
+                    {l.motivo ? ` — ${l.motivo}` : ""}
+                  </span>
+                </p>
+              ))
+            )}
+          </div>
+        </Card>
       )}
 
       {/* Filtros + acoes */}
@@ -239,6 +272,9 @@ export function CreditosView({ slug, podeLancar = false }: Props) {
                         <info.Icon className="h-3 w-3" />
                         {info.label}
                       </span>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {m.origem === "manual" ? "Manual" : "Automática"}
+                      </p>
                     </td>
                     <td className="px-3 py-2 max-w-[180px] truncate" title={m.productName ?? undefined}>
                       {m.productName ?? "—"}

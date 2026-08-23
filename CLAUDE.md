@@ -371,15 +371,18 @@ Antes, várias chamadas em `DataContext` eram `.then()` sem `.catch()`. Erros vi
 
 Cada empresa tem saldo em unidades por produto. Regras (definidas em 2026-08-23):
 
-- **Entrada** = lote com validade de 18 meses (`CREDIT_VALIDITY_MONTHS`), lancada
-  pelo super admin em Empresas -> aba Movimentacoes ou no menu Movimentacoes.
-- **Saida** automatica a cada OS criada (FIFO: lote que vence primeiro paga
-  primeiro). Sem saldo a OS NAO e bloqueada — fica negativo ("descoberto") e
+- **Entrada** = lote com prazo de uso de 18 meses (`CREDIT_VALIDITY_MONTHS`),
+  lancada pelo super admin em Empresas -> aba Movimentacoes ou no menu.
+- **O prazo NAO mexe no saldo** (decisao do Victor, 2026-08-23): lote vencido
+  continua valendo e aparece no quadro "Prazos de uso vencidos" — cobranca e
+  comercial, nunca desconto automatico. Nao ha tipo "expiracao".
+- **Saida** automatica a cada OS criada (FIFO pelo lote mais antigo). Sem
+  saldo a OS NAO e bloqueada — fica negativo ("descoberto") e
   `CREDIT_ALERT_EMAIL` (felipegat@vixcard.com.br) recebe aviso no cruzamento.
-- **Estorno** ao cancelar/arquivar/reduzir OS; devolve ao lote de origem; se o
-  lote ja venceu, a devolucao expira junto. Restaurar OS volta a descontar.
-- **Expiracao** lancada de forma preguicosa (primeira leitura/lancamento apos o
-  vencimento) — nao depende de cron.
+- **Estorno** ao cancelar/arquivar/reduzir OS; devolve ao lote de origem.
+  Restaurar OS volta a descontar.
+- Todo movimento registra **origem (manual/automatico)**, usuario, data e
+  hora, alem do saldo anterior/posterior congelados.
 - Movimento e imutavel; erro se corrige com outro lancamento.
 - Toda a logica fica em `app/Services/CreditoService.php` (lock por
   empresa+produto + transacao). Invariante: saldo == soma(restante dos lotes

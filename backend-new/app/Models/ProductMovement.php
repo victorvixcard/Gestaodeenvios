@@ -14,10 +14,10 @@ class ProductMovement extends Model
 {
     public const UPDATED_AT = null;
 
-    public const TIPOS = ['entrada', 'saida', 'estorno', 'expiracao'];
+    public const TIPOS = ['entrada', 'saida', 'estorno'];
 
     protected $fillable = [
-        'tenant_slug', 'product_id', 'tipo', 'quantidade', 'saldo_anterior',
+        'tenant_slug', 'product_id', 'tipo', 'origem', 'quantidade', 'saldo_anterior',
         'saldo_posterior', 'cobriu_descoberto', 'lot_id', 'order_id', 'motivo',
         'user_id', 'user_name', 'created_at',
     ];
@@ -53,6 +53,7 @@ class ProductMovement extends Model
             'productId'        => $this->product_id,
             'productName'      => $this->product?->name,
             'tipo'             => $this->tipo,
+            'origem'           => $this->origem,
             'quantidade'       => $this->quantidade,
             'saldoAnterior'    => $this->saldo_anterior,
             'saldoPosterior'   => $this->saldo_posterior,

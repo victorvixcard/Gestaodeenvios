@@ -245,7 +245,7 @@ export interface Order {
 
 // ── Creditos de produto (menu Movimentacoes) ────────────────────────────
 
-export type MovimentacaoTipo = "entrada" | "saida" | "estorno" | "expiracao";
+export type MovimentacaoTipo = "entrada" | "saida" | "estorno";
 
 export interface LoteCredito {
   id: number;
@@ -254,7 +254,8 @@ export interface LoteCredito {
   restante: number;
   validade: string;          // yyyy-mm-dd
   motivo: string | null;
-  expiredAt: string | null;
+  /** Prazo vencido e relatorio, nunca desconto: o saldo nao muda. */
+  vencido: boolean;
   createdAt: string | null;
 }
 
@@ -263,6 +264,9 @@ export interface SaldoProduto {
   productName: string;
   saldo: number;
   consumo30Dias: number;
+  /** Unidades ainda em saldo cujo prazo de uso ja passou (so acompanhamento). */
+  restanteVencido: number;
+  lotesVencidos: LoteCredito[];
   proximoVencimento: { validade: string; restante: number } | null;
   lotes: LoteCredito[];
 }
@@ -273,6 +277,8 @@ export interface Movimentacao {
   productId: number;
   productName: string | null;
   tipo: MovimentacaoTipo;
+  /** Como o lancamento nasceu: pela VIXCard (manual) ou por uma OS (automatico). */
+  origem: "manual" | "automatico";
   quantidade: number;        // com sinal
   saldoAnterior: number;
   saldoPosterior: number;
