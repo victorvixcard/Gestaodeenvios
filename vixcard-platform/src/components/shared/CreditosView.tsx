@@ -237,7 +237,12 @@ export function CreditosView({ slug, podeLancar = false }: Props) {
           Excel
         </Button>
         {podeLancar && (
-          <Button size="sm" onClick={() => setAberto(true)}>
+          <Button
+            size="sm"
+            onClick={() => setAberto(true)}
+            disabled={saldos.length === 0}
+            title={saldos.length === 0 ? "Vincule produtos à empresa antes (Cadastros → Empresas → aba Produtos)" : undefined}
+          >
             <Plus className="h-3.5 w-3.5 mr-1.5" />
             Lançar movimentação
           </Button>
@@ -348,7 +353,7 @@ export function CreditosView({ slug, podeLancar = false }: Props) {
                 <p className="text-sm font-semibold flex items-center gap-1.5">
                   <ArrowUpCircle className="h-4 w-4 text-success" /> Entrada
                 </p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Compra de crédito — vale 18 meses</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Compra de crédito — prazo de uso de 18 meses</p>
               </button>
               <button
                 type="button"
@@ -366,16 +371,23 @@ export function CreditosView({ slug, podeLancar = false }: Props) {
             </div>
             <div className="space-y-1.5">
               <Label>Produto</Label>
-              <Select value={produtoId} onValueChange={setProdutoId}>
-                <SelectTrigger><SelectValue placeholder="Escolha o produto" /></SelectTrigger>
-                <SelectContent>
-                  {saldos.map((s) => (
-                    <SelectItem key={s.productId} value={String(s.productId)}>
-                      {s.productName} (saldo {s.saldo.toLocaleString("pt-BR")})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {saldos.length === 0 ? (
+                <p className="text-xs text-muted-foreground rounded-lg border border-border bg-muted/40 px-3 py-2">
+                  Esta empresa ainda não tem produtos vinculados. Vincule em
+                  Cadastros → Empresas → editar → aba Produtos, e volte aqui.
+                </p>
+              ) : (
+                <Select value={produtoId} onValueChange={setProdutoId}>
+                  <SelectTrigger><SelectValue placeholder="Escolha o produto" /></SelectTrigger>
+                  <SelectContent>
+                    {saldos.map((s) => (
+                      <SelectItem key={s.productId} value={String(s.productId)}>
+                        {s.productName} (saldo {s.saldo.toLocaleString("pt-BR")})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>Quantidade</Label>

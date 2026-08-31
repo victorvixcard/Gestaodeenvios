@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ArrowLeftRight, Search } from "lucide-react";
+import { ArrowLeftRight, Search, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useData } from "../contexts/DataContext";
 import { useOrders } from "../contexts/OrdersContext";
@@ -68,7 +68,7 @@ export function Movimentacoes() {
               <button
                 key={c.slug}
                 type="button"
-                onClick={() => setSelecionada(c.slug)}
+                onClick={() => setSelecionada(selecionada === c.slug ? null : c.slug)}
                 className={
                   selecionada === c.slug
                     ? "flex items-center gap-2 rounded-full border border-primary bg-primary/10 px-3 py-1.5 text-sm font-semibold text-primary"
@@ -82,6 +82,7 @@ export function Movimentacoes() {
                   {c.logoInitials}
                 </span>
                 {c.name}
+                {selecionada === c.slug && <X className="h-3.5 w-3.5" />}
               </button>
             ))}
           </div>
@@ -121,7 +122,12 @@ export function Movimentacoes() {
       {isSuperAdmin ? (
         selecionada ? (
           <div className="space-y-2">
-            <Badge variant="outline" className="px-3 py-1">{empresaAtual?.name ?? selecionada}</Badge>
+            <button type="button" onClick={() => setSelecionada(null)} title="Remover seleção" className="inline-flex">
+              <Badge variant="outline" className="px-3 py-1 gap-1.5 hover:bg-muted cursor-pointer">
+                {empresaAtual?.name ?? selecionada}
+                <X className="h-3 w-3" />
+              </Badge>
+            </button>
             <CreditosView key={selecionada} slug={selecionada} podeLancar />
           </div>
         ) : (
