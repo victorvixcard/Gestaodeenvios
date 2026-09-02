@@ -206,6 +206,15 @@ precisa da extensao zip do PHP. No deploy, confira com `php -m | grep zip`;
 faltando, `apt install php8.3-zip && systemctl reload php8.3-fpm`. Sem ela o
 endpoint responde 501 e o resto do sistema segue normal.
 
+**E-mails em producao (incidente 2026-09-01):** a Digital Ocean BLOQUEIA as
+portas SMTP do droplet (465/587 testadas). Com MAIL_MAILER=smtp, cada envio
+esperava ~30s de timeout DENTRO da criacao da OS; o navegador desistia aos 15s
+e os anexos (enviados na sequencia) nunca subiam — OS "sem anexo" e sem erro
+na tela (ORD-207..210 canceladas por isso). Correcoes: (1) envio movido para
+app()->terminating (depois da resposta) com MAIL_TIMEOUT=12s; (2) producao
+esta com MAIL_MAILER=log ate a DO desbloquear SMTP via ticket de suporte —
+depois do desbloqueio, voltar MAIL_MAILER=smtp no .env + config:cache.
+
 **Cuidado com migrations:** o servidor já tem MySQL com tabelas `cache` e `sessions` (driver = database). Antes de aplicar qualquer migration nova que crie tabela, sempre rode `php artisan migrate --pretend` e confira se ela não vai colidir com algo que já existe.
 
 ---
