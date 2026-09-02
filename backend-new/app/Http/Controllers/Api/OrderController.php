@@ -583,21 +583,52 @@ class OrderController extends Controller
         ])->deleteFileAfterSend(true);
     }
 
-    public function deleteFile(Request $request, string $id, int $fileIndex): JsonResponse
+    /**
+     * Excluir anexos e SO da VIXCard (regra do Victor, 2026-09-02): a empresa
+     * pede a exclusao (por e-mail, por exemplo), o super admin exclui e o
+     * cliente anexa os corretos — sem precisar de OS nova. Tudo registrado
+     * na linha do tempo da OS e no log de auditoria.
+     * DELETE /orders/{id}/files?i=0,2 exclui os indices informados.
+     */
+    public function deleteFiles(Request $request, string $id): JsonResponse
     {
-        $order = Order::findOrFail($id);
-
-        if (!$this->authorizeOrder($order, $request)) {
-            return response()->json(['message' => 'Acesso não autorizado.'], 403);
+        if (!$request->user()->isSuperAdmin()) {
+            return response()->json(['message' => 'Apenas a VIXCard pode excluir anexos. Solicite a exclusão.'], 403);
         }
 
+        $order = Order::findOrFail($id);
         $files = $order->files ?? [];
 
-        if (isset($files[$fileIndex])) {
-            Storage::disk('public')->delete($files[$fileIndex]['path'] ?? '');
-            array_splice($files, $fileIndex, 1);
-            $order->update(['files' => array_values($files)]);
+        $indices = array_values(array_unique(array_filter(
+            array_map('intval', explode(',', (string) $request->query('i'))),
+            fn ($n) => isset($files[$n])
+        )));
+
+        if (empty($indices)) {
+            return response()->json(['message' => 'Nenhum arquivo válido selecionado.'], 422);
         }
+
+        // Do maior indice para o menor, senao a remocao desloca os seguintes
+        rsort($indices);
+        $nomes = [];
+        foreach ($indices as $n) {
+            $nomes[] = $files[$n]['name'] ?? "arquivo {$n}";
+            Storage::disk('public')->delete($files[$n]['path'] ?? '');
+            array_splice($files, $n, 1);
+        }
+        $order->update(['files' => array_values($files)]);
+
+        $lista = implode(', ', array_reverse($nomes));
+        $order->events()->create([
+            'type'        => 'note',
+            'description' => 'Anexo(s) excluído(s): ' . $lista,
+            'author_name' => $request->user()->name,
+        ]);
+
+        AuditLog::record(
+            'pedido_anexo_excluido', 'Pedido', $order->id, $order->title,
+            $request->user(), count($nomes) . ' arquivo(s): ' . $lista
+        );
 
         return response()->json($this->formatOrder($order->fresh(['items', 'notes', 'events'])));
     }

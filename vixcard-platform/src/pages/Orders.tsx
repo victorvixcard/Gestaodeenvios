@@ -179,6 +179,9 @@ export function Orders() {
   const [searchParams] = useSearchParams();
 
   const [search, setSearch] = useState("");
+  // Periodo pela data de criacao da OS (vazio = sem limite)
+  const [dataDe, setDataDe] = useState("");
+  const [dataAte, setDataAte] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>(searchParams.get("status") ?? "all");
   // Lista é o padrão: mostra mais OS por tela. A linha do tempo segue
   // disponível no botão ao lado.
@@ -232,22 +235,33 @@ export function Orders() {
     tenantPassaNoFiltro(colab, o.tenantSlug, companies, users)
   );
 
-  const overdueCount = doColab.filter((o) => orderIsOverdue(o.items, o.statusFase)).length;
+  // Periodo aplicado ANTES dos chips: assim TODOS os contadores (inclusive
+  // "Todos" e "Em Atraso") refletem as datas escolhidas
+  const noPeriodo = doColab.filter((o) => {
+    const dia = o.createdAt.slice(0, 10);
+    if (dataDe && dia < dataDe) return false;
+    if (dataAte && dia > dataAte) return false;
+    return true;
+  });
+
+  const overdueCount = noPeriodo.filter((o) => orderIsOverdue(o.items, o.statusFase)).length;
 
   // Contagem por status para os chips do filtro (ignora a busca de texto,
   // para os números não pularem enquanto o usuário digita)
-  const statusCounts: Partial<Record<StatusFilterValue, number>> = { all: doColab.length, overdue: overdueCount };
-  doColab.forEach((o) => { statusCounts[o.statusFase] = (statusCounts[o.statusFase] ?? 0) + 1; });
+  const statusCounts: Partial<Record<StatusFilterValue, number>> = { all: noPeriodo.length, overdue: overdueCount };
+  noPeriodo.forEach((o) => { statusCounts[o.statusFase] = (statusCounts[o.statusFase] ?? 0) + 1; });
 
-  const filtered = doColab.filter((o) => {
+  const filtered = noPeriodo.filter((o) => {
     const matchStatus =
       statusFilter === "all" ||
       (statusFilter === "overdue" ? orderIsOverdue(o.items, o.statusFase) : o.statusFase === statusFilter);
+    const q = search.toLowerCase();
     const matchSearch =
       !search ||
-      o.title.toLowerCase().includes(search.toLowerCase()) ||
-      o.id.toLowerCase().includes(search.toLowerCase()) ||
-      o.requestedBy.toLowerCase().includes(search.toLowerCase());
+      o.title.toLowerCase().includes(q) ||
+      o.id.toLowerCase().includes(q) ||
+      o.requestedBy.toLowerCase().includes(q) ||
+      o.tenantName.toLowerCase().includes(q);
     return matchStatus && matchSearch;
   });
 
@@ -377,11 +391,34 @@ export function Orders() {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por título, número da OS ou solicitante..."
+            placeholder="Buscar por título, OS, solicitante ou cliente (ex: Technip)..."
             className="pl-9"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+        </div>
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="space-y-1">
+            <label className="text-[11px] font-medium text-muted-foreground">De</label>
+            <Input type="date" className="h-9 w-[150px]" value={dataDe}
+                   onChange={(e) => { setDataDe(e.target.value); if (!todasCarregadas) carregarTodas(); }} />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[11px] font-medium text-muted-foreground">Até</label>
+            <Input type="date" className="h-9 w-[150px]" value={dataAte}
+                   onChange={(e) => { setDataAte(e.target.value); if (!todasCarregadas) carregarTodas(); }} />
+          </div>
+          {!todasCarregadas && (dataDe || dataAte) && (
+            <p className="h-9 flex items-center text-[11px] text-muted-foreground">Carregando histórico completo…</p>
+          )}
+          {(dataDe || dataAte) && (
+            <button
+              onClick={() => { setDataDe(""); setDataAte(""); }}
+              className="h-9 text-xs text-primary font-semibold hover:underline"
+            >
+              Limpar período
+            </button>
+          )}
         </div>
         <StatusFilterChips value={statusFilter} onChange={setStatusFilter} counts={statusCounts} />
       </div>

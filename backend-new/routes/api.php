@@ -50,7 +50,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/{id}/cancel-request', [OrderController::class, 'requestCancel']);
         Route::post('/{id}/files',   [OrderController::class, 'uploadFile']);
         Route::get('/{id}/files/zip', [OrderController::class, 'downloadFilesZip']);
-        Route::delete('/{id}/files/{fileIndex}', [OrderController::class, 'deleteFile']);
+        Route::delete('/{id}/files', [OrderController::class, 'deleteFiles']);   // ?i=0,2 — super admin
 
         // Arquivar (soft delete) e restaurar — somente super admin
         Route::delete('/{id}', [OrderController::class, 'destroy'])

@@ -51,7 +51,11 @@ export function OrderTimeline({ events }: OrderTimelineProps) {
                 <Icon className="h-3.5 w-3.5" />
               </div>
               <div className="flex-1 min-w-0 pb-2">
-                <p className="text-sm font-medium text-foreground">{event.description}</p>
+                {/* Nomes de arquivo enormes (sem espaco) precisam quebrar em
+                    qualquer ponto, senao estouram o card */}
+                <p className="text-sm font-medium text-foreground break-words [overflow-wrap:anywhere]">
+                  {event.description}
+                </p>
                 <div className="flex items-center gap-2 mt-0.5">
                   <span className="text-xs text-muted-foreground">{event.authorName}</span>
                   <span className="text-muted-foreground/30">·</span>

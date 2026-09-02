@@ -63,6 +63,30 @@ class ArquivosZipTest extends TestCase
         $this->como($this->diego)->get("/api/orders/{$os->id}/files/zip")->assertForbidden();
     }
 
+    public function test_super_admin_exclui_anexos_selecionados_com_log(): void
+    {
+        $os = $this->criarOs($this->ana);
+        foreach (['a.txt', 'b.txt', 'c.txt'] as $nome) {
+            $this->como($this->ana)->post("/api/orders/{$os->id}/files", [
+                'file' => UploadedFile::fake()->createWithContent($nome, 'x'),
+            ])->assertOk();
+        }
+
+        // Empresa NAO exclui — solicita a VIXCard
+        $this->como($this->ana)->deleteJson("/api/orders/{$os->id}/files?i=0")->assertForbidden();
+
+        // Super admin exclui a.txt e c.txt; sobra b.txt
+        $res = $this->como($this->admin)->deleteJson("/api/orders/{$os->id}/files?i=0,2")->assertOk();
+        $nomes = array_column($res->json('files'), 'name');
+        $this->assertSame(['b.txt'], $nomes);
+
+        // Linha do tempo e auditoria registram
+        $this->assertTrue(
+            $os->fresh()->events()->where('description', 'like', '%excluído%')->exists()
+        );
+        $this->assertDatabaseHas('audit_logs', ['action' => 'pedido_anexo_excluido', 'entity_id' => $os->id]);
+    }
+
     public function test_os_sem_arquivos_retorna_422(): void
     {
         $os = $this->criarOs($this->ana);

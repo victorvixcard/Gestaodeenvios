@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import {
   ArrowLeft, Play, CheckCircle2,
   XCircle, MessageSquarePlus, Send, Download, FileText, FileImage, File as FileIcon, Paperclip,
-  AlertTriangle, Undo2, RotateCcw, Archive, Pencil, Plus, X,
+  AlertTriangle, Undo2, RotateCcw, Archive, Pencil, Plus, X, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
@@ -73,6 +73,26 @@ export function OrderDetail() {
       return s;
     });
   };
+  const [confirmaExcluirArquivos, setConfirmaExcluirArquivos] = useState(false);
+  const [excluindoArquivos, setExcluindoArquivos] = useState(false);
+  const { refresh } = useOrders();
+  const excluirSelecionados = async () => {
+    if (!id || arquivosSel.size === 0) return;
+    setExcluindoArquivos(true);
+    try {
+      const idx = [...arquivosSel].sort((a, b) => a - b).join(",");
+      await api.delete(`/orders/${encodeURIComponent(id)}/files?i=${idx}`);
+      toast.success(`${arquivosSel.size} anexo(s) excluído(s).`);
+      setArquivosSel(new Set());
+      setConfirmaExcluirArquivos(false);
+      await refresh();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Erro ao excluir os anexos.");
+    } finally {
+      setExcluindoArquivos(false);
+    }
+  };
+
   const baixarSelecionados = async () => {
     if (!id || arquivosSel.size === 0) return;
     setBaixandoZip(true);
@@ -439,7 +459,7 @@ export function OrderDetail() {
               <div className="flex flex-wrap items-center gap-2">
                 <Paperclip className="h-4 w-4 text-primary" />
                 <CardTitle>Arquivos para Produção ({order.files?.length ?? 0})</CardTitle>
-                {(order.files?.length ?? 0) > 1 && (
+                {(order.files?.length ?? 0) > 0 && (
                   <div className="ml-auto flex items-center gap-3">
                     <button
                       type="button"
@@ -457,6 +477,14 @@ export function OrderDetail() {
                       <Download className="h-3.5 w-3.5 mr-1.5" />
                       {baixandoZip ? "Gerando zip..." : `Baixar selecionados (${arquivosSel.size})`}
                     </Button>
+                    {isSuperAdmin && (
+                      <Button size="sm" variant="outline" disabled={arquivosSel.size === 0 || excluindoArquivos}
+                              className="text-destructive border-destructive/40 hover:bg-destructive/10"
+                              onClick={() => setConfirmaExcluirArquivos(true)}>
+                        <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                        Excluir ({arquivosSel.size})
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>
@@ -479,7 +507,7 @@ export function OrderDetail() {
                       : `${(f.size / (1024 * 1024)).toFixed(1)} MB`;
                     return (
                       <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg border border-border bg-muted/30">
-                        {(order.files?.length ?? 0) > 1 && (
+                        {(order.files?.length ?? 0) > 0 && (
                           <input
                             type="checkbox"
                             checked={arquivosSel.has(i)}
@@ -862,6 +890,35 @@ export function OrderDetail() {
           </Card>
         </div>
       </div>
+
+      {/* Dialog: confirmar exclusao de anexos (super admin) */}
+      <Dialog open={confirmaExcluirArquivos} onOpenChange={setConfirmaExcluirArquivos}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Excluir {arquivosSel.size} anexo(s)?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-1 text-sm">
+            <p className="text-muted-foreground">
+              Os arquivos saem da OS e do servidor. A exclusão fica registrada
+              na linha do tempo e no log de auditoria. O cliente pode anexar os
+              arquivos corretos em seguida.
+            </p>
+            <ul className="list-disc pl-5 pt-1 text-xs">
+              {[...arquivosSel].sort((a, b) => a - b).map((i) => (
+                <li key={i} className="truncate">{order.files?.[i]?.name}</li>
+              ))}
+            </ul>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmaExcluirArquivos(false)} disabled={excluindoArquivos}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={excluirSelecionados} disabled={excluindoArquivos}>
+              {excluindoArquivos ? "Excluindo..." : "Excluir"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog: editor de itens (super admin) */}
       <Dialog open={showItemsEditor} onOpenChange={(v) => !v && closeItemsEditor()}>
