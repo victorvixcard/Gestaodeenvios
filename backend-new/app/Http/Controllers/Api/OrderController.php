@@ -165,22 +165,29 @@ class OrderController extends Controller
         // segue normalmente — o saldo fica negativo e a VIXCard e avisada.
         $this->creditos->sincronizarOs($order->fresh('items'), $user);
 
-        // Aviso por e-mail aos atendentes da empresa. Falha de e-mail nunca
-        // pode derrubar a criação da OS — só registra no log.
-        try {
-            $atendentes = $company?->attendants()
-                ->where('users.active', true)
-                ->whereNotNull('users.email')
-                ->get() ?? collect();
-
-            foreach ($atendentes as $atendente) {
-                Mail::to($atendente->email)->send(
-                    new NovaOsMail($order->fresh('items'), $company->name)
-                );
+        // Aviso por e-mail aos atendentes DEPOIS da resposta ao usuario:
+        // SMTP fora do ar (ou bloqueado, como na Digital Ocean) nao pode
+        // atrasar a criacao da OS — foi o que impedia os anexos de subir,
+        // porque o navegador desistia antes de envia-los.
+        $osId = $order->id;
+        $enviado = false;
+        app()->terminating(function () use (&$enviado, $osId, $company) {
+            if ($enviado) return;   // roda uma vez, mesmo se o app atender outra requisicao
+            $enviado = true;
+            try {
+                $order = Order::with('items')->find($osId);
+                if (!$order || !$company) return;
+                $atendentes = $company->attendants()
+                    ->where('users.active', true)
+                    ->whereNotNull('users.email')
+                    ->get();
+                foreach ($atendentes as $atendente) {
+                    Mail::to($atendente->email)->send(new NovaOsMail($order, $company->name));
+                }
+            } catch (\Throwable $e) {
+                Log::warning("Falha ao enviar e-mail de nova OS {$osId}: {$e->getMessage()}");
             }
-        } catch (\Throwable $e) {
-            Log::warning("Falha ao enviar e-mail de nova OS {$order->id}: {$e->getMessage()}");
-        }
+        });
 
         return response()->json($this->formatOrder($order->load(['items', 'events'])), 201);
     }

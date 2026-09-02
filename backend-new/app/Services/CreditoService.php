@@ -278,11 +278,18 @@ class CreditoService
     private function avisarSaldoNegativo(ProductMovement $mov): void
     {
         $destino = config('app.credit_alert_email') ?: self::ALERTA_EMAIL_PADRAO;
-        try {
-            Mail::to($destino)->send(new SaldoNegativoMail($mov->load('product')));
-        } catch (\Throwable $e) {
-            Log::warning("Falha ao avisar saldo negativo ({$mov->tenant_slug}/{$mov->product_id}): {$e->getMessage()}");
-        }
+        // Depois da resposta: SMTP lento/bloqueado nao pode segurar a OS
+        $mov->load('product');
+        $enviado = false;
+        app()->terminating(function () use (&$enviado, $destino, $mov) {
+            if ($enviado) return;
+            $enviado = true;
+            try {
+                Mail::to($destino)->send(new SaldoNegativoMail($mov));
+            } catch (\Throwable $e) {
+                Log::warning("Falha ao avisar saldo negativo ({$mov->tenant_slug}/{$mov->product_id}): {$e->getMessage()}");
+            }
+        });
     }
 
     private function saldoAtual(string $tenant, int $productId): int

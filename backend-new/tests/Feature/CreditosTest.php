@@ -61,7 +61,7 @@ class CreditosTest extends TestCase
         $this->entrada(100);
         $lote = ProductLot::first();
         $this->assertSame(100, $lote->restante);
-        $this->assertSame(now()->addMonthsNoOverflow(18)->toDateString(), $lote->validade->toDateString());
+        $this->assertSame(now(config('app.business_timezone'))->addMonthsNoOverflow(18)->toDateString(), $lote->validade->toDateString());
 
         $os = $this->criarOsCom(50);
 
