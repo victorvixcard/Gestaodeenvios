@@ -237,8 +237,14 @@ export function Orders() {
 
   // Periodo aplicado ANTES dos chips: assim TODOS os contadores (inclusive
   // "Todos" e "Em Atraso") refletem as datas escolhidas
+  // Dia no fuso do usuario (createdAt vem em UTC — cortar a string jogaria
+  // uma OS criada as 21h de Brasilia para o dia seguinte)
+  const diaLocal = (iso: string) => {
+    const d = new Date(iso);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
   const noPeriodo = doColab.filter((o) => {
-    const dia = o.createdAt.slice(0, 10);
+    const dia = diaLocal(o.createdAt);
     if (dataDe && dia < dataDe) return false;
     if (dataAte && dia > dataAte) return false;
     return true;

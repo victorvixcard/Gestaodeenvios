@@ -596,6 +596,12 @@ class OrderController extends Controller
             return response()->json(['message' => 'Apenas a VIXCard pode excluir anexos. Solicite a exclusão.'], 403);
         }
 
+        // ?i e obrigatorio: sem ele, a string vazia viraria indice 0 e
+        // excluiria o primeiro arquivo sem ninguem ter pedido
+        if (!$request->filled('i')) {
+            return response()->json(['message' => 'Informe os arquivos a excluir.'], 422);
+        }
+
         $order = Order::findOrFail($id);
         $files = $order->files ?? [];
 

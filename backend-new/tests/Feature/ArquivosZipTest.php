@@ -75,6 +75,10 @@ class ArquivosZipTest extends TestCase
         // Empresa NAO exclui — solicita a VIXCard
         $this->como($this->ana)->deleteJson("/api/orders/{$os->id}/files?i=0")->assertForbidden();
 
+        // Sem ?i nao exclui nada (protecao contra indice 0 acidental)
+        $this->como($this->admin)->deleteJson("/api/orders/{$os->id}/files")->assertStatus(422);
+        $this->assertCount(3, $os->fresh()->files);
+
         // Super admin exclui a.txt e c.txt; sobra b.txt
         $res = $this->como($this->admin)->deleteJson("/api/orders/{$os->id}/files?i=0,2")->assertOk();
         $nomes = array_column($res->json('files'), 'name');
