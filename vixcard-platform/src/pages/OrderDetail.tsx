@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -73,6 +73,28 @@ export function OrderDetail() {
       return s;
     });
   };
+  // Anexar em OS existente (varios de uma vez): e por aqui que o cliente
+  // repoe os arquivos certos depois que a VIXCard exclui os errados
+  const anexoInputRef = useRef<HTMLInputElement>(null);
+  const [anexando, setAnexando] = useState(false);
+  const anexarArquivos = async (lista: FileList | null) => {
+    if (!id || !lista || lista.length === 0) return;
+    setAnexando(true);
+    const falhas: string[] = [];
+    for (const file of Array.from(lista)) {
+      try {
+        await api.upload(`/orders/${encodeURIComponent(id)}/files`, file);
+      } catch (err) {
+        falhas.push(`${file.name}${err instanceof ApiError ? ` (${err.message})` : ""}`);
+      }
+    }
+    await refresh();
+    setAnexando(false);
+    const ok = lista.length - falhas.length;
+    if (ok > 0) toast.success(`${ok} arquivo(s) anexado(s).`);
+    if (falhas.length > 0) toast.error(`Não subiu: ${falhas.join("; ")}`, { duration: 12000 });
+  };
+
   const [confirmaExcluirArquivos, setConfirmaExcluirArquivos] = useState(false);
   const [excluindoArquivos, setExcluindoArquivos] = useState(false);
   const { refresh } = useOrders();
@@ -459,6 +481,22 @@ export function OrderDetail() {
               <div className="flex flex-wrap items-center gap-2">
                 <Paperclip className="h-4 w-4 text-primary" />
                 <CardTitle>Arquivos para Produção ({order.files?.length ?? 0})</CardTitle>
+                {!encerrada && (
+                  <>
+                    <input
+                      ref={anexoInputRef}
+                      type="file"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => { anexarArquivos(e.target.files); e.target.value = ""; }}
+                    />
+                    <Button size="sm" variant="outline" disabled={anexando}
+                            onClick={() => anexoInputRef.current?.click()}>
+                      <Plus className="h-3.5 w-3.5 mr-1.5" />
+                      {anexando ? "Enviando..." : "Anexar arquivos"}
+                    </Button>
+                  </>
+                )}
                 {(order.files?.length ?? 0) > 0 && (
                   <div className="ml-auto flex items-center gap-3">
                     <button

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
 import type { Order, OrderItem, UserRole } from "../types";
+import { toast } from "sonner";
 import { api } from "../lib/api";
 import { mapOrder } from "../lib/mappers";
 import { useAuth } from "./AuthContext";
@@ -73,13 +74,21 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
     let mapped = mapOrder(data);
 
     if (files && files.length > 0) {
+      const falhas: string[] = [];
       for (const file of files) {
         try {
           const updated = await api.upload<Record<string, unknown>>(`/orders/${mapped.id}/files`, file);
           mapped = mapOrder(updated);
         } catch {
-          // continue uploading remaining files
+          falhas.push(file.name);   // segue com os demais, mas nao esconde
         }
+      }
+      if (falhas.length > 0) {
+        toast.error(
+          `A OS foi criada, mas ${falhas.length} anexo(s) não subiram: ${falhas.join(", ")}. ` +
+          "Abra a OS e anexe novamente.",
+          { duration: 12000 }
+        );
       }
     }
 
