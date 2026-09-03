@@ -65,8 +65,10 @@ class MovimentacaoController extends Controller
         if ($request->product_id) $query->where('product_id', $request->product_id);
         if ($request->order_id)   $query->where('order_id', $request->order_id);
         if ($request->tipo)       $query->where('tipo', $request->tipo);
-        if ($request->from)       $query->where('created_at', '>=', $request->date('from')->startOfDay());
-        if ($request->to)         $query->where('created_at', '<=', $request->date('to')->endOfDay());
+        // Datas escolhidas no fuso do negocio; created_at fica em UTC
+        $tz = config('app.business_timezone', 'America/Sao_Paulo');
+        if ($request->from) $query->where('created_at', '>=', \Illuminate\Support\Carbon::parse($request->from, $tz)->startOfDay()->utc());
+        if ($request->to)   $query->where('created_at', '<=', \Illuminate\Support\Carbon::parse($request->to, $tz)->endOfDay()->utc());
 
         $limite = (int) ($request->limit ?? 300);
         $total  = (clone $query)->count();

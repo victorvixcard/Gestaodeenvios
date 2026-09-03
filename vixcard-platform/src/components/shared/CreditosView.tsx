@@ -52,6 +52,22 @@ export function CreditosView({ slug, podeLancar = false }: Props) {
   const [filtroProduto, setFiltroProduto] = useState("all");
   const [filtroTipo, setFiltroTipo] = useState("all");
 
+  // Periodo do historico (o saldo dos cards e sempre o atual, sem filtro)
+  type Periodo = "tudo" | "hoje" | "mes" | "30d" | "custom";
+  const [periodo, setPeriodo] = useState<Periodo>("tudo");
+  const [dataDe, setDataDe] = useState("");
+  const [dataAte, setDataAte] = useState("");
+  const diaLocal = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const intervaloDoPeriodo = (): { from?: string; to?: string } => {
+    const hoje = new Date();
+    if (periodo === "hoje") { const d = diaLocal(hoje); return { from: d, to: d }; }
+    if (periodo === "mes")  return { from: diaLocal(new Date(hoje.getFullYear(), hoje.getMonth(), 1)), to: diaLocal(hoje) };
+    if (periodo === "30d")  { const de = new Date(hoje); de.setDate(de.getDate() - 29); return { from: diaLocal(de), to: diaLocal(hoje) }; }
+    if (periodo === "custom") return { from: dataDe || undefined, to: dataAte || undefined };
+    return {};
+  };
+
   // Dialogo de lancamento (super admin)
   const [aberto, setAberto] = useState(false);
   const [tipo, setTipo] = useState<"entrada" | "saida">("entrada");
@@ -66,6 +82,9 @@ export function CreditosView({ slug, podeLancar = false }: Props) {
       const params = new URLSearchParams();
       if (filtroProduto !== "all") params.set("product_id", filtroProduto);
       if (filtroTipo !== "all") params.set("tipo", filtroTipo);
+      const { from, to } = intervaloDoPeriodo();
+      if (from) params.set("from", from);
+      if (to) params.set("to", to);
       const [s, m] = await Promise.all([
         api.get<{ saldos: SaldoProduto[] }>(`${base}/${slug ? "creditos" : "movimentacoes/saldos"}`),
         api.get<{ total: number; movimentacoes: Movimentacao[] }>(
@@ -80,7 +99,8 @@ export function CreditosView({ slug, podeLancar = false }: Props) {
     } finally {
       setCarregando(false);
     }
-  }, [base, slug, filtroProduto, filtroTipo]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [base, slug, filtroProduto, filtroTipo, periodo, dataDe, dataAte]);
 
   useEffect(() => { carregar(); }, [carregar]);
 
@@ -204,6 +224,45 @@ export function CreditosView({ slug, podeLancar = false }: Props) {
           </div>
         </Card>
       )}
+
+      {/* Periodo do historico */}
+      <div className="flex flex-wrap items-center gap-2">
+        {([
+          ["tudo", "Tudo"],
+          ["hoje", "Hoje"],
+          ["mes", "Este mês"],
+          ["30d", "Últimos 30 dias"],
+          ["custom", "Personalizado"],
+        ] as const).map(([valor, rotulo]) => (
+          <button
+            key={valor}
+            type="button"
+            onClick={() => setPeriodo(valor)}
+            className={cn(
+              "rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
+              periodo === valor
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border hover:bg-muted"
+            )}
+          >
+            {rotulo}
+          </button>
+        ))}
+        {periodo === "custom" && (
+          <div className="flex items-end gap-2">
+            <div className="space-y-1">
+              <Label className="text-[11px]">De</Label>
+              <Input type="date" className="h-8 w-[145px]" value={dataDe}
+                     onChange={(e) => setDataDe(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[11px]">Até</Label>
+              <Input type="date" className="h-8 w-[145px]" value={dataAte}
+                     onChange={(e) => setDataAte(e.target.value)} />
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Filtros + acoes */}
       <div className="flex flex-wrap items-end gap-2">
