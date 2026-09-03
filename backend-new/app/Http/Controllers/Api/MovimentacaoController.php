@@ -37,10 +37,15 @@ class MovimentacaoController extends Controller
         $company = $this->empresa($request, $slug);
         if (!$company) return response()->json(['message' => 'Empresa não encontrada.'], 404);
 
+        // Periodo opcional para o consumo dos cards (fuso do negocio)
+        $tz  = config('app.business_timezone', 'America/Sao_Paulo');
+        $de  = $request->filled('from') ? \Illuminate\Support\Carbon::parse($request->from, $tz)->startOfDay()->utc() : null;
+        $ate = $request->filled('to')   ? \Illuminate\Support\Carbon::parse($request->to, $tz)->endOfDay()->utc()   : null;
+
         return response()->json([
             'tenantSlug'  => $company->slug,
             'companyName' => $company->name,
-            'saldos'      => $this->creditos->saldos($company),
+            'saldos'      => $this->creditos->saldos($company, $de, $ate),
         ]);
     }
 

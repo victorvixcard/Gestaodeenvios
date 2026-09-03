@@ -85,8 +85,13 @@ export function CreditosView({ slug, podeLancar = false }: Props) {
       const { from, to } = intervaloDoPeriodo();
       if (from) params.set("from", from);
       if (to) params.set("to", to);
+      const paramsSaldos = new URLSearchParams();
+      if (from) paramsSaldos.set("from", from);
+      if (to) paramsSaldos.set("to", to);
       const [s, m] = await Promise.all([
-        api.get<{ saldos: SaldoProduto[] }>(`${base}/${slug ? "creditos" : "movimentacoes/saldos"}`),
+        api.get<{ saldos: SaldoProduto[] }>(
+          `${base}/${slug ? "creditos" : "movimentacoes/saldos"}${paramsSaldos.size ? `?${paramsSaldos}` : ""}`
+        ),
         api.get<{ total: number; movimentacoes: Movimentacao[] }>(
           `${base}/movimentacoes${params.size ? `?${params}` : ""}`
         ),
@@ -156,75 +161,6 @@ export function CreditosView({ slug, podeLancar = false }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* Saldos por produto */}
-      {saldos.length === 0 && !carregando ? (
-        <Card className="p-6 text-sm text-muted-foreground">
-          Nenhum produto vinculado a esta empresa ainda.
-        </Card>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {saldos.map((s) => (
-            <motion.div key={s.productId} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
-              <Card className={cn("p-4 h-full", s.saldo < 0 && "border-destructive/50")}>
-                <p className="text-xs font-semibold text-muted-foreground truncate" title={s.productName}>
-                  {s.productName}
-                </p>
-                <p className={cn(
-                  "font-display text-2xl font-extrabold mt-1",
-                  s.saldo < 0 ? "text-destructive" : "text-foreground"
-                )}>
-                  {s.saldo.toLocaleString("pt-BR")} <span className="text-xs font-semibold text-muted-foreground">un</span>
-                </p>
-                <div className="mt-2 space-y-0.5 text-[11px] text-muted-foreground">
-                  <p>Consumo 30 dias: <span className="font-semibold text-foreground">{s.consumo30Dias.toLocaleString("pt-BR")}</span></p>
-                  {s.proximoVencimento && (
-                    <p className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {s.proximoVencimento.restante.toLocaleString("pt-BR")} un com prazo até{" "}
-                      {format(parseISO(s.proximoVencimento.validade), "dd/MM/yyyy")}
-                    </p>
-                  )}
-                  {s.restanteVencido > 0 && (
-                    <p className="flex items-center gap-1 text-warning font-semibold">
-                      <TimerOff className="h-3 w-3" />
-                      {s.restanteVencido.toLocaleString("pt-BR")} un com prazo vencido
-                    </p>
-                  )}
-                  {s.saldo < 0 && <p className="text-destructive font-semibold">Consumo além do crédito</p>}
-                </div>
-              </Card>
-            </motion.div>
-          ))}
-        </div>
-      )}
-
-      {/* Relatorio de prazos vencidos: acompanhamento — o saldo NAO muda */}
-      {saldos.some((s) => s.restanteVencido > 0) && (
-        <Card className="p-4 border-warning/50">
-          <p className="text-xs font-semibold flex items-center gap-1.5 text-warning">
-            <TimerOff className="h-3.5 w-3.5" />
-            Prazos de uso vencidos
-          </p>
-          <p className="text-[11px] text-muted-foreground mt-0.5 mb-2">
-            Créditos comprados há mais de 18 meses e ainda não usados. O saldo continua valendo — este quadro é só acompanhamento.
-          </p>
-          <div className="space-y-1">
-            {saldos.flatMap((s) =>
-              s.lotesVencidos.map((l) => (
-                <p key={l.id} className="text-xs flex flex-wrap items-center gap-x-2">
-                  <span className="font-semibold">{s.productName}</span>
-                  <span>{l.restante.toLocaleString("pt-BR")} un restantes</span>
-                  <span className="text-muted-foreground">
-                    prazo venceu em {format(parseISO(l.validade), "dd/MM/yyyy")}
-                    {l.motivo ? ` — ${l.motivo}` : ""}
-                  </span>
-                </p>
-              ))
-            )}
-          </div>
-        </Card>
-      )}
-
       {/* Periodo do historico */}
       <div className="flex flex-wrap items-center gap-2">
         {([
@@ -263,6 +199,80 @@ export function CreditosView({ slug, podeLancar = false }: Props) {
           </div>
         )}
       </div>
+
+      {/* Saldos por produto */}
+      {saldos.length === 0 && !carregando ? (
+        <Card className="p-6 text-sm text-muted-foreground">
+          Nenhum produto vinculado a esta empresa ainda.
+        </Card>
+      ) : (
+        <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          {saldos
+            .filter((s) => filtroProduto === "all" || String(s.productId) === filtroProduto)
+            .map((s) => (
+            <motion.div key={s.productId} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+              <Card className={cn("px-3 py-2.5 h-full", s.saldo < 0 && "border-destructive/50")}>
+                <p className="text-[11px] font-semibold text-muted-foreground truncate" title={s.productName}>
+                  {s.productName}
+                </p>
+                <p className={cn(
+                  "font-display text-lg font-extrabold leading-tight",
+                  s.saldo < 0 ? "text-destructive" : "text-foreground"
+                )}>
+                  {s.saldo.toLocaleString("pt-BR")} <span className="text-[10px] font-semibold text-muted-foreground">un</span>
+                </p>
+                <div className="mt-1 space-y-0.5 text-[10px] text-muted-foreground leading-snug">
+                  <p>
+                    {periodo === "tudo" ? "Consumo 30 dias" : "Consumo no período"}:{" "}
+                    <span className="font-semibold text-foreground">{s.consumo30Dias.toLocaleString("pt-BR")}</span>
+                  </p>
+                  {s.proximoVencimento && (
+                    <p className="flex items-center gap-1">
+                      <Clock className="h-2.5 w-2.5 flex-shrink-0" />
+                      {s.proximoVencimento.restante.toLocaleString("pt-BR")} un até{" "}
+                      {format(parseISO(s.proximoVencimento.validade), "dd/MM/yy")}
+                    </p>
+                  )}
+                  {s.restanteVencido > 0 && (
+                    <p className="flex items-center gap-1 text-warning font-semibold">
+                      <TimerOff className="h-2.5 w-2.5 flex-shrink-0" />
+                      {s.restanteVencido.toLocaleString("pt-BR")} un vencidas
+                    </p>
+                  )}
+                  {s.saldo < 0 && <p className="text-destructive font-semibold">Além do crédito</p>}
+                </div>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+      )}
+
+      {/* Relatorio de prazos vencidos: acompanhamento — o saldo NAO muda */}
+      {saldos.some((s) => s.restanteVencido > 0) && (
+        <Card className="p-4 border-warning/50">
+          <p className="text-xs font-semibold flex items-center gap-1.5 text-warning">
+            <TimerOff className="h-3.5 w-3.5" />
+            Prazos de uso vencidos
+          </p>
+          <p className="text-[11px] text-muted-foreground mt-0.5 mb-2">
+            Créditos comprados há mais de 18 meses e ainda não usados. O saldo continua valendo — este quadro é só acompanhamento.
+          </p>
+          <div className="space-y-1">
+            {saldos.flatMap((s) =>
+              s.lotesVencidos.map((l) => (
+                <p key={l.id} className="text-xs flex flex-wrap items-center gap-x-2">
+                  <span className="font-semibold">{s.productName}</span>
+                  <span>{l.restante.toLocaleString("pt-BR")} un restantes</span>
+                  <span className="text-muted-foreground">
+                    prazo venceu em {format(parseISO(l.validade), "dd/MM/yyyy")}
+                    {l.motivo ? ` — ${l.motivo}` : ""}
+                  </span>
+                </p>
+              ))
+            )}
+          </div>
+        </Card>
+      )}
 
       {/* Filtros + acoes */}
       <div className="flex flex-wrap items-end gap-2">

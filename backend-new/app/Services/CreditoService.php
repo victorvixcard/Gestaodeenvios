@@ -43,8 +43,12 @@ class CreditoService
         return $this->saldoAtual($tenant, $productId);
     }
 
-    /** Saldo de cada produto vinculado a empresa (inclui os sem movimento, com 0). */
-    public function saldos(Company $company): array
+    /**
+     * Saldo de cada produto vinculado a empresa (inclui os sem movimento, com 0).
+     * $de/$ate mudam apenas a janela do CONSUMO exibido nos cards — o saldo e
+     * sempre o atual. Sem periodo, o consumo e dos ultimos 30 dias.
+     */
+    public function saldos(Company $company, ?Carbon $de = null, ?Carbon $ate = null): array
     {
         $hoje = $this->hoje();
         $saida = [];
@@ -57,13 +61,14 @@ class CreditoService
                 ->orderBy('validade')
                 ->get();
 
-            // Liquido: saidas menos estornos do periodo — OS cancelada nao
+            // Liquido: saidas menos estornos da janela — OS cancelada nao
             // conta como consumo (saida -30 + estorno +30 = 0)
-            $consumo30 = max(0, -(int) ProductMovement::where('tenant_slug', $company->slug)
+            $consulta = ProductMovement::where('tenant_slug', $company->slug)
                 ->where('product_id', $p->id)
                 ->whereIn('tipo', ['saida', 'estorno'])
-                ->where('created_at', '>=', $hoje->copy()->subDays(30))
-                ->sum('quantidade'));
+                ->where('created_at', '>=', $de ?? $hoje->copy()->subDays(30));
+            if ($ate) $consulta->where('created_at', '<=', $ate);
+            $consumo30 = max(0, -(int) $consulta->sum('quantidade'));
 
             // Prazos vencidos: relatorio, nunca desconto. O que passou do
             // prazo continua no saldo e listado a parte para acompanhamento.
